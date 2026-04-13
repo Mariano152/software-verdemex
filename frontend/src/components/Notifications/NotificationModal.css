@@ -1,0 +1,334 @@
+/* ============================================
+   NOTIFICATION MODAL - ESTILOS GLOBALES
+   ============================================ */
+
+.notification-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  animation: fadeIn 0.2s ease;
+}
+
+.notification-modal {
+  background: white;
+  padding: 2.5rem;
+  border-radius: 16px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+  max-width: 500px;
+  width: 90%;
+  animation: slideUp 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+  border-top: 4px solid;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Colores por tipo */
+.notification-success {
+  border-top-color: var(--color-success);
+}
+
+.notification-error {
+  border-top-color: var(--color-danger);
+}
+
+.notification-warning {
+  border-top-color: var(--color-warning);
+}
+
+.notification-info {
+  border-top-color: var(--color-info);
+}
+
+/* ============================================
+   HEADER CON ICONO
+   ============================================ */
+
+.notification-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.notification-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  font-size: 1.8rem;
+  font-weight: bold;
+  flex-shrink: 0;
+  animation: scaleUp 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes scaleUp {
+  from {
+    transform: scale(0);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+.notification-icon-success {
+  background-color: rgba(39, 174, 96, 0.15);
+  color: var(--color-success);
+}
+
+.notification-icon-error {
+  background-color: rgba(231, 76, 60, 0.15);
+  color: var(--color-danger);
+}
+
+.notification-icon-warning {
+  background-color: rgba(243, 156, 18, 0.15);
+  color: var(--color-warning);
+}
+
+.notification-icon-info {
+  background-color: rgba(52, 152, 219, 0.15);
+  color: var(--color-info);
+}
+
+.notification-header h2 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: var(--color-text-dark);
+  line-height: 1.2;
+}
+
+/* ============================================
+   MENSAJE Y DETALLES
+   ============================================ */
+
+.notification-message {
+  color: var(--color-text);
+  font-size: 1rem;
+  line-height: 1.6;
+  margin: 0 0 1.5rem 0;
+}
+
+.notification-details {
+  background-color: var(--color-background);
+  padding: 1rem;
+  border-radius: 8px;
+  margin-bottom: 1.5rem;
+  border-left: 3px solid var(--color-info);
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.notification-details ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.notification-details li {
+  padding: 0.6rem 0;
+  color: var(--color-text);
+  font-size: 0.95rem;
+  border-bottom: 1px solid var(--color-gray-light);
+}
+
+.notification-details li:last-child {
+  border-bottom: none;
+}
+
+.notification-details li:before {
+  content: '• ';
+  color: var(--color-info);
+  font-weight: bold;
+  margin-right: 0.5rem;
+}
+
+.details-object {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.6rem;
+  background: white;
+  border-radius: 4px;
+}
+
+.detail-label {
+  font-weight: 600;
+  color: var(--color-text-dark);
+  font-size: 0.9rem;
+  min-width: 120px;
+}
+
+.detail-value {
+  color: var(--color-info);
+  font-weight: 500;
+  font-family: 'Courier New', monospace;
+  word-break: break-all;
+}
+
+.details-text {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+/* ============================================
+   BOTONES DE ACCIONES
+   ============================================ */
+
+.notification-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  padding-top: 1rem;
+  border-top: 1px solid var(--color-gray-light);
+}
+
+.notification-actions .btn {
+  text-transform: none;
+  font-weight: 600;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 0.95rem;
+}
+
+.notification-actions .btn-success {
+  background-color: var(--color-success);
+  color: white;
+}
+
+.notification-actions .btn-success:hover {
+  background-color: #229954;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(39, 174, 96, 0.3);
+}
+
+.notification-actions .btn-error {
+  background-color: var(--color-danger);
+  color: white;
+}
+
+.notification-actions .btn-error:hover {
+  background-color: #c0392b;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+}
+
+.notification-actions .btn-warning {
+  background-color: var(--color-warning);
+  color: white;
+}
+
+.notification-actions .btn-warning:hover {
+  background-color: #d68910;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(243, 156, 18, 0.3);
+}
+
+.notification-actions .btn-info {
+  background-color: var(--color-info);
+  color: white;
+}
+
+.notification-actions .btn-info:hover {
+  background-color: #2980b9;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+}
+
+.notification-actions .btn-secondary {
+  background-color: var(--color-gray);
+  color: var(--color-text-dark);
+}
+
+.notification-actions .btn-secondary:hover {
+  background-color: #d4d4d4;
+  transform: translateY(-2px);
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+
+@media (max-width: 600px) {
+  .notification-modal {
+    padding: 1.5rem;
+    max-width: 90vw;
+  }
+
+  .notification-header {
+    flex-direction: column;
+    text-align: center;
+  }
+
+  .notification-header h2 {
+    font-size: 1.3rem;
+  }
+
+  .notification-actions {
+    flex-direction: column-reverse;
+  }
+
+  .notification-actions .btn {
+    width: 100%;
+  }
+}
+
+/* ============================================
+   SCROLLBAR PERSONALIZADO
+   ============================================ */
+
+.notification-details::-webkit-scrollbar {
+  width: 6px;
+}
+
+.notification-details::-webkit-scrollbar-track {
+  background: var(--color-background);
+  border-radius: 3px;
+}
+
+.notification-details::-webkit-scrollbar-thumb {
+  background: var(--color-gray);
+  border-radius: 3px;
+}
+
+.notification-details::-webkit-scrollbar-thumb:hover {
+  background: #999;
+}

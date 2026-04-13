@@ -1,0 +1,220 @@
+.error-page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+}
+
+.error-page.not-found {
+  background: linear-gradient(135deg, #f0f4ff 0%, #e8f0ff 100%);
+}
+
+/* ============================================
+   ERROR CONTAINER
+   ============================================ */
+
+.error-container {
+  position: relative;
+  z-index: 10;
+  text-align: center;
+  max-width: 500px;
+  padding: 2rem;
+}
+
+.error-icon {
+  font-size: 5rem;
+  margin-bottom: 1.5rem;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-20px);
+  }
+}
+
+.error-container h1 {
+  margin: 0 0 0.5rem;
+  font-size: 4rem;
+  font-weight: 900;
+  color: #3498db;
+  text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.error-container h2 {
+  margin: 0 0 1rem;
+  color: var(--color-primary-dark);
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.error-container p {
+  margin: 0.75rem 0;
+  color: var(--color-text-light);
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.error-subtext {
+  color: #666;
+  font-size: 0.95rem;
+  margin-top: 1rem !important;
+}
+
+/* ============================================
+   ERROR ACTIONS
+   ============================================ */
+
+.error-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: center;
+  margin-top: 2rem;
+  margin-bottom: 2rem;
+  flex-wrap: wrap;
+}
+
+.error-actions .btn {
+  min-width: 160px;
+}
+
+/* ============================================
+   ERROR SUGGESTIONS
+   ============================================ */
+
+.error-suggestions {
+  background: rgba(52, 152, 219, 0.05);
+  border: 1px solid rgba(52, 152, 219, 0.2);
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin-top: 2rem;
+  text-align: left;
+}
+
+.error-suggestions p {
+  margin: 0 0 1rem;
+  font-weight: 600;
+  color: #3498db;
+  text-align: center;
+}
+
+.error-suggestions ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.75rem;
+}
+
+.error-suggestions li {
+  text-align: center;
+}
+
+.error-suggestions a {
+  color: #3498db;
+  text-decoration: none;
+  padding: 0.5rem 1rem;
+  border-radius: 4px;
+  transition: all 0.3s ease;
+  display: block;
+  border: 1px solid transparent;
+}
+
+.error-suggestions a:hover {
+  background: rgba(52, 152, 219, 0.1);
+  border-color: #3498db;
+}
+
+/* ============================================
+   DECORATION
+   ============================================ */
+
+.error-decoration {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.decoration-circle {
+  position: absolute;
+  border-radius: 50%;
+  opacity: 0.05;
+}
+
+.decoration-circle:nth-child(1) {
+  width: 300px;
+  height: 300px;
+  background: #3498db;
+  top: -100px;
+  right: -100px;
+}
+
+.decoration-circle:nth-child(2) {
+  width: 200px;
+  height: 200px;
+  background: #3498db;
+  bottom: -50px;
+  left: -50px;
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+
+@media (max-width: 768px) {
+  .error-container {
+    padding: 1.5rem;
+  }
+
+  .error-container h1 {
+    font-size: 3rem;
+  }
+
+  .error-container h2 {
+    font-size: 1.2rem;
+  }
+
+  .error-container p {
+    font-size: 0.95rem;
+  }
+
+  .error-actions {
+    flex-direction: column;
+  }
+
+  .error-actions .btn {
+    width: 100%;
+  }
+
+  .error-icon {
+    font-size: 3.5rem;
+  }
+
+  .error-suggestions ul {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .error-container h1 {
+    font-size: 2.5rem;
+  }
+
+  .error-icon {
+    font-size: 3rem;
+  }
+
+  .error-suggestions {
+    padding: 1rem;
+  }
+}

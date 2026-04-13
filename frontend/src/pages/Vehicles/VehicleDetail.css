@@ -1,0 +1,173 @@
+.vehicle-detail {
+  animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.detail-header {
+  margin-bottom: 2rem;
+}
+
+/* ============================================
+   HERO SECTION
+   ============================================ */
+
+.detail-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 2rem;
+  background: linear-gradient(135deg, rgba(45, 122, 62, 0.05) 0%, rgba(82, 183, 136, 0.05) 100%);
+  border-radius: 8px;
+}
+
+.hero-content h1 {
+  margin: 0 0 0.5rem 0;
+  font-size: 2.5rem;
+  color: var(--color-primary-dark);
+}
+
+.hero-content .model-name {
+  margin: 0 0 1rem 0;
+  color: var(--color-text-light);
+  font-size: 1.1rem;
+}
+
+.hero-content .badge {
+  display: inline-block;
+}
+
+.hero-actions {
+  display: flex;
+  gap: 1rem;
+}
+
+/* ============================================
+   GRID DE DETALLES
+   ============================================ */
+
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin: 1.5rem 0;
+}
+
+.detail-items {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.detail-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  background-color: var(--color-light-gray);
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+}
+
+.detail-item:hover {
+  background-color: var(--color-gray);
+}
+
+.detail-item .label {
+  font-weight: 600;
+  color: var(--color-text);
+}
+
+.detail-item .value {
+  color: var(--color-primary);
+  font-weight: 500;
+}
+
+/* ============================================
+   OPCIONES ADICIONALES
+   ============================================ */
+
+.detail-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+}
+
+.option-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1.5rem;
+  background-color: var(--color-light-gray);
+  border: 2px solid var(--color-gray);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.option-btn:hover {
+  background-color: var(--color-primary);
+  border-color: var(--color-primary);
+  color: var(--color-white);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.option-icon {
+  font-size: 2rem;
+}
+
+.option-text {
+  font-weight: 600;
+  text-align: center;
+  font-size: 0.9rem;
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+
+@media (max-width: 768px) {
+  .detail-hero {
+    flex-direction: column;
+    gap: 1.5rem;
+    text-align: center;
+  }
+
+  .hero-content h1 {
+    font-size: 1.8rem;
+  }
+
+  .hero-actions {
+    width: 100%;
+    flex-direction: column;
+  }
+
+  .hero-actions .btn {
+    width: 100%;
+  }
+
+  .detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .detail-options {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .detail-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+}
