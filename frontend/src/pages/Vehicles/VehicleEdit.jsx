@@ -94,23 +94,33 @@ export default function VehicleEdit() {
     }
   };
 
-  const handleMaintenanceSave = async (safetyElements) => {
+  const handleMaintenanceSave = async (safetyElements, vehicleState) => {
     try {
       const token = localStorage.getItem('authToken');
+      console.log('📤 Guardando mantenimiento y estado...', { safetyElements, vehicleState });
+      
       const response = await fetch(`/api/vehicles/${id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ safetyElements })
+        body: JSON.stringify({ safetyElements, estado: vehicleState })
       });
 
       if (!response.ok) throw new Error('Error al guardar mantenimiento');
 
       const updated = await response.json();
+      console.log('✅ Mantenimiento y estado guardados:', updated);
       setVehicle(updated);
+      
+      setNotification({
+        type: 'success',
+        title: '✓ Éxito',
+        message: 'Mantenimiento y estado guardados correctamente'
+      });
     } catch (err) {
+      console.error('❌ Error al guardar mantenimiento:', err);
       throw new Error(err.message);
     }
   };
@@ -215,6 +225,7 @@ export default function VehicleEdit() {
           // VISTA PRINCIPAL - DETALLES
           <VehicleDetailView
             vehicle={vehicle}
+            vehicleId={id}
             onDocumentsClick={() => setActiveSection('documents')}
             onMaintenanceClick={() => setActiveSection('maintenance')}
             onPhotosClick={() => setActiveSection('photos')}
@@ -233,6 +244,7 @@ export default function VehicleEdit() {
           <VehicleMaintenanceSection
             vehicleId={id}
             safetyElements={vehicle.safetyElements || []}
+            vehicleStatus={vehicle.estado || 'activo'}
             onSave={handleMaintenanceSave}
             onCancel={() => setActiveSection(null)}
             onBack={() => setActiveSection(null)}

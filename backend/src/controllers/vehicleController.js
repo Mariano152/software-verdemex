@@ -254,6 +254,7 @@ export const vehicleController = {
       let basicInfo = {};
       let documents = [];
       let safetyElements = [];
+      let estado = null;
 
       // Parsear JSON del FormData o req.body
       if (req.body.basicInfo) {
@@ -274,7 +275,12 @@ export const vehicleController = {
           : req.body.safetyElements;
       }
 
-      console.log(`📥 Actualizando vehículo ${id}:`, { basicInfo, documents, safetyElements });
+      // Capturar estado del vehículo
+      if (req.body.estado) {
+        estado = req.body.estado;
+      }
+
+      console.log(`📥 Actualizando vehículo ${id}:`, { basicInfo, documents, safetyElements, estado });
 
       // ✅ VALIDACIONES - Solo valida basicInfo si se está actualizando
       if (Object.keys(basicInfo).length > 0) {
@@ -325,15 +331,12 @@ export const vehicleController = {
 
       // 3. Actualizar elementos de seguridad
       if (safetyElements && Array.isArray(safetyElements) && safetyElements.length > 0) {
-        // Primero eliminar elementos antiguos
-        await vehicleModel.deleteSafetyElementsByVehicleId(id);
-        
-        // Después crear los nuevos
+        // Solo insertar o actualizar los elementos recibidos (sin hacer delete)
         for (const element of safetyElements) {
-          if (element.id) {
+          if (element.elemento_seguridad_id) {
             try {
               await vehicleModel.createSafetyElement(id, {
-                elemento_seguridad_id: element.id,
+                elemento_seguridad_id: element.elemento_seguridad_id,
                 estatus: element.estatus,
                 observaciones: element.observaciones
               });
@@ -342,7 +345,17 @@ export const vehicleController = {
             }
           }
         }
-        console.log(`✅ ${safetyElements.filter(e => e.id).length} elementos de seguridad actualizados`);
+        console.log(`✅ ${safetyElements.filter(e => e.elemento_seguridad_id).length} elementos de seguridad actualizados`);
+      }
+
+      // 3.5 Actualizar estado del vehículo si se proporciona
+      if (estado && ['activo', 'inactivo', 'en_mantenimiento'].includes(estado)) {
+        try {
+          await vehicleModel.updateVehicleStatus(id, estado);
+          console.log(`✅ Estado del vehículo actualizado a: ${estado}`);
+        } catch (statusError) {
+          console.error('⚠️ Error actualizando estado:', statusError.message);
+        }
       }
 
       // 4. Procesar fotos eliminadas (si las hay)

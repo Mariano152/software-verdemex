@@ -3,209 +3,235 @@ import NotificationModal from '../../../components/Notifications/NotificationMod
 import '../../../components/Notifications/NotificationModal.css';
 import './VehicleMaintenanceSection.css';
 
-/**
- * VehicleMaintenanceSection - Gestión de elementos de seguridad y mantenimiento
- * Modo lectura por defecto, checkbox editable en modo edición
- */
 export default function VehicleMaintenanceSection({
   vehicleId,
   safetyElements = [],
+  vehicleStatus = 'activo',
   onSave,
   onCancel,
   onBack
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedElements, setEditedElements] = useState(safetyElements);
+  const [vehicleState, setVehicleState] = useState(vehicleStatus);
   const [notification, setNotification] = useState(null);
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     setEditedElements(safetyElements);
-  }, [safetyElements]);
+    setVehicleState(vehicleStatus);
+  }, [safetyElements, vehicleStatus]);
 
   const defaultElements = [
-    { id: 1, nombre: 'Extintor', descripcion: 'Extintor de incendios visible y accesible' },
-    { id: 2, nombre: 'Botiquín de Primeros Auxilios', descripcion: 'Kit completo de emergencia' },
-    { id: 3, nombre: 'Señales de Tránsito', descripcion: 'Triángulos de seguridad y conos' },
-    { id: 4, nombre: 'Espejos Retrovisores', descripcion: 'Todos los espejos en buen estado' },
-    { id: 5, nombre: 'Llantas y Neumáticos', descripcion: 'Presión y desgaste adecuados' },
-    { id: 6, nombre: 'Frenos', descripcion: 'Sistema de frenos funcionando correctamente' },
-    { id: 7, nombre: 'Iluminación', descripcion: 'Faros, calaveras y luces interiores' },
-    { id: 8, nombre: 'Limpiadores de Parabrisas', descripcion: 'Funcionando y con líquido' },
-    { id: 9, nombre: 'Cinturones de Seguridad', descripcion: 'Todos funcionales y seguros' },
-    { id: 10, nombre: 'Airbags', descripcion: 'Sistemas de protección activos' },
-    { id: 11, nombre: 'Dirección Hidráulica', descripcion: 'Funcionando sin problemas' }
+    { id: 1, nombre: 'Extintor', icon: '🔥' },
+    { id: 2, nombre: 'Botiquín', icon: '⚕️' },
+    { id: 3, nombre: 'Señales', icon: '🔺' },
+    { id: 4, nombre: 'Espejos', icon: '🪞' },
+    { id: 5, nombre: 'Llantas', icon: '🛞' },
+    { id: 6, nombre: 'Frenos', icon: '⏹️' },
+    { id: 7, nombre: 'Iluminación', icon: '💡' },
+    { id: 8, nombre: 'Limpiadores', icon: '💦' },
+    { id: 9, nombre: 'Cinturones', icon: '🪑' },
+    { id: 10, nombre: 'Airbags', icon: '💨' },
+    { id: 11, nombre: 'Dirección', icon: '🎯' }
   ];
 
-  const handleEdit = () => {
-    setIsEditing(true);
+  const getStatusIcon = (status) => {
+    if (status === 'correcto') return '✅';
+    if (status === 'incorrecto') return '❌';
+    if (status === 'no_aplica') return '⚪';
+    return '❓';
   };
 
-  const handleCancel = () => {
-    setIsEditing(false);
-    setEditedElements(safetyElements);
-    onCancel?.();
+  const getStatusLabel = (status) => {
+    if (status === 'correcto') return 'Correcto';
+    if (status === 'incorrecto') return 'Incorrecto';
+    if (status === 'no_aplica') return 'No Aplica';
+    return status;
   };
 
-  const handleElementChange = (elementId, field, value) => {
-    setEditedElements(editedElements.map(elem =>
-      elem.elemento_seguridad_id === elementId
-        ? { ...elem, [field]: value }
-        : elem
-    ));
+  const getStateColor = (state) => {
+    if (state === 'activo') return '#27ae60';
+    if (state === 'inactivo') return '#95a5a6';
+    if (state === 'en_mantenimiento') return '#f39c12';
+    return '#3498db';
   };
 
-  const toggleElement = (elementId) => {
-    const existing = editedElements.find(e => e.elemento_seguridad_id === elementId);
-    if (existing) {
-      setEditedElements(editedElements.filter(e => e.elemento_seguridad_id !== elementId));
-    } else {
-      setEditedElements([
-        ...editedElements,
-        {
-          elemento_seguridad_id: elementId,
-          estatus: 'si',
-          observaciones: ''
-        }
-      ]);
-    }
+  const getStateLabel = (state) => {
+    if (state === 'activo') return '🟢 Activo';
+    if (state === 'inactivo') return '⚫ Inactivo';
+    if (state === 'en_mantenimiento') return '🔧 Mantenimiento';
+    return state;
   };
+
+  const calculateProgress = () => {
+    const correctCount = editedElements.filter(e => 
+      e.estatus === 'correcto' || e.estatus === 'no_aplica'
+    ).length;
+    const percentage = Math.round((correctCount / defaultElements.length) * 100);
+    const details = {
+      correcto: editedElements.filter(e => e.estatus === 'correcto').length,
+      incorrecto: editedElements.filter(e => e.estatus === 'incorrecto').length,
+      no_aplica: editedElements.filter(e => e.estatus === 'no_aplica').length,
+      no_registrados: defaultElements.length - editedElements.length
+    };
+    return { percentage, details };
+  };
+
+  const { percentage, details } = calculateProgress();
 
   const handleSave = async () => {
     try {
       setLoading(true);
-      await onSave?.(editedElements);
+      console.log('📤 Guardando:', { editedElements, vehicleState });
+      
+      // Limpiar datos: solo enviar campos necesarios
+      const cleanedElements = editedElements.map(e => ({
+        elemento_seguridad_id: e.elemento_seguridad_id,
+        estatus: e.estatus,
+        observaciones: e.observaciones || ''
+      }));
+      
+      await onSave(cleanedElements, vehicleState);
+      
       setNotification({
         type: 'success',
         title: '✓ Éxito',
-        message: 'Elementos de seguridad guardados correctamente'
+        message: 'Elementos y estado guardados correctamente'
       });
       setIsEditing(false);
+      setTimeout(() => setNotification(null), 2500);
     } catch (error) {
+      console.error('❌ Error:', error);
       setNotification({
         type: 'error',
         title: '✗ Error',
-        message: error.message || 'Error al guardar elementos'
+        message: error.message || 'Error al guardar'
       });
     } finally {
       setLoading(false);
     }
   };
 
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'si': return '✅';
-      case 'no': return '❌';
-      case 'no_aplica': return '⚪';
-      default: return '❓';
+  const handleElementChange = (elementId, status) => {
+    const existing = editedElements.find(e => e.elemento_seguridad_id === elementId);
+    
+    if (existing && existing.estatus === status) {
+      // Desmarcar
+      setEditedElements(editedElements.filter(e => e.elemento_seguridad_id !== elementId));
+    } else if (existing) {
+      // Cambiar estado
+      setEditedElements(editedElements.map(e =>
+        e.elemento_seguridad_id === elementId ? { ...e, estatus: status } : e
+      ));
+    } else {
+      // Agregar nuevo
+      setEditedElements([...editedElements, {
+        elemento_seguridad_id: elementId,
+        estatus: status,
+        observaciones: ''
+      }]);
     }
   };
-
-  const getStatusLabel = (status) => {
-    switch (status) {
-      case 'si': return 'Disponible';
-      case 'no': return 'No Disponible';
-      case 'no_aplica': return 'No Aplica';
-      default: return status;
-    }
-  };
-
-  const completed = editedElements.length;
 
   return (
-    <div className="maintenance-section">
-      {/* HEADER */}
-      <div className="section-header maintenance-header">
-        <div className="header-content">
-          <button className="btn-back" onClick={onBack}>← Volver</button>
-          <div>
-            <h2>🔧 Elementos de Seguridad y Mantenimiento</h2>
-            <p className="progress-text">{completed}/11 elementos completados</p>
+    <div className='maintenance-section'>
+      <div className='section-header'>
+        <div className='header-left'>
+          <button className='btn-back' onClick={onBack}>← Volver</button>
+          <div className='header-info'>
+            <h2>🔧 Seguridad y Mantenimiento</h2>
+            <div className='compact-stats'>
+              <span className='stat-item'>✅ {details.correcto}</span>
+              <span className='stat-item'>❌ {details.incorrecto}</span>
+              <span className='stat-item'>⚪ {details.no_aplica}</span>
+              <span className='stat-item'>📝 {details.no_registrados}</span>
+            </div>
           </div>
         </div>
-        {!isEditing ? (
-          <button className="btn-edit" onClick={handleEdit}>✏️ Editar</button>
-        ) : (
-          <div className="header-actions">
-            <button className="btn-cancel" onClick={handleCancel}>❌ Cancelar</button>
-            <button className="btn-save" onClick={handleSave} disabled={loading}>
-              {loading ? '⏳ Guardando...' : '💾 Guardar Cambios'}
-            </button>
-          </div>
-        )}
-      </div>
-
-      {/* PROGRESS BAR */}
-      <div className="progress-section">
-        <div className="progress-bar">
-          <div className="progress-fill" style={{width: `${(completed / 11) * 100}%`}}></div>
+        <div className='header-right'>
+          {!isEditing ? (
+            <button className='btn-edit' onClick={() => setIsEditing(true)}>✏️ Editar</button>
+          ) : (
+            <div className='header-actions'>
+              <button className='btn-cancel' onClick={() => { setIsEditing(false); onCancel?.(); }}>❌ Cancelar</button>
+              <button className='btn-save' onClick={handleSave} disabled={loading}>
+                {loading ? '⏳...' : '💾 Guardar'}
+              </button>
+            </div>
+          )}
         </div>
-        <p className="progress-label">{Math.round((completed / 11) * 100)}% Completado</p>
       </div>
 
-      {/* CONTENIDO */}
-      <div className="section-content">
-        <div className="elements-grid">
+      <div className='progress-section'>
+        <div className='progress-bar-wrapper'>
+          <div className='progress-label-top'>
+            <span>Cumplimiento General</span>
+            <span className='percentage-big'>{percentage}%</span>
+          </div>
+          <div className='progress-bar'>
+            <div className='progress-fill' style={{width: `${percentage}%`}}></div>
+          </div>
+          <div className='progress-description'>
+            {percentage < 30 && <span className='status-low'>Requiere mucha atención</span>}
+            {percentage >= 30 && percentage < 60 && <span className='status-medium'>Necesita mejoras</span>}
+            {percentage >= 60 && percentage < 90 && <span className='status-good'>Buen estado</span>}
+            {percentage >= 90 && <span className='status-excellent'>Excelente cumplimiento</span>}
+          </div>
+        </div>
+      </div>
+
+      <div className='state-section'>
+        <div className='state-container'>
+          <h3>Estado del Vehículo</h3>
+          {isEditing ? (
+            <div className='state-buttons-group'>
+              <button className={`state-btn ${vehicleState === 'activo' ? 'active' : ''}`} onClick={() => setVehicleState('activo')}>
+                <span className='state-icon'>🟢</span>
+                <span className='state-text'>Activo</span>
+              </button>
+              <button className={`state-btn ${vehicleState === 'inactivo' ? 'active' : ''}`} onClick={() => setVehicleState('inactivo')}>
+                <span className='state-icon'>⚫</span>
+                <span className='state-text'>Inactivo</span>
+              </button>
+              <button className={`state-btn ${vehicleState === 'en_mantenimiento' ? 'active' : ''}`} onClick={() => setVehicleState('en_mantenimiento')}>
+                <span className='state-icon'>🔧</span>
+                <span className='state-text'>Mantenimiento</span>
+              </button>
+            </div>
+          ) : (
+            <div className='state-badge' style={{ backgroundColor: getStateColor(vehicleState) + '22', borderColor: getStateColor(vehicleState) }}>
+              {getStateLabel(vehicleState)}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className='elements-section'>
+        <h3>Elementos de Seguridad</h3>
+        <div className='elements-grid'>
           {defaultElements.map(element => {
             const existing = editedElements.find(e => e.elemento_seguridad_id === element.id);
-
             return (
-              <div
-                key={element.id}
-                className={`element-card ${existing ? 'checked' : 'unchecked'}`}
-              >
-                <div className="element-header">
-                  {isEditing ? (
-                    <input
-                      type="checkbox"
-                      checked={!!existing}
-                      onChange={() => toggleElement(element.id)}
-                      className="element-checkbox"
-                    />
-                  ) : (
-                    <span className="element-status-icon">
-                      {existing ? getStatusIcon(existing.estatus) : '⚪'}
-                    </span>
-                  )}
-                  <div className="element-title">
-                    <h3>{element.nombre}</h3>
-                    <p>{element.descripcion}</p>
-                  </div>
-                </div>
-
-                {isEditing && existing && (
-                  <div className="element-edit">
-                    <div className="form-row">
-                      <div className="form-group">
-                        <label>Estado</label>
-                        <select
-                          value={existing.estatus || 'si'}
-                          onChange={(e) => handleElementChange(element.id, 'estatus', e.target.value)}
-                        >
-                          <option value="si">✅ Disponible</option>
-                          <option value="no">❌ No Disponible</option>
-                          <option value="no_aplica">⚪ No Aplica</option>
-                        </select>
-                      </div>
+              <div key={element.id} className={`element-card ${isEditing ? 'editing' : 'viewing'} ${existing ? `status-${existing.estatus}` : 'status-empty'}`}>
+                {isEditing ? (
+                  <div className='element-edit-mode'>
+                    <div className='element-header-edit'>
+                      <span className='element-icon'>{element.icon}</span>
+                      <span className='element-name-edit'>{element.nombre}</span>
+                      {existing && <span className='edit-label'>EDITANDO</span>}
                     </div>
-
-                    <div className="form-row">
-                      <div className="form-group full">
-                        <label>Observaciones</label>
-                        <textarea
-                          placeholder="Ej: Necesita mantenimiento, dañado, etc."
-                          value={existing.observaciones || ''}
-                          onChange={(e) => handleElementChange(element.id, 'observaciones', e.target.value)}
-                          rows="2"
-                        />
-                      </div>
+                    <div className='element-buttons-edit'>
+                      <button className={`edit-btn ${existing?.estatus === 'correcto' ? 'active' : ''}`} onClick={() => handleElementChange(element.id, 'correcto')} title='Correcto'>✅</button>
+                      <button className={`edit-btn ${existing?.estatus === 'incorrecto' ? 'active' : ''}`} onClick={() => handleElementChange(element.id, 'incorrecto')} title='Incorrecto'>❌</button>
+                      <button className={`edit-btn ${existing?.estatus === 'no_aplica' ? 'active' : ''}`} onClick={() => handleElementChange(element.id, 'no_aplica')} title='No Aplica'>⚪</button>
                     </div>
                   </div>
-                )}
-
-                {!isEditing && existing && existing.observaciones && (
-                  <div className="element-obs">
-                    <p>📝 {existing.observaciones}</p>
+                ) : (
+                  <div className='element-view-mode'>
+                    <span className='element-big-icon'>{element.icon}</span>
+                    <span className='element-name-view'>{element.nombre}</span>
+                    {existing && <span className='status-display'>{getStatusIcon(existing.estatus)} {getStatusLabel(existing.estatus)}</span>}
                   </div>
                 )}
               </div>
@@ -214,15 +240,7 @@ export default function VehicleMaintenanceSection({
         </div>
       </div>
 
-      {/* NOTIFICACIÓN */}
-      {notification && (
-        <NotificationModal
-          type={notification.type}
-          title={notification.title}
-          message={notification.message}
-          onClose={() => setNotification(null)}
-        />
-      )}
+      <NotificationModal isOpen={!!notification} type={notification?.type} title={notification?.title} message={notification?.message} onClose={() => setNotification(null)} />
     </div>
   );
 }

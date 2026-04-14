@@ -54,12 +54,13 @@ export const vehicleModel = {
   async createSafetyElement(vehicleId, elementData) {
     const { elemento_seguridad_id, estatus, observaciones } = elementData;
 
+    // Primero intenta hacer UPSERT (insert or update)
     const result = await query(
       `INSERT INTO vehiculo_elementos_seguridad 
-       (vehiculo_id, elemento_seguridad_id, estatus, observaciones)
-       VALUES ($1, $2, $3, $4)
+       (vehiculo_id, elemento_seguridad_id, estatus, observaciones, deleted_at)
+       VALUES ($1, $2, $3, $4, NULL)
        ON CONFLICT (vehiculo_id, elemento_seguridad_id) 
-       DO UPDATE SET estatus = $3, observaciones = $4, updated_at = NOW()
+       DO UPDATE SET estatus = $3, observaciones = $4, deleted_at = NULL, updated_at = NOW()
        RETURNING *`,
       [vehicleId, elemento_seguridad_id, estatus, observaciones]
     );
@@ -222,12 +223,11 @@ export const vehicleModel = {
     return result.rows;
   },
 
-  // Eliminar (soft delete) elementos de seguridad por vehículo
+  // Eliminar (hard delete) elementos de seguridad por vehículo
   async deleteSafetyElementsByVehicleId(vehicleId) {
     const result = await query(
-      `UPDATE vehiculo_elementos_seguridad 
-       SET deleted_at = NOW()
-       WHERE vehiculo_id = $1 AND deleted_at IS NULL
+      `DELETE FROM vehiculo_elementos_seguridad 
+       WHERE vehiculo_id = $1
        RETURNING *`,
       [vehicleId]
     );
@@ -246,5 +246,26 @@ export const vehicleModel = {
     );
 
     return result.rows;
+  },
+
+  // Actualizar estado del vehículo
+  async updateVehicleStatus(vehicleId, estado) {
+    if (!['activo', 'inactivo', 'en_mantenimiento'].includes(estado)) {
+      throw new Error(`Estado inválido: ${estado}`);
+    }
+
+    try {
+      const result = await query(
+        `UPDATE vehiculos 
+         SET estado = $1, updated_at = NOW()
+         WHERE id = $2
+         RETURNING *`,
+        [estado, vehicleId]
+      );
+      return result.rows[0];
+    } catch (error) {
+      console.error('❌ Error actualizando estado:', error.message);
+      throw error;
+    }
   }
 };
