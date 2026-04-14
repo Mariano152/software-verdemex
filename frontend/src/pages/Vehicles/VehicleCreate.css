@@ -917,9 +917,9 @@
     width: 100%;
   }
 }
-  }
+  
 
   .form-row {
     grid-template-columns: 1fr;
   }
-}
+

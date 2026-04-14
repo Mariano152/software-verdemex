@@ -23,18 +23,12 @@
   --color-dark-gray: #66706a;
   --color-text: #2d3436;
   --color-text-light: #636e69;
-  --color-text-dark: #1a1a1a;
   
   /* Estados */
   --color-success: #27ae60;
-  --color-success-light: #d5f4e6;
   --color-warning: #f39c12;
   --color-danger: #e74c3c;
   --color-info: #3498db;
-  
-  /* Backgrounds */
-  --color-background: #f8f9f8;
-  --color-gray-light: #f0f0f0;
   
   /* Sombras */
   --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.08);
@@ -319,38 +313,37 @@ tbody tr:last-child td {
 
 .badge {
   display: inline-block;
-  padding: 0.5rem 1rem;
+  padding: 0.4rem 0.8rem;
   border-radius: 20px;
-  font-size: 0.85rem;
-  font-weight: 700;
+  font-size: 0.8rem;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  color: #fff;
 }
 
 .badge-success {
-  background-color: #27ae60;
-  color: #fff;
+  background-color: rgba(39, 174, 96, 0.1);
+  color: var(--color-success);
 }
 
 .badge-warning {
-  background-color: #f39c12;
-  color: #fff;
+  background-color: rgba(243, 156, 18, 0.1);
+  color: var(--color-warning);
 }
 
 .badge-danger {
-  background-color: #e74c3c;
-  color: #fff;
+  background-color: rgba(231, 76, 60, 0.1);
+  color: var(--color-danger);
 }
 
 .badge-info {
-  background-color: #3498db;
-  color: #fff;
+  background-color: rgba(52, 152, 219, 0.1);
+  color: var(--color-info);
 }
 
 .badge-primary {
-  background-color: #2d7a3e;
-  color: #fff;
+  background-color: rgba(45, 122, 62, 0.1);
+  color: var(--color-primary);
 }
 
 /* ============================================

@@ -11,15 +11,16 @@ export const vehicleModel = {
       modelo,
       color,
       capacidad_kg,
-      descripcion
+      descripcion,
+      imagen_url
     } = vehicleData;
 
     const result = await query(
       `INSERT INTO vehiculos 
-       (propietario_nombre, placa, numero_serie, marca, modelo, color, capacidad_kg, descripcion)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       (propietario_nombre, placa, numero_serie, marca, modelo, color, capacidad_kg, descripcion, imagen_url)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
        RETURNING *`,
-      [propietario_nombre, placa, numero_serie, marca, modelo, color, capacidad_kg, descripcion]
+      [propietario_nombre, placa, numero_serie, marca, modelo, color, capacidad_kg, descripcion, imagen_url]
     );
 
     return result.rows[0];

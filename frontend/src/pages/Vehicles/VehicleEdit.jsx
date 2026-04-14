@@ -1,17 +1,26 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
-import VehicleCreate from './VehicleCreate';
+import VehicleDetailView from './VehicleDetailView';
+import VehicleDocumentsSection from './Sections/VehicleDocumentsSection';
+import VehicleMaintenanceSection from './Sections/VehicleMaintenanceSection';
+import VehiclePhotosSection from './Sections/VehiclePhotosSection';
+import NotificationModal from '../../components/Notifications/NotificationModal';
+import '../../components/Notifications/NotificationModal.css';
+import './VehicleEdit.css';
 
 /**
- * VehicleEdit reutiliza VehicleCreate cargando datos existentes
- * El componente VehicleCreate detecta vehicleToEdit y cambia la lógica
+ * VehicleEdit - Página principal de edición de vehículos
+ * Muestra VehicleDetailView por defecto
+ * Permite navegación a secciones específicas (Documentos, Mantenimiento, Fotos)
  */
 export default function VehicleEdit() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [vehicle, setVehicle] = useState(null);
+  const [activeSection, setActiveSection] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [notification, setNotification] = useState(null);
 
   // Cargar datos del vehículo desde API
   useEffect(() => {
@@ -20,7 +29,7 @@ export default function VehicleEdit() {
         setLoading(true);
         const token = localStorage.getItem('authToken');
         
-        const response = await fetch(`http://localhost:3000/api/vehicles/${id}`, {
+        const response = await fetch(`/api/vehicles/${id}`, {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -48,25 +57,207 @@ export default function VehicleEdit() {
     }
   }, [id]);
 
+  const handleDocumentsSave = async (documents) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      console.log('📤 Guardando documentos en backend...', { documents, id });
+      
+      const response = await fetch(`/api/vehicles/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ documents })
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Error al guardar documentos');
+      }
+
+      const updated = await response.json();
+      console.log('✅ Backend retornó vehículo actualizado:', updated);
+      
+      // Actualizar el estado del vehículo con la respuesta del backend
+      setVehicle(updated);
+      
+      // Mostrar notificación de éxito
+      setNotification({
+        type: 'success',
+        title: '✓ Éxito',
+        message: 'Documentos guardados correctamente'
+      });
+    } catch (err) {
+      console.error('❌ Error:', err);
+      throw new Error(err.message);
+    }
+  };
+
+  const handleMaintenanceSave = async (safetyElements) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`/api/vehicles/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ safetyElements })
+      });
+
+      if (!response.ok) throw new Error('Error al guardar mantenimiento');
+
+      const updated = await response.json();
+      setVehicle(updated);
+    } catch (err) {
+      throw new Error(err.message);
+    }
+  };
+
+  const handlePhotosSave = async (photos) => {
+    try {
+      const token = localStorage.getItem('authToken');
+      const formData = new FormData();
+      
+      // Procesar fotos nuevas
+      for (const photo of photos) {
+        if (photo.isNew && photo.archivo_url && typeof photo.archivo_url === 'string' && photo.archivo_url.startsWith('data:')) {
+          // Convertir data URL a blob
+          const response = await fetch(photo.archivo_url);
+          const blob = await response.blob();
+          formData.append(photo.tipo_foto, blob);
+          if (photo.descripcion) {
+            formData.append(`descripcion_${photo.tipo_foto}`, photo.descripcion);
+          }
+        }
+      }
+
+      const responseUpdate = await fetch(`/api/vehicles/${id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+
+      if (!responseUpdate.ok) throw new Error('Error al guardar fotos');
+
+      const updated = await responseUpdate.json();
+      setVehicle(updated);
+    } catch (err) {
+      throw new Error(err.message);
+    }
+  };
+
   if (loading) {
     return (
-      <div style={{textAlign: 'center', padding: '3rem', color: '#666'}}>
-        <p style={{fontSize: '1.1rem'}}>⏳ Cargando vehículo...</p>
+      <div className="edit-loading">
+        <div className="spinner"></div>
+        <p>⏳ Cargando vehículo...</p>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div style={{textAlign: 'center', padding: '2rem', background: 'rgba(231, 76, 60, 0.1)', borderRadius: '8px', color: '#e74c3c'}}>
-        <p style={{fontSize: '1rem', marginBottom: '1rem'}}>❌ Error: {error}</p>
-        <button onClick={() => navigate('/vehicles')} className="btn btn-secondary">
-          Volver al listado
-        </button>
+      <div className="edit-error">
+        <div className="error-box">
+          <p className="error-message">❌ Error: {error}</p>
+          <div className="error-actions">
+            <button onClick={() => navigate('/vehicles')} className="btn btn-secondary">
+              Volver al listado
+            </button>
+            <button onClick={() => window.location.reload()} className="btn btn-primary">
+              Reintentar
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
 
-  // Pasar el vehículo al componente VehicleCreate para edición
-  return <VehicleCreate vehicleToEdit={vehicle} />;
+  if (!vehicle) {
+    return (
+      <div className="edit-error">
+        <div className="error-box">
+          <p className="error-message">❌ Vehículo no encontrado</p>
+          <button onClick={() => navigate('/vehicles')} className="btn btn-secondary">
+            Volver al listado
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="vehicle-edit-page">
+      {/* HEADER GLOBAL */}
+      <div className="edit-page-header">
+        <button className="btn-back-main" onClick={() => {
+          if (activeSection) {
+            setActiveSection(null);
+          } else {
+            navigate('/vehicles');
+          }
+        }}>
+          ← Volver
+        </button>
+        <div>
+          <h1>🚗 {vehicle.placa}</h1>
+          <p className="owner-info">Propietario: {vehicle.propietario_nombre}</p>
+        </div>
+      </div>
+
+      {/* CONTENIDO PRINCIPAL */}
+      <div className="edit-page-content">
+        {activeSection === null ? (
+          // VISTA PRINCIPAL - DETALLES
+          <VehicleDetailView
+            vehicle={vehicle}
+            onDocumentsClick={() => setActiveSection('documents')}
+            onMaintenanceClick={() => setActiveSection('maintenance')}
+            onPhotosClick={() => setActiveSection('photos')}
+          />
+        ) : activeSection === 'documents' ? (
+          // SECCIÓN DOCUMENTOS
+          <VehicleDocumentsSection
+            vehicleId={id}
+            documents={vehicle.documents || []}
+            onSave={handleDocumentsSave}
+            onCancel={() => setActiveSection(null)}
+            onBack={() => setActiveSection(null)}
+          />
+        ) : activeSection === 'maintenance' ? (
+          // SECCIÓN MANTENIMIENTO
+          <VehicleMaintenanceSection
+            vehicleId={id}
+            safetyElements={vehicle.safetyElements || []}
+            onSave={handleMaintenanceSave}
+            onCancel={() => setActiveSection(null)}
+            onBack={() => setActiveSection(null)}
+          />
+        ) : activeSection === 'photos' ? (
+          // SECCIÓN FOTOS
+          <VehiclePhotosSection
+            vehicleId={id}
+            photos={vehicle.photos || []}
+            onSave={handlePhotosSave}
+            onCancel={() => setActiveSection(null)}
+            onBack={() => setActiveSection(null)}
+          />
+        ) : null}
+      </div>
+
+      {/* NOTIFICACIÓN */}
+      {notification && (
+        <NotificationModal
+          type={notification.type}
+          title={notification.title}
+          message={notification.message}
+          onClose={() => setNotification(null)}
+        />
+      )}
+    </div>
+  );
 }

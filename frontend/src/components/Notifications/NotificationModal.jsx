@@ -42,7 +42,14 @@ export function NotificationModal({
           <h2>{title}</h2>
         </div>
 
-        <p className="notification-message">{message}</p>
+        <p className="notification-message">
+          {message && message.split('\n').map((line, idx) => (
+            <React.Fragment key={idx}>
+              {line}
+              {idx < message.split('\n').length - 1 && <br />}
+            </React.Fragment>
+          ))}
+        </p>
 
         {details && (
           <div className="notification-details">

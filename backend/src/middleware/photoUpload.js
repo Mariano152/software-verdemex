@@ -27,6 +27,7 @@ const upload = multer({
 
 // Middleware para parsear múltiples archivos de foto
 export const photoUploadMiddleware = upload.fields([
+  { name: 'imagen', maxCount: 1 }, // Imagen principal (RF1)
   { name: 'frente', maxCount: 1 },
   { name: 'parte_trasera', maxCount: 1 },
   { name: 'lado_piloto', maxCount: 1 },

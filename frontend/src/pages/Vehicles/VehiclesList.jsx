@@ -16,7 +16,7 @@ export default function VehiclesList() {
         setLoading(true);
         const token = localStorage.getItem('authToken');
         
-        const response = await fetch('http://localhost:3000/api/vehicles', {
+        const response = await fetch('/api/vehicles', {
           method: 'GET',
           headers: {
             'Authorization': `Bearer ${token}`,
@@ -122,12 +122,12 @@ export default function VehiclesList() {
                   <th>Color</th>
                   <th>Capacidad</th>
                   <th>Estado</th>
-                  <th>Acciones</th>
+                  <th>Foto</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredVehicles.map((vehicle) => (
-                  <tr key={vehicle.id}>
+                  <tr key={vehicle.id} className="clickable-row" onClick={() => navigate(`/vehicles/${vehicle.id}/edit`)}>
                     <td>
                       <strong className="plate">{vehicle.placa}</strong>
                     </td>
@@ -145,35 +145,34 @@ export default function VehiclesList() {
                         {formatStatus(vehicle.estado)}
                       </span>
                     </td>
-                    <td className="actions-cell">
-                      <button
-                        className="btn-icon"
-                        title="Ver detalles"
-                        onClick={() => navigate(`/vehicles/${vehicle.id}`)}
-                      >
-                        👁️
-                      </button>
-                      <button
-                        className="btn-icon"
-                        title="Editar"
-                        onClick={() => navigate(`/vehicles/${vehicle.id}/edit`)}
-                      >
-                        ✏️
-                      </button>
-                      <button
-                        className="btn-icon"
-                        title="Documentos"
-                        onClick={() => navigate(`/vehicles/${vehicle.id}/documents`)}
-                      >
-                        📋
-                      </button>
-                      <button
-                        className="btn-icon"
-                        title="Fotos"
-                        onClick={() => navigate(`/vehicles/${vehicle.id}/photos`)}
-                      >
-                        📸
-                      </button>
+                    <td>
+                      {vehicle.imagen_url ? (
+                        <img 
+                          src={vehicle.imagen_url} 
+                          alt={vehicle.placa}
+                          className="vehicle-thumbnail"
+                          style={{
+                            width: '50px',
+                            height: '50px',
+                            borderRadius: '6px',
+                            objectFit: 'cover',
+                            cursor: 'pointer'
+                          }}
+                        />
+                      ) : (
+                        <div style={{
+                          width: '50px',
+                          height: '50px',
+                          borderRadius: '6px',
+                          backgroundColor: '#f0f0f0',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          fontSize: '1.2rem'
+                        }}>
+                          📷
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}

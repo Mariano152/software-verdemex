@@ -10,26 +10,19 @@ export const vehicleController = {
       let documents = [];
       let safetyElements = [];
 
-      // Parsear JSON del FormData
-      if (req.body.basicInfo) {
-        basicInfo = typeof req.body.basicInfo === 'string' 
-          ? JSON.parse(req.body.basicInfo) 
-          : req.body.basicInfo;
-      }
+      // Los campos del RF1 vienen directamente en req.body
+      basicInfo = {
+        propietario_nombre: req.body.propietario_nombre,
+        placa: req.body.placa,
+        numero_serie: req.body.numero_serie,
+        marca: req.body.marca,
+        modelo: req.body.modelo,
+        color: req.body.color,
+        capacidad_kg: req.body.capacidad_kg,
+        descripcion: req.body.descripcion
+      };
 
-      if (req.body.documents) {
-        documents = typeof req.body.documents === 'string' 
-          ? JSON.parse(req.body.documents) 
-          : req.body.documents;
-      }
-
-      if (req.body.safetyElements) {
-        safetyElements = typeof req.body.safetyElements === 'string' 
-          ? JSON.parse(req.body.safetyElements) 
-          : req.body.safetyElements;
-      }
-
-      console.log('📥 Datos recibidos:', { basicInfo, documents, safetyElements });
+      console.log('📥 Datos RF1 recibidos:', basicInfo);
 
       // ✅ VALIDACIONES - Solo PASO 1 es requerido
       const missingFields = [];
@@ -42,7 +35,7 @@ export const vehicleController = {
 
       if (missingFields.length > 0) {
         return res.status(400).json({
-          message: 'Faltan campos requeridos en PASO 1',
+          message: 'Faltan campos requeridos',
           missingFields
         });
       }
@@ -54,20 +47,6 @@ export const vehicleController = {
         });
       }
 
-      // Validación: Vigencia no vencida (PASO 2 - opcional pero si se llena, validar)
-      if (documents && documents.length > 0) {
-        for (const doc of documents) {
-          if (doc.vigencia) {
-            const vencimiento = new Date(doc.vigencia);
-            const hoy = new Date();
-            if (vencimiento < hoy) {
-              console.warn(`⚠️ Documento vencido: ${doc.vigencia}`);
-              // No fallar, solo advertir
-            }
-          }
-        }
-      }
-
       // Verificar duplicados
       const duplicates = await vehicleModel.checkDuplicates(basicInfo.placa, basicInfo.numero_serie);
       if (duplicates.length > 0) {
@@ -77,11 +56,44 @@ export const vehicleController = {
         });
       }
 
-      // 1. Crear vehículo
+      // 1. Procesar imagen principal (RF1)
+      let imagenUrl = null;
+      if (req.files && req.files.imagen) {
+        const file = req.files.imagen[0];
+        try {
+          console.log('📤 Subiendo imagen a Cloudinary...');
+          imagenUrl = await cloudinaryService.uploadImage(
+            file.buffer,
+            `vehicle_main_${Date.now()}`
+          );
+          console.log('✅ Imagen subida:', imagenUrl);
+          basicInfo.imagen_url = imagenUrl;
+        } catch (uploadError) {
+          console.error('❌ Error subiendo imagen:', uploadError.message);
+          throw new Error('No se pudo subir la imagen a Cloudinary');
+        }
+      }
+
+      // 2. Crear vehículo
       const vehicle = await vehicleModel.createVehicle(basicInfo);
       console.log('✅ Vehículo creado:', vehicle.id);
 
-      // 2. Crear documentos (OPCIONAL - si existen)
+      // 2.5. Guardar imagen principal en tabla de fotografías (si existe)
+      if (imagenUrl) {
+        try {
+          await vehicleModel.createPhoto(vehicle.id, {
+            tipo_foto: 'principal',
+            archivo_url: imagenUrl,
+            descripcion: 'Fotografía principal del vehículo',
+            categoria: 'principal'
+          });
+          console.log('✅ Imagen principal guardada en fotografías');
+        } catch (photoError) {
+          console.error('⚠️ Error guardando imagen en fotografías:', photoError.message);
+        }
+      }
+
+      // 3. Crear documentos (OPCIONAL - si existen)
       if (documents && Array.isArray(documents) && documents.length > 0) {
         for (const doc of documents) {
           if (doc.tipo_documento_id) {
@@ -95,7 +107,7 @@ export const vehicleController = {
         console.log(`✅ ${documents.filter(d => d.tipo_documento_id).length} documentos creados`);
       }
 
-      // 3. Crear elementos de seguridad (OPCIONAL - si existen)
+      // 4. Crear elementos de seguridad (OPCIONAL - si existen)
       if (safetyElements && Array.isArray(safetyElements) && safetyElements.length > 0) {
         for (const element of safetyElements) {
           if (element.id) {
@@ -113,7 +125,7 @@ export const vehicleController = {
         console.log(`✅ ${safetyElements.filter(e => e.id).length} elementos de seguridad creados`);
       }
 
-      // 4. Procesar y subir fotos (OPCIONAL - sin fotos está bien)
+      // 5. Procesar fotos adicionales (OPCIONAL - sin fotos está bien)
       const photoTypes = [
         'frente', 'parte_trasera', 'lado_piloto', 'lado_copiloto', 
         'senales_y_luces', 'estrobos', 'extintor', 'rotulacion', 
@@ -156,7 +168,12 @@ export const vehicleController = {
 
       res.status(201).json({
         message: 'Vehículo registrado correctamente',
-        vehicle: completeVehicle,
+        vehicle: {
+          ...completeVehicle,
+          documents: completeVehicle.documentos || [],
+          safetyElements: completeVehicle.elementos_seguridad || [],
+          photos: completeVehicle.fotografias || []
+        },
         summary: {
           basicInfoComplete: true,
           documentsCreated: documents?.filter(d => d.tipo_documento_id).length || 0,
@@ -186,7 +203,13 @@ export const vehicleController = {
         });
       }
 
-      res.json(vehicle);
+      // Normalizar respuesta a camelCase para frontend
+      res.json({
+        ...vehicle,
+        documents: vehicle.documentos || [],
+        safetyElements: vehicle.elementos_seguridad || [],
+        photos: vehicle.fotografias || []
+      });
     } catch (error) {
       console.error('Error obteniendo vehículo:', error);
       res.status(500).json({
@@ -232,7 +255,7 @@ export const vehicleController = {
       let documents = [];
       let safetyElements = [];
 
-      // Parsear JSON del FormData
+      // Parsear JSON del FormData o req.body
       if (req.body.basicInfo) {
         basicInfo = typeof req.body.basicInfo === 'string' 
           ? JSON.parse(req.body.basicInfo) 
@@ -253,32 +276,34 @@ export const vehicleController = {
 
       console.log(`📥 Actualizando vehículo ${id}:`, { basicInfo, documents, safetyElements });
 
-      // ✅ VALIDACIONES - Solo PASO 1 es requerido
-      const missingFields = [];
-      
-      if (!basicInfo.propietario_nombre?.trim()) missingFields.push('Nombre del Propietario');
-      if (!basicInfo.placa?.trim()) missingFields.push('Placa');
-      if (!basicInfo.numero_serie?.trim()) missingFields.push('Número de Serie');
-      if (!basicInfo.marca?.trim()) missingFields.push('Marca');
-      if (!basicInfo.modelo) missingFields.push('Modelo (Año)');
+      // ✅ VALIDACIONES - Solo valida basicInfo si se está actualizando
+      if (Object.keys(basicInfo).length > 0) {
+        const missingFields = [];
+        
+        if (!basicInfo.propietario_nombre?.trim()) missingFields.push('Nombre del Propietario');
+        if (!basicInfo.placa?.trim()) missingFields.push('Placa');
+        if (!basicInfo.numero_serie?.trim()) missingFields.push('Número de Serie');
+        if (!basicInfo.marca?.trim()) missingFields.push('Marca');
+        if (!basicInfo.modelo) missingFields.push('Modelo (Año)');
 
-      if (missingFields.length > 0) {
-        return res.status(400).json({
-          message: 'Faltan campos requeridos en PASO 1',
-          missingFields
-        });
+        if (missingFields.length > 0) {
+          return res.status(400).json({
+            message: 'Faltan campos requeridos',
+            missingFields
+          });
+        }
+
+        // Validación: Modelo entre 1900 y 2100
+        if (basicInfo.modelo < 1900 || basicInfo.modelo > 2100) {
+          return res.status(400).json({
+            message: 'Modelo debe estar entre 1900 y 2100'
+          });
+        }
+
+        // 1. Actualizar vehículo
+        await vehicleModel.updateVehicle(id, basicInfo);
+        console.log('✅ Vehículo actualizado');
       }
-
-      // Validación: Modelo entre 1900 y 2100
-      if (basicInfo.modelo < 1900 || basicInfo.modelo > 2100) {
-        return res.status(400).json({
-          message: 'Modelo debe estar entre 1900 y 2100'
-        });
-      }
-
-      // 1. Actualizar vehículo
-      await vehicleModel.updateVehicle(id, basicInfo);
-      console.log('✅ Vehículo actualizado');
 
       // 2. Actualizar documentos
       if (documents && Array.isArray(documents) && documents.length > 0) {
@@ -387,16 +412,12 @@ export const vehicleController = {
       // 6. Retornar vehículo actualizado
       const updatedVehicle = await vehicleModel.getVehicleById(id);
 
+      // Normalizar respuesta a camelCase para frontend
       res.json({
-        message: 'Vehículo actualizado correctamente',
-        vehicle: updatedVehicle,
-        summary: {
-          basicInfoComplete: true,
-          documentsCreated: documents?.filter(d => d.tipo_documento_id).length || 0,
-          safetyElementsCreated: safetyElements?.filter(e => e.id).length || 0,
-          photosDeleted: deletedPhotosCount,
-          photosUploaded: uploadedPhotos
-        }
+        ...updatedVehicle,
+        documents: updatedVehicle.documentos || [],
+        safetyElements: updatedVehicle.elementos_seguridad || [],
+        photos: updatedVehicle.fotografias || []
       });
 
     } catch (error) {
