@@ -160,6 +160,26 @@ export default function VehicleEdit() {
     }
   };
 
+  const handleDocumentSaved = (savedDocument) => {
+    if (!savedDocument?.id) return;
+
+    setVehicle((prev) => {
+      if (!prev) return prev;
+
+      const currentDocs = prev.documents || [];
+      const exists = currentDocs.some((doc) => doc.id === savedDocument.id);
+
+      const nextDocs = exists
+        ? currentDocs.map((doc) => (doc.id === savedDocument.id ? { ...doc, ...savedDocument } : doc))
+        : [...currentDocs, savedDocument];
+
+      return {
+        ...prev,
+        documents: nextDocs
+      };
+    });
+  };
+
   if (loading) {
     return (
       <div className="edit-loading">
@@ -236,6 +256,7 @@ export default function VehicleEdit() {
             vehicleId={id}
             documents={vehicle.documents || []}
             onSave={handleDocumentsSave}
+            onDocumentSaved={handleDocumentSaved}
             onCancel={() => setActiveSection(null)}
             onBack={() => setActiveSection(null)}
           />

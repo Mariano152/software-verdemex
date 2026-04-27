@@ -6,6 +6,7 @@ import { errorHandler } from './middleware/errorHandler.js';
 import authRoutes from './routes/authRoutes.js';
 import vehicleRoutes from './routes/vehicleRoutes.js';
 import expedienteRoutes from './routes/expedienteRoutes.js';
+import uploadRoutes from './routes/uploadRoutes.js';
 
 dotenv.config();
 
@@ -55,6 +56,7 @@ app.get('/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/expedientes', expedienteRoutes);
+app.use('/api/uploads', uploadRoutes);
 
 // Rutas futuras (RF3+)
 // app.use('/api/drivers', driversRoutes);

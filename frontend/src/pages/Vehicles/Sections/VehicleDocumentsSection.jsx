@@ -1,16 +1,21 @@
 import { useState, useEffect } from 'react';
 import NotificationModal from '../../../components/Notifications/NotificationModal';
+import DocumentModal from './DocumentModal';
 import '../../../components/Notifications/NotificationModal.css';
 import './VehicleDocumentsSection.css';
 
 /**
  * VehicleDocumentsSection - Gestión de documentos del vehículo
- * Modo lectura por defecto, con botón para editar
+ * Modo lectura por defecto, con:
+ * - Tabla clickeable para ver/editar documentos individuales
+ * - Botón para agregar nuevos documentos
+ * - Modal para editar documento individual
  */
 export default function VehicleDocumentsSection({
   vehicleId,
   documents = [],
   onSave,
+  onDocumentSaved,
   onCancel,
   onBack
 }) {
@@ -18,6 +23,11 @@ export default function VehicleDocumentsSection({
   const [editedDocuments, setEditedDocuments] = useState(documents);
   const [notification, setNotification] = useState(null);
   const [loading, setLoading] = useState(false);
+  
+  // Estado para el DocumentModal
+  const [documentModalOpen, setDocumentModalOpen] = useState(false);
+  const [selectedDocument, setSelectedDocument] = useState(null);
+  const [isNewDocument, setIsNewDocument] = useState(false);
 
   useEffect(() => {
     console.log('📋 Documentos recibidos:', documents);
@@ -155,6 +165,127 @@ export default function VehicleDocumentsSection({
     }
   };
 
+  // Abrir modal para editar documento
+  const handleOpenDocumentModal = (doc) => {
+    console.log('📂 [DOC_SECTION] Abriendo modal para editar documento:', { id: doc.id, tipo: doc.tipo_documento_id });
+    setSelectedDocument(doc);
+    setIsNewDocument(false);
+    setDocumentModalOpen(true);
+  };
+
+  // Abrir modal para nuevo documento
+  const handleOpenNewDocumentModal = () => {
+    console.log('➕ [DOC_SECTION] Abriendo modal para NUEVO documento');
+    setSelectedDocument(null);
+    setIsNewDocument(true);
+    setDocumentModalOpen(true);
+  };
+
+  // Guardar documento desde el modal
+  const handleSaveDocument = (savedDocument) => {
+    console.log('📝 Documento guardado:', savedDocument);
+    setDocumentModalOpen(false);
+
+    if (savedDocument?.id) {
+      setEditedDocuments((prev) => {
+        const exists = prev.some((doc) => doc.id === savedDocument.id);
+        if (exists) {
+          return prev.map((doc) => (doc.id === savedDocument.id ? { ...doc, ...savedDocument } : doc));
+        }
+
+        return [...prev, savedDocument];
+      });
+    }
+
+    onDocumentSaved?.(savedDocument);
+    
+    // Recargar documentos
+    setNotification({
+      type: 'success',
+      title: '✓ Éxito',
+      message: 'Documento guardado correctamente'
+    });
+  };
+
+  const extractDocumentFiles = (doc) => {
+    if (!doc?.archivos_json) return [];
+
+    try {
+      const parsed = typeof doc.archivos_json === 'string'
+        ? JSON.parse(doc.archivos_json)
+        : doc.archivos_json;
+
+      return Array.isArray(parsed) ? parsed : [parsed];
+    } catch (error) {
+      console.warn('Error parseando archivos del documento:', error);
+      return [];
+    }
+  };
+
+  const handleDownloadDocument = async (doc, event) => {
+    event?.stopPropagation();
+
+    const files = extractDocumentFiles(doc);
+    const firstFile = files[0] || null;
+    const cloudinaryUrl = firstFile?.ruta_cloudinary;
+    const directUrl = doc?.archivo_url;
+
+    if (cloudinaryUrl && cloudinaryUrl.includes('cloudinary')) {
+      console.log('⬇️ Descargando desde Cloudinary (archivos_json):', cloudinaryUrl);
+      window.open(cloudinaryUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    if (directUrl && /^https?:\/\//i.test(directUrl)) {
+      console.log('⬇️ Descargando desde URL directa (archivo_url):', directUrl);
+      window.open(directUrl, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    if (!doc?.id) {
+      setNotification({
+        type: 'warning',
+        title: '⚠️ Sin archivo',
+        message: 'Este documento no tiene archivo disponible para descargar'
+      });
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(
+        `/api/vehicles/${vehicleId}/documents/${doc.id}/download?fileIndex=0`,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+      );
+
+      if (!response.ok) {
+        console.error('❌ Descarga falló', { status: response.status, docId: doc.id, vehicleId });
+        throw new Error(`Error ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = window.document.createElement('a');
+      link.href = url;
+      link.download = firstFile?.nombre_original || `${doc.tipo_nombre || 'documento'}.pdf`;
+      window.document.body.appendChild(link);
+      link.click();
+      window.document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error descargando documento:', error);
+      setNotification({
+        type: 'error',
+        title: '✗ Error',
+        message: 'No se pudo descargar el archivo del documento'
+      });
+    }
+  };
+
   const tiposDocumento = [
     { id: 1, nombre: 'Título de Propiedad' },
     { id: 2, nombre: 'Registro de Circulación' },
@@ -215,167 +346,90 @@ export default function VehicleDocumentsSection({
           <button className="btn-back" onClick={onBack}>← Volver</button>
           <h2>📄 Documentos del Vehículo</h2>
         </div>
-        {!isEditing ? (
-          <button className="btn-edit" onClick={handleEdit}>✏️ Editar</button>
-        ) : (
-          <div className="header-actions">
-            <button className="btn-cancel" onClick={handleCancel}>❌ Cancelar</button>
-            <button className="btn-save" onClick={handleSave} disabled={loading}>
-              {loading ? '⏳ Guardando...' : '💾 Guardar Cambios'}
-            </button>
-          </div>
-        )}
+        <button className="btn-add-document-header" onClick={handleOpenNewDocumentModal}>
+          ➕ Agregar Documento
+        </button>
       </div>
 
       {/* CONTENIDO */}
       <div className="section-content">
-        {isEditing ? (
-          // MODO EDICIÓN
-          <div className="edit-mode">
-            <div className="documents-list">
-              {editedDocuments.map((doc, index) => (
-                <div key={doc.id} className="document-form-card">
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label>Tipo de Documento *</label>
-                      <select
-                        value={doc.tipo_documento_id}
-                        onChange={(e) => handleDocumentChange(doc.id, 'tipo_documento_id', e.target.value)}
-                      >
-                        <option value="">Seleccionar tipo...</option>
-                        {tiposDocumento.map(tipo => (
-                          <option key={tipo.id} value={tipo.id}>
-                            {tipo.nombre}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div className="form-group">
-                      <label>Ámbito *</label>
-                      <select
-                        value={doc.ambito}
-                        onChange={(e) => handleDocumentChange(doc.id, 'ambito', e.target.value)}
-                      >
-                        <option value="federal">Federal</option>
-                        <option value="estatal_jalisco">Estatal Jalisco</option>
-                        <option value="estatal_otro">Estatal Otro</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label>Vigencia</label>
-                      <input
-                        type="date"
-                        value={formatDateForInput(doc.vigencia)}
-                        onChange={(e) => handleDocumentChange(doc.id, 'vigencia', e.target.value)}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Estado</label>
-                      <input
-                        type="text"
-                        placeholder="Ej: Válido, Renovando..."
-                        value={doc.estado || ''}
-                        onChange={(e) => handleDocumentChange(doc.id, 'estado', e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-row">
-                    <div className="form-group">
-                      <label>Dependencia que Otorga</label>
-                      <input
-                        type="text"
-                        placeholder="Ej: SEMOVI"
-                        value={doc.dependencia_otorga || ''}
-                        onChange={(e) => handleDocumentChange(doc.id, 'dependencia_otorga', e.target.value)}
-                      />
-                    </div>
-                    <div className="form-group">
-                      <label>Folio/Oficio</label>
-                      <input
-                        type="text"
-                        placeholder="Ej: SEMOVI-2024-5001"
-                        value={doc.folio_oficio || ''}
-                        onChange={(e) => handleDocumentChange(doc.id, 'folio_oficio', e.target.value)}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="form-row">
-                    <div className="form-group full">
-                      <label>Observaciones</label>
-                      <textarea
-                        placeholder="Información adicional..."
-                        value={doc.observaciones || ''}
-                        onChange={(e) => handleDocumentChange(doc.id, 'observaciones', e.target.value)}
-                        rows="2"
-                      />
-                    </div>
-                  </div>
-
-                  <button
-                    type="button"
-                    className="btn-remove"
-                    onClick={() => handleRemoveDocument(doc.id)}
-                  >
-                    🗑️ Eliminar Documento
-                  </button>
-                </div>
-              ))}
-            </div>
-
-            <button className="btn-add-document" onClick={handleAddDocument}>
-              ➕ Agregar Documento
-            </button>
-          </div>
-        ) : (
-          // MODO LECTURA
-          <div className="read-mode">
-            {editedDocuments.length > 0 ? (
-              <div className="documents-table-wrapper">
-                <table className="documents-table">
-                  <thead>
-                    <tr>
-                      <th>Tipo</th>
-                      <th>Ámbito</th>
-                      <th>Vigencia</th>
-                      <th>Estado</th>
-                      <th>Estatus</th>
-                      <th>Observaciones</th>
+        {/* MODO LECTURA (ahora es el único modo) */}
+        <div className="read-mode">
+          {editedDocuments.length > 0 ? (
+            <div className="documents-table-wrapper">
+              <table className="documents-table">
+                <thead>
+                  <tr>
+                    <th>Tipo</th>
+                    <th>Ámbito</th>
+                    <th>Vigencia</th>
+                    <th>Estado</th>
+                    <th>Estatus</th>
+                    <th>Observaciones</th>
+                    <th>Acciones</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {editedDocuments.map(doc => (
+                    <tr
+                      key={doc.id}
+                      className="document-row"
+                      onClick={() => handleOpenDocumentModal(doc)}
+                      title="Haz clic para editar este documento"
+                    >
+                      <td>{tiposDocumento.find(t => t.id == doc.tipo_documento_id)?.nombre || '-'}</td>
+                      <td>
+                        <span className="badge-ambito">{doc.ambito.replace('_', ' ')}</span>
+                      </td>
+                      <td>{formatDateForDisplay(doc.vigencia)}</td>
+                      <td>{doc.estado || '-'}</td>
+                      <td>
+                        <span className={`badge-estatus ${doc.estatus}`}>
+                          {doc.estatus === 'vigente' ? '✓ Vigente' : doc.estatus === 'vencido' ? '⚠ Vencido' : doc.estatus}
+                        </span>
+                      </td>
+                      <td className="observaciones">{doc.observaciones || '-'}</td>
+                      <td className="actions-cell">
+                        <button
+                          className="btn-action"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleOpenDocumentModal(doc);
+                          }}
+                          title="Ver/Editar documento"
+                        >
+                          📋
+                        </button>
+                        <button
+                          className="btn-action download"
+                          onClick={(e) => handleDownloadDocument(doc, e)}
+                          title="Descargar archivo"
+                        >
+                          ⬇️
+                        </button>
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody>
-                    {editedDocuments.map(doc => (
-                      <tr key={doc.id}>
-                        <td>{tiposDocumento.find(t => t.id == doc.tipo_documento_id)?.nombre || '-'}</td>
-                        <td>
-                          <span className="badge-ambito">{doc.ambito.replace('_', ' ')}</span>
-                        </td>
-                        <td>{formatDateForDisplay(doc.vigencia)}</td>
-                        <td>{doc.estado || '-'}</td>
-                        <td>
-                          <span className={`badge-estatus ${doc.estatus}`}>
-                            {doc.estatus === 'vigente' ? '✓ Vigente' : doc.estatus === 'vencido' ? '⚠ Vencido' : doc.estatus}
-                          </span>
-                        </td>
-                        <td className="observaciones">{doc.observaciones || '-'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            ) : (
-              <div className="empty-state">
-                <p>📋 No hay documentos registrados</p>
-                <p className="subtitle">Haz clic en "Editar" para agregar documentos</p>
-              </div>
-            )}
-          </div>
-        )}
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="empty-state">
+              <p>📋 No hay documentos registrados</p>
+            </div>
+          )}
+        </div>
       </div>
+
+      {/* DocumentModal */}
+      <DocumentModal
+        document={selectedDocument}
+        vehicleId={vehicleId}
+        isOpen={documentModalOpen}
+        isNew={isNewDocument}
+        onClose={() => setDocumentModalOpen(false)}
+        onSave={handleSaveDocument}
+      />
 
       {/* NOTIFICACIÓN */}
       <NotificationModal

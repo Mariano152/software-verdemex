@@ -1,6 +1,25 @@
 import { vehicleModel } from '../models/vehicleModel.js';
 import { cloudinaryService } from '../services/cloudinaryService.js';
 
+const extractFileList = (document) => {
+  if (!document?.archivos_json) {
+    return [];
+  }
+
+  try {
+    const parsed = typeof document.archivos_json === 'string'
+      ? JSON.parse(document.archivos_json)
+      : document.archivos_json;
+
+    return Array.isArray(parsed) ? parsed : [parsed];
+  } catch (error) {
+    console.warn('⚠️ No se pudo parsear archivos_json:', error.message);
+    return [];
+  }
+};
+
+const isRemoteUrl = (value = '') => /^https?:\/\//i.test(value);
+
 export const vehicleController = {
   // Crear vehículo con toda la información
   async createVehicle(req, res) {
@@ -437,6 +456,365 @@ export const vehicleController = {
       console.error('❌ Error actualizando vehículo:', error);
       res.status(500).json({
         message: 'Error al actualizar vehículo',
+        error: error.message
+      });
+    }
+  },
+
+  // ===== MÉTODOS PARA DOCUMENTOS INDIVIDUALES =====
+
+  // GET - Obtener documento individual
+  async getDocumentById(req, res) {
+    try {
+      const { vehicleId, docId } = req.params;
+
+      const document = await vehicleModel.getDocumentById(vehicleId, docId);
+
+      if (!document) {
+        return res.status(404).json({
+          message: 'Documento no encontrado'
+        });
+      }
+
+      res.json(document);
+    } catch (error) {
+      console.error('❌ Error obteniendo documento:', error);
+      res.status(500).json({
+        message: 'Error al obtener documento',
+        error: error.message
+      });
+    }
+  },
+
+  // POST - Crear nuevo documento con múltiples archivos
+  async createDocument(req, res) {
+    try {
+      const { vehicleId } = req.params;
+      
+      console.error('🚀🚀🚀 [DOC_CREATE] INICIO - createDocument llamado');
+      console.error('   vehicleId:', vehicleId);
+      console.error('   req.files?.length:', req.files?.length);
+      console.error('   req.body:', { 
+        tipo_documento_id: req.body.tipo_documento_id,
+        ambito: req.body.ambito,
+        estado: req.body.estado,
+        dependencia_otorga: req.body.dependencia_otorga,
+        vigencia: req.body.vigencia,
+        folio_oficio: req.body.folio_oficio,
+        observaciones: req.body.observaciones,
+        estatus: req.body.estatus
+      });
+      
+      const {
+        tipo_documento_id,
+        ambito,
+        estado,
+        dependencia_otorga,
+        vigencia,
+        folio_oficio,
+        observaciones,
+        estatus
+      } = req.body;
+
+      // Validar que el vehículo existe
+      const vehicle = await vehicleModel.getVehicleById(vehicleId);
+      if (!vehicle) {
+        return res.status(404).json({
+          message: 'Vehículo no encontrado'
+        });
+      }
+
+      // Subir archivos a Cloudinary directamente desde buffer
+      let archivosGuardados = [];
+      if (req.files && req.files.length > 0) {
+        console.error(`📎 [DOC_CREATE] vehicleId=${vehicleId} archivos_recibidos=${req.files.length}`);
+        try {
+          archivosGuardados = req.files.map((file, index) => ({
+            nombre_original: file.originalname,
+            tamaño: file.size,
+            tipo_mime: file.mimetype,
+            orden: index + 1
+          }));
+          console.error(`✅ [DOC_CREATE] archivos_preparados=${archivosGuardados.length}`);
+        } catch (uploadError) {
+          console.error('❌ [DOC_CREATE] Error procesando archivos:', uploadError.message);
+          return res.status(500).json({
+            message: 'Error al procesar archivos del documento',
+            error: uploadError.message
+          });
+        }
+      } else {
+        console.error('⚠️ [DOC_CREATE] NO HAY ARCHIVOS - req.files:', req.files);
+      }
+
+      // Crear documento en BD
+      const documentData = {
+        tipo_documento_id: parseInt(tipo_documento_id),
+        ambito: ambito || 'federal',
+        estado: estado || 'válido',
+        dependencia_otorga,
+        vigencia,
+        folio_oficio,
+        observaciones: observaciones || '',
+        estatus: estatus || 'vigente',
+        archivo_url: null,
+        archivos_json: null
+      };
+
+      console.error(`💾 [DOC_CREATE] guardando_en_BD archivo_url=${documentData.archivo_url || 'null'} numArchivos=${archivosGuardados.length}`);
+
+      const document = await vehicleModel.createDocument(vehicleId, documentData);
+
+      if (req.files && req.files.length > 0) {
+        await vehicleModel.addDocumentFiles(document.id, req.files);
+      }
+
+      const createdDocument = await vehicleModel.getDocumentById(vehicleId, document.id);
+
+      console.error(`✅✅✅ [DOC_CREATE] documento_id=${document.id} archivos=${req.files?.length || 0}`);
+
+      res.status(201).json({
+        message: 'Documento creado exitosamente',
+        document: createdDocument,
+        archivosGuardados: archivosGuardados.length
+      });
+    } catch (error) {
+      console.error('❌ [DOC_CREATE] Error FATAL:', error.message, error.stack);
+      res.status(500).json({
+        message: 'Error al crear documento',
+        error: error.message
+      });
+    }
+  },
+
+  // PUT - Actualizar documento individual con archivos
+  async updateDocument(req, res) {
+    try {
+      const { vehicleId, docId } = req.params;
+      
+      console.error('🔄🔄🔄 [DOC_UPDATE] INICIO - updateDocument llamado');
+      console.error('   vehicleId:', vehicleId);
+      console.error('   docId:', docId);
+      console.error('   req.files?.length:', req.files?.length);
+      
+      const {
+        tipo_documento_id,
+        ambito,
+        estado,
+        dependencia_otorga,
+        vigencia,
+        folio_oficio,
+        observaciones,
+        estatus
+      } = req.body;
+
+      // Verificar que el documento existe
+      const existingDoc = await vehicleModel.getDocumentById(vehicleId, docId);
+      if (!existingDoc) {
+        return res.status(404).json({
+          message: 'Documento no encontrado'
+        });
+      }
+
+      // Mantener archivos existentes y agregar nuevos si se proporcionan
+      let archivosGuardados = [];
+
+      if (req.files && req.files.length > 0) {
+        console.error(`📎 [DOC_UPDATE] vehicleId=${vehicleId} docId=${docId} archivos_nuevos=${req.files.length}`);
+        try {
+          archivosGuardados = req.files.map((file, index) => ({
+            nombre_original: file.originalname,
+            tamaño: file.size,
+            tipo_mime: file.mimetype,
+            orden: index + 1
+          }));
+
+          await vehicleModel.addDocumentFiles(docId, req.files);
+          console.error(`✅ [DOC_UPDATE] archivos_agregados=${archivosGuardados.length}`);
+        } catch (uploadError) {
+          console.error('❌ [DOC_UPDATE] Error procesando archivos:', uploadError.message);
+          return res.status(500).json({
+            message: 'Error al procesar archivos del documento',
+            error: uploadError.message
+          });
+        }
+      } else {
+        console.error('ℹ️ [DOC_UPDATE] Sin archivos nuevos, manteniendo existentes');
+      }
+
+      // Actualizar documento
+      const documentData = {
+        tipo_documento_id: parseInt(tipo_documento_id),
+        ambito: ambito || 'federal',
+        estado: estado || 'válido',
+        dependencia_otorga,
+        vigencia,
+        folio_oficio,
+        observaciones: observaciones || '',
+        estatus: estatus || 'vigente',
+        archivo_url: existingDoc.archivo_url,
+        archivos_json: existingDoc.archivos_json
+      };
+
+      console.error(`💾 [DOC_UPDATE] guardando_en_BD archivo_url=${existingDoc.archivo_url || 'null'}`);
+
+      const updatedDoc = await vehicleModel.updateDocument(vehicleId, docId, documentData);
+
+      const enrichedUpdatedDoc = await vehicleModel.getDocumentById(vehicleId, docId);
+
+      console.error(`✅✅✅ [DOC_UPDATE] docId=${docId} archivos_nuevos=${archivosGuardados.length}`);
+
+      res.json({
+        message: 'Documento actualizado exitosamente',
+        document: enrichedUpdatedDoc,
+        archivosGuardados: req.files?.length || 0
+      });
+    } catch (error) {
+      console.error('❌ [DOC_UPDATE] Error FATAL:', error.message, error.stack);
+      res.status(500).json({
+        message: 'Error al actualizar documento',
+        error: error.message
+      });
+    }
+  },
+
+  // DELETE - Eliminar documento
+  async deleteDocument(req, res) {
+    try {
+      const { vehicleId, docId } = req.params;
+
+      // Verificar que el documento existe
+      const existingDoc = await vehicleModel.getDocumentById(vehicleId, docId);
+      if (!existingDoc) {
+        return res.status(404).json({
+          message: 'Documento no encontrado'
+        });
+      }
+
+      // Eliminar documento (soft delete)
+      await vehicleModel.deleteDocument(vehicleId, docId);
+
+      res.json({
+        message: 'Documento eliminado exitosamente'
+      });
+    } catch (error) {
+      console.error('❌ Error eliminando documento:', error);
+      res.status(500).json({
+        message: 'Error al eliminar documento',
+        error: error.message
+      });
+    }
+  },
+
+  // GET - Descargar archivo del documento
+  async downloadDocument(req, res) {
+    try {
+      const { vehicleId, docId } = req.params;
+      const parsedIndex = Number.parseInt(req.query.fileIndex ?? '0', 10);
+      const fileIndex = Number.isNaN(parsedIndex) || parsedIndex < 0 ? 0 : parsedIndex;
+      const fs = (await import('fs')).default;
+      const path = (await import('path')).default;
+
+      console.log(`\n🔵 [DOC_DOWNLOAD] START vehicleId=${vehicleId} docId=${docId} fileIndex=${fileIndex}`);
+
+      const selectedFile = await vehicleModel.getDocumentFileByIndex(vehicleId, docId, fileIndex);
+      if (!selectedFile) {
+        console.error('❌ [DOC_DOWNLOAD] Documento o archivo no encontrado');
+        return res.status(404).json({
+          message: 'Documento o archivo no encontrado'
+        });
+      }
+
+      if (selectedFile?.archivo_data) {
+        const fileName = selectedFile.nombre_original || `${selectedFile.tipo_nombre || 'documento'}.bin`;
+        const fileSize = Buffer.isBuffer(selectedFile.archivo_data) 
+          ? selectedFile.archivo_data.length 
+          : selectedFile.tamaño_bytes || 0;
+
+        console.log(`📥 [DOC_DOWNLOAD] Sending file from DB:`);
+        console.log(`   - fileName: ${fileName}`);
+        console.log(`   - mimeType: ${selectedFile.tipo_mime || 'application/octet-stream'}`);
+        console.log(`   - fileSize: ${fileSize} bytes (${(fileSize / 1024 / 1024).toFixed(2)} MB)`);
+        console.log(`   - dataType: ${typeof selectedFile.archivo_data}`);
+        console.log(`   - isBuffer: ${Buffer.isBuffer(selectedFile.archivo_data)}`);
+
+        res.setHeader('Content-Type', selectedFile.tipo_mime || 'application/octet-stream');
+        res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+        res.setHeader('Content-Length', fileSize);
+
+        console.log('✅ [DOC_DOWNLOAD] Headers set, sending file...');
+        return res.send(selectedFile.archivo_data);
+      }
+
+      const legacyPath = selectedFile.legacy_archivo_url;
+      console.warn('⚠️ [DOC_DOWNLOAD] Archivo binario no encontrado, intentando fallback legacy');
+
+      // Verificar que el archivo existe
+      if (!legacyPath || !fs.existsSync(legacyPath)) {
+        if (isRemoteUrl(legacyPath)) {
+          return res.redirect(legacyPath);
+        }
+
+        console.warn(`⚠️ [DOC_DOWNLOAD] archivo_no_encontrado localPath=${legacyPath || 'null'}`);
+        return res.status(404).json({
+          message: 'El archivo no existe en el servidor'
+        });
+      }
+
+      // Enviar archivo para descargar
+      const fileName = selectedFile?.nombre_original || path.basename(legacyPath);
+      console.log(`📥 [DOC_DOWNLOAD] Sending file from disk: ${fileName}`);
+      res.download(legacyPath, fileName, (err) => {
+        if (err) {
+          console.error('❌ Error descargando archivo:', err);
+        } else {
+          console.log(`✅ Archivo descargado: ${fileName}`);
+        }
+      });
+    } catch (error) {
+      console.error('❌ [DOC_DOWNLOAD] Error FATAL:', error);
+      res.status(500).json({
+        message: 'Error al descargar documento',
+        error: error.message
+      });
+    }
+  },
+
+  // DELETE archivo individual
+  async deleteDocumentFile(req, res) {
+    try {
+      const { vehicleId, docId, fileId } = req.params;
+
+      // Verificar que el documento existe
+      const document = await vehicleModel.getDocumentById(vehicleId, docId);
+      if (!document) {
+        return res.status(404).json({
+          message: 'Documento no encontrado'
+        });
+      }
+
+      // Marcar archivo como eliminado (soft delete)
+      const result = await vehicleModel.deleteDocumentFile(docId, fileId);
+      
+      if (!result) {
+        return res.status(404).json({
+          message: 'Archivo no encontrado'
+        });
+      }
+
+      console.log(`✅ [DELETE_FILE] Archivo ${fileId} eliminado del documento ${docId}`);
+
+      // Retornar documento actualizado
+      const updatedDocument = await vehicleModel.getDocumentById(vehicleId, docId);
+
+      res.json({
+        message: 'Archivo eliminado exitosamente',
+        document: updatedDocument
+      });
+    } catch (error) {
+      console.error('❌ [DELETE_FILE] Error:', error.message);
+      res.status(500).json({
+        message: 'Error al eliminar archivo',
         error: error.message
       });
     }

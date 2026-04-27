@@ -1,7 +1,11 @@
 import jwt from 'jsonwebtoken';
 
 export const verifyToken = (req, res, next) => {
-  const token = req.headers.authorization?.split(' ')[1];
+  const authHeaderToken = req.headers.authorization?.split(' ')[1];
+  const downloadQueryToken = req.path.includes('/download')
+    ? req.query?.downloadToken
+    : null;
+  const token = authHeaderToken || downloadQueryToken;
 
   if (!token) {
     return res.status(401).json({ error: 'No token provided' });
