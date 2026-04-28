@@ -1498,6 +1498,8 @@ export const vehicleController = {
 
       // 5. Procesar nuevas fotos (si las hay)
       let uploadedPhotos = 0;
+      const uploadedPhotoTypes = [];
+      const updatedDescriptionTypes = [];
 
       for (const photoType of VEHICLE_PHOTO_TYPES) {
         if (req.files && req.files[photoType]) {
@@ -1522,6 +1524,7 @@ export const vehicleController = {
             });
 
             uploadedPhotos++;
+            uploadedPhotoTypes.push(photoType);
             console.log(`✅ Foto actualizada: ${photoType} → Cloudinary`);
           } catch (photoError) {
             console.error(`⚠️ Error subiendo foto ${photoType}:`, photoError.message);

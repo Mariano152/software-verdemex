@@ -1,4 +1,4 @@
-import cloudinaryPkg, { v2 as cloudinary } from 'cloudinary';
+import { v2 as cloudinary } from 'cloudinary';
 import fs from 'fs';
 
 // Configurar Cloudinary
@@ -112,12 +112,12 @@ export const cloudinaryService = {
 
           console.error(`ℹ️ [CLOUDINARY_BUFFER_UPLOAD] modo=${mode} chunk_size=${largeOptions.chunk_size} folder=${folder}`);
 
-          const uploadStream = cloudinaryPkg.uploader.upload_large_stream(
-            null,
-            (result) => {
-              if (result?.error) {
-                console.error(`❌ [CLOUDINARY_BUFFER_UPLOAD] upload_FAIL:`, result.error.message || result.error);
-                reject(new Error(result.error.message || 'Cloudinary upload_large_stream failed'));
+          const uploadStream = cloudinary.uploader.upload_large_stream(
+            largeOptions,
+            (error, result) => {
+              if (error) {
+                console.error(`❌ [CLOUDINARY_BUFFER_UPLOAD] upload_FAIL:`, error.message);
+                reject(error);
                 return;
               }
 
@@ -130,8 +130,7 @@ export const cloudinaryService = {
 
               console.error(`✅ [CLOUDINARY_BUFFER_UPLOAD] ${mode}_OK url=${uploadedUrl}`);
               resolve(uploadedUrl);
-            },
-            largeOptions
+            }
           );
 
           uploadStream.on('error', (error) => {

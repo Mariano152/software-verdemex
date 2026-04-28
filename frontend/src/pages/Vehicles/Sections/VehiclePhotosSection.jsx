@@ -31,11 +31,28 @@ export default function VehiclePhotosSection({
   const [notification, setNotification] = useState(null);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [selectedPhoto, setSelectedPhoto] = useState(null);
 
   useEffect(() => {
     setEditedPhotos(photos);
     setDeletedPhotoTypes([]);
   }, [photos]);
+
+  useEffect(() => {
+    if (!selectedPhoto) return undefined;
+
+    const handleKeyDown = (event) => {
+      if (event.key === 'Escape') {
+        setSelectedPhoto(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [selectedPhoto]);
 
   const handleEdit = () => {
     setIsEditing(true);
@@ -138,6 +155,16 @@ export default function VehiclePhotosSection({
     }
   };
 
+  const openPhotoViewer = (photo, fallbackName) => {
+    if (!photo?.archivo_url) return;
+
+    setSelectedPhoto({
+      url: photo.archivo_url,
+      nombre: fallbackName,
+      descripcion: photo.descripcion || ''
+    });
+  };
+
   const completed = editedPhotos.length;
 
   return (
@@ -181,10 +208,19 @@ export default function VehiclePhotosSection({
                     <div className="photo-preview-area">
                       {existingPhoto?.archivo_url ? (
                         <>
-                          <img src={existingPhoto.archivo_url} alt={type.nombre} />
+                          <button
+                            type="button"
+                            className="photo-preview-trigger"
+                            onClick={() => openPhotoViewer(existingPhoto, type.nombre)}
+                          >
+                            <img src={existingPhoto.archivo_url} alt={type.nombre} />
+                          </button>
                           <button
                             className="btn-remove-photo"
-                            onClick={() => handleRemovePhoto(existingPhoto)}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              handleRemovePhoto(existingPhoto);
+                            }}
                             type="button"
                           >
                             x
@@ -236,7 +272,13 @@ export default function VehiclePhotosSection({
                     <div key={type.id} className={`photo-card ${photo ? 'has-photo' : 'empty-photo'}`}>
                       <div className="photo-preview">
                         {photo?.archivo_url ? (
-                          <img src={photo.archivo_url} alt={type.nombre} />
+                          <button
+                            type="button"
+                            className="photo-preview-trigger"
+                            onClick={() => openPhotoViewer(photo, type.nombre)}
+                          >
+                            <img src={photo.archivo_url} alt={type.nombre} />
+                          </button>
                         ) : (
                           <div className="empty-placeholder">
                             <span>Sin foto</span>
@@ -273,6 +315,39 @@ export default function VehiclePhotosSection({
           message={notification.message}
           onClose={() => setNotification(null)}
         />
+      )}
+
+      {selectedPhoto && (
+        <div
+          className="photo-viewer-overlay"
+          onClick={() => setSelectedPhoto(null)}
+          role="presentation"
+        >
+          <div
+            className="photo-viewer-modal"
+            onClick={(event) => event.stopPropagation()}
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Vista ampliada de ${selectedPhoto.nombre}`}
+          >
+            <button
+              type="button"
+              className="photo-viewer-close"
+              onClick={() => setSelectedPhoto(null)}
+            >
+              Cerrar
+            </button>
+            <img
+              className="photo-viewer-image"
+              src={selectedPhoto.url}
+              alt={selectedPhoto.nombre}
+            />
+            <div className="photo-viewer-caption">
+              <h3>{selectedPhoto.nombre}</h3>
+              {selectedPhoto.descripcion && <p>{selectedPhoto.descripcion}</p>}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
