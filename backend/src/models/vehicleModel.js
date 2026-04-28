@@ -382,6 +382,18 @@ export const vehicleModel = {
     return result.rows[0];
   },
 
+  async updatePhotoDescriptionByType(vehicleId, tipoFoto, descripcion = '') {
+    const result = await query(
+      `UPDATE vehiculo_fotografias
+       SET descripcion = $3, updated_at = NOW()
+       WHERE vehiculo_id = $1 AND tipo_foto = $2 AND deleted_at IS NULL
+       RETURNING *`,
+      [vehicleId, tipoFoto, descripcion]
+    );
+
+    return result.rows[0] || null;
+  },
+
   async createDocument(vehicleId, documentData) {
     const {
       tipo_documento_id,

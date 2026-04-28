@@ -18,6 +18,21 @@ const sanitizePublicId = (value = '') =>
     .replace(/^_+|_+$/g, '');
 
 export const cloudinaryService = {
+  async uploadImage(buffer, filename, options = {}) {
+    if (!buffer) {
+      throw new Error('Image buffer is required');
+    }
+
+    const folder = options.folder || process.env.CLOUDINARY_VEHICLE_PHOTOS_FOLDER || 'verdemex/vehiculos/fotos';
+    const publicId = sanitizePublicId(filename) || `imagen_${Date.now()}`;
+    const fileSize = options.fileSize || buffer.length || 0;
+
+    return this.uploadDocumentFromBuffer(buffer, publicId, fileSize, {
+      ...options,
+      folder
+    });
+  },
+
   async uploadDocument(filePath, filename, fileSize = 0, options = {}) {
     const folder = options.folder || process.env.CLOUDINARY_DOCUMENTS_FOLDER || 'verdemex/documentos';
     const publicId = sanitizePublicId(filename) || `documento_${Date.now()}`;

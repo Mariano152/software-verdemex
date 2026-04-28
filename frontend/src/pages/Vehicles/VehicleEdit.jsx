@@ -222,10 +222,16 @@ export default function VehicleEdit() {
     }));
   };
 
-  const handlePhotosSave = async (photos) => {
+  const handlePhotosSave = async (photos, deletedPhotoTypes = []) => {
     try {
       const token = localStorage.getItem('authToken');
       const formData = new FormData();
+
+      formData.append('deletedPhotos', JSON.stringify(deletedPhotoTypes));
+
+      photos.forEach((photo) => {
+        formData.append(`descripcion_${photo.tipo_foto}`, photo.descripcion || '');
+      });
       
       // Procesar fotos nuevas
       for (const photo of photos) {
@@ -233,10 +239,8 @@ export default function VehicleEdit() {
           // Convertir data URL a blob
           const response = await fetch(photo.archivo_url);
           const blob = await response.blob();
-          formData.append(photo.tipo_foto, blob);
-          if (photo.descripcion) {
-            formData.append(`descripcion_${photo.tipo_foto}`, photo.descripcion);
-          }
+          const extension = blob.type.split('/')[1] || 'jpg';
+          formData.append(photo.tipo_foto, blob, `${photo.tipo_foto}.${extension}`);
         }
       }
 

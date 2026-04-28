@@ -20,6 +20,12 @@ const extractFileList = (document) => {
 
 const isRemoteUrl = (value = '') => /^https?:\/\//i.test(value);
 const VALID_VEHICLE_STATES = ['activo', 'inactivo', 'en_mantenimiento'];
+const VEHICLE_PHOTO_TYPES = [
+  'frente', 'parte_trasera', 'lado_piloto', 'lado_copiloto',
+  'senales_y_luces', 'estrobos', 'extintor', 'rotulacion',
+  'torreta', 'proteccion_antiderrames', 'equipo_comunicacion',
+  'arnes_y_conectores', 'equipo_proteccion_personal'
+];
 
 export const vehicleController = {
   // Crear vehículo con toda la información
@@ -146,16 +152,9 @@ export const vehicleController = {
       }
 
       // 5. Procesar fotos adicionales (OPCIONAL - sin fotos está bien)
-      const photoTypes = [
-        'frente', 'parte_trasera', 'lado_piloto', 'lado_copiloto', 
-        'senales_y_luces', 'estrobos', 'extintor', 'rotulacion', 
-        'torreta', 'proteccion_antiderrames', 'equipo_comunicacion', 
-        'arnes_y_conectores', 'equipo_proteccion_personal'
-      ];
-
       let uploadedPhotos = 0;
 
-      for (const photoType of photoTypes) {
+      for (const photoType of VEHICLE_PHOTO_TYPES) {
         if (req.files && req.files[photoType]) {
           const file = req.files[photoType][0];
           
@@ -825,16 +824,9 @@ export const vehicleController = {
       }
 
       // 5. Procesar nuevas fotos (si las hay)
-      const photoTypes = [
-        'frente', 'parte_trasera', 'lado_piloto', 'lado_copiloto', 
-        'senales_y_luces', 'estrobos', 'extintor', 'rotulacion', 
-        'torreta', 'proteccion_antiderrames', 'equipo_comunicacion', 
-        'arnes_y_conectores', 'equipo_proteccion_personal'
-      ];
-
       let uploadedPhotos = 0;
 
-      for (const photoType of photoTypes) {
+      for (const photoType of VEHICLE_PHOTO_TYPES) {
         if (req.files && req.files[photoType]) {
           const file = req.files[photoType][0];
           
@@ -861,6 +853,20 @@ export const vehicleController = {
           } catch (photoError) {
             console.error(`⚠️ Error subiendo foto ${photoType}:`, photoError.message);
             // Continuar con siguientes fotos
+          }
+        }
+      }
+
+      for (const photoType of VEHICLE_PHOTO_TYPES) {
+        if (Object.prototype.hasOwnProperty.call(req.body, `descripcion_${photoType}`)) {
+          try {
+            await vehicleModel.updatePhotoDescriptionByType(
+              id,
+              photoType,
+              req.body[`descripcion_${photoType}`] || ''
+            );
+          } catch (descriptionError) {
+            console.error(`Error actualizando descripcion de foto ${photoType}:`, descriptionError.message);
           }
         }
       }

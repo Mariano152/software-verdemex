@@ -226,8 +226,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 2.5rem;
-  opacity: 0.5;
+  padding: 1rem;
+  font-size: 0.95rem;
+  color: #8a94a6;
+  font-weight: 600;
+  text-align: center;
 }
 
 .photo-details {
@@ -339,7 +342,9 @@
 
 .upload-icon {
   font-size: 2rem;
-  opacity: 0.5;
+  opacity: 0.65;
+  font-weight: 700;
+  color: #f39c12;
 }
 
 .upload-text {
@@ -368,12 +373,14 @@
   top: 0.5rem;
   right: 0.5rem;
   background: rgba(0, 0, 0, 0.6);
+  color: white;
   border: none;
   width: 32px;
   height: 32px;
   border-radius: 50%;
   cursor: pointer;
-  font-size: 1.2rem;
+  font-size: 1rem;
+  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;

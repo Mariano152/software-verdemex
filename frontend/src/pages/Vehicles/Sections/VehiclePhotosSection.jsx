@@ -1,14 +1,25 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import NotificationModal from '../../../components/Notifications/NotificationModal';
 import '../../../components/Notifications/NotificationModal.css';
 import './VehiclePhotosSection.css';
 
-/**
- * VehiclePhotosSection - Gestión de fotografías del vehículo
- * Modo lectura por defecto, edición con carga de archivos
- */
+const PHOTO_TYPES = [
+  { id: 'frente', nombre: 'Frente' },
+  { id: 'parte_trasera', nombre: 'Parte trasera' },
+  { id: 'lado_piloto', nombre: 'Lado piloto' },
+  { id: 'lado_copiloto', nombre: 'Lado copiloto' },
+  { id: 'senales_y_luces', nombre: 'Senales y luces' },
+  { id: 'estrobos', nombre: 'Estrobos' },
+  { id: 'extintor', nombre: 'Extintor' },
+  { id: 'rotulacion', nombre: 'Rotulacion' },
+  { id: 'torreta', nombre: 'Torreta' },
+  { id: 'proteccion_antiderrames', nombre: 'Proteccion antiderrames' },
+  { id: 'equipo_comunicacion', nombre: 'Equipo de comunicacion' },
+  { id: 'arnes_y_conectores', nombre: 'Arnes y conectores' },
+  { id: 'equipo_proteccion_personal', nombre: 'Equipo de proteccion' }
+];
+
 export default function VehiclePhotosSection({
-  vehicleId,
   photos = [],
   onSave,
   onCancel,
@@ -16,29 +27,15 @@ export default function VehiclePhotosSection({
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedPhotos, setEditedPhotos] = useState(photos);
+  const [deletedPhotoTypes, setDeletedPhotoTypes] = useState([]);
   const [notification, setNotification] = useState(null);
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
 
   useEffect(() => {
     setEditedPhotos(photos);
+    setDeletedPhotoTypes([]);
   }, [photos]);
-
-  const photoTypes = [
-    { id: 'frente', nombre: 'Frente', emoji: '🚗' },
-    { id: 'parte_trasera', nombre: 'Parte Trasera', emoji: '🚗' },
-    { id: 'lado_piloto', nombre: 'Lado Piloto', emoji: '🚗' },
-    { id: 'lado_copiloto', nombre: 'Lado Copiloto', emoji: '🚗' },
-    { id: 'senales_y_luces', nombre: 'Señales y Luces', emoji: '💡' },
-    { id: 'estrobos', nombre: 'Estrobos', emoji: '🚨' },
-    { id: 'extintor', nombre: 'Extintor', emoji: '🧯' },
-    { id: 'rotulacion', nombre: 'Rotulación', emoji: '🔤' },
-    { id: 'torreta', nombre: 'Torreta', emoji: '📡' },
-    { id: 'proteccion_antiderrames', nombre: 'Protección Antiderrames', emoji: '🛡️' },
-    { id: 'equipo_comunicacion', nombre: 'Equipo de Comunicación', emoji: '📻' },
-    { id: 'arnes_y_conectores', nombre: 'Arnés y Conectores', emoji: '⚡' },
-    { id: 'equipo_proteccion_personal', nombre: 'Equipo de Protección', emoji: '🦺' }
-  ];
 
   const handleEdit = () => {
     setIsEditing(true);
@@ -47,75 +44,94 @@ export default function VehiclePhotosSection({
   const handleCancel = () => {
     setIsEditing(false);
     setEditedPhotos(photos);
+    setDeletedPhotoTypes([]);
     onCancel?.();
   };
 
   const handlePhotoDescriptionChange = (photoId, description) => {
-    setEditedPhotos(editedPhotos.map(photo =>
+    setEditedPhotos((currentPhotos) => currentPhotos.map((photo) => (
       photo.id === photoId
         ? { ...photo, descripcion: description }
         : photo
-    ));
+    )));
   };
 
-  const handlePhotoUpload = async (e, photoType) => {
-    const file = e.target.files[0];
+  const handlePhotoUpload = async (event, photoType) => {
+    const file = event.target.files?.[0];
     if (!file) return;
 
     setUploading(true);
+
     try {
-      // Aquí se subiría a Cloudinary en el caso real
+      const existingPhoto = editedPhotos.find((photo) => photo.tipo_foto === photoType);
       const reader = new FileReader();
-      reader.onload = (event) => {
+
+      reader.onload = (loadEvent) => {
         const newPhoto = {
-          id: Date.now(),
+          id: existingPhoto?.id || Date.now(),
           tipo_foto: photoType,
-          archivo_url: event.target.result,
-          descripcion: '',
+          archivo_url: loadEvent.target?.result,
+          descripcion: existingPhoto?.descripcion || '',
           isNew: true
         };
 
-        const existing = editedPhotos.find(p => p.tipo_foto === photoType);
-        if (existing) {
-          setEditedPhotos(editedPhotos.map(p =>
-            p.tipo_foto === photoType ? newPhoto : p
-          ));
-        } else {
-          setEditedPhotos([...editedPhotos, newPhoto]);
-        }
+        setDeletedPhotoTypes((currentTypes) => currentTypes.filter((type) => type !== photoType));
+        setEditedPhotos((currentPhotos) => {
+          const hasExistingPhoto = currentPhotos.some((photo) => photo.tipo_foto === photoType);
+
+          if (hasExistingPhoto) {
+            return currentPhotos.map((photo) => (
+              photo.tipo_foto === photoType ? newPhoto : photo
+            ));
+          }
+
+          return [...currentPhotos, newPhoto];
+        });
       };
+
       reader.readAsDataURL(file);
     } catch (error) {
       setNotification({
         type: 'error',
-        title: '✗ Error',
+        title: 'Error',
         message: 'Error al cargar la foto'
       });
     } finally {
       setUploading(false);
-      e.target.value = '';
+      event.target.value = '';
     }
   };
 
-  const handleRemovePhoto = (photoId) => {
-    setEditedPhotos(editedPhotos.filter(p => p.id !== photoId));
+  const handleRemovePhoto = (photo) => {
+    if (!photo) return;
+
+    if (!photo.isNew) {
+      setDeletedPhotoTypes((currentTypes) => (
+        currentTypes.includes(photo.tipo_foto)
+          ? currentTypes
+          : [...currentTypes, photo.tipo_foto]
+      ));
+    }
+
+    setEditedPhotos((currentPhotos) => currentPhotos.filter((item) => item.id !== photo.id));
   };
 
   const handleSave = async () => {
     try {
       setLoading(true);
-      await onSave?.(editedPhotos);
+      await onSave?.(editedPhotos, deletedPhotoTypes);
       setNotification({
         type: 'success',
-        title: '✓ Éxito',
-        message: 'Fotografías guardadas correctamente'
+        title: 'Exito',
+        message: 'Fotografias guardadas correctamente'
       });
       setIsEditing(false);
+      setDeletedPhotoTypes([]);
     } catch (error) {
       setNotification({
         type: 'error',
-        title: '✗ Error',
-        message: error.message || 'Error al guardar fotografías'
+        title: 'Error',
+        message: error.message || 'Error al guardar fotografias'
       });
     } finally {
       setLoading(false);
@@ -126,43 +142,39 @@ export default function VehiclePhotosSection({
 
   return (
     <div className="photos-section">
-      {/* HEADER */}
       <div className="section-header photos-header">
         <div className="header-content">
-          <button className="btn-back" onClick={onBack}>← Volver</button>
+          <button className="btn-back" onClick={onBack}>Volver</button>
           <div>
-            <h2>📸 Fotografías del Vehículo</h2>
-            <p className="progress-text">{completed}/13 fotografías capturadas</p>
+            <h2>Fotografias del vehiculo</h2>
+            <p className="progress-text">{completed}/13 fotografias capturadas</p>
           </div>
         </div>
         {!isEditing ? (
-          <button className="btn-edit" onClick={handleEdit}>✏️ Editar</button>
+          <button className="btn-edit" onClick={handleEdit}>Editar</button>
         ) : (
           <div className="header-actions">
-            <button className="btn-cancel" onClick={handleCancel}>❌ Cancelar</button>
+            <button className="btn-cancel" onClick={handleCancel}>Cancelar</button>
             <button className="btn-save" onClick={handleSave} disabled={loading}>
-              {loading ? '⏳ Guardando...' : '💾 Guardar Cambios'}
+              {loading ? 'Guardando...' : 'Guardar cambios'}
             </button>
           </div>
         )}
       </div>
 
-      {/* PROGRESS */}
       <div className="progress-section">
         <div className="progress-bar">
-          <div className="progress-fill" style={{width: `${(completed / 13) * 100}%`}}></div>
+          <div className="progress-fill" style={{ width: `${(completed / 13) * 100}%` }}></div>
         </div>
-        <p className="progress-label">{Math.round((completed / 13) * 100)}% Completado</p>
+        <p className="progress-label">{Math.round((completed / 13) * 100)}% completado</p>
       </div>
 
-      {/* CONTENIDO */}
       <div className="section-content">
         {isEditing ? (
-          // MODO EDICIÓN
           <div className="edit-mode">
             <div className="photos-upload-grid">
-              {photoTypes.map(type => {
-                const existingPhoto = editedPhotos.find(p => p.tipo_foto === type.id);
+              {PHOTO_TYPES.map((type) => {
+                const existingPhoto = editedPhotos.find((photo) => photo.tipo_foto === type.id);
 
                 return (
                   <div key={type.id} className="photo-upload-card">
@@ -172,22 +184,22 @@ export default function VehiclePhotosSection({
                           <img src={existingPhoto.archivo_url} alt={type.nombre} />
                           <button
                             className="btn-remove-photo"
-                            onClick={() => handleRemovePhoto(existingPhoto.id)}
+                            onClick={() => handleRemovePhoto(existingPhoto)}
                             type="button"
                           >
-                            🗑️
+                            x
                           </button>
                         </>
                       ) : (
                         <>
                           <div className="upload-placeholder">
-                            <span className="upload-icon">{type.emoji}</span>
+                            <span className="upload-icon">+</span>
                             <p className="upload-text">Seleccionar foto</p>
                           </div>
                           <input
                             type="file"
                             accept="image/*"
-                            onChange={(e) => handlePhotoUpload(e, type.id)}
+                            onChange={(event) => handlePhotoUpload(event, type.id)}
                             disabled={uploading}
                             className="file-input"
                           />
@@ -200,9 +212,9 @@ export default function VehiclePhotosSection({
                       {existingPhoto && (
                         <div className="photo-description">
                           <textarea
-                            placeholder="Agregar descripción..."
+                            placeholder="Agregar descripcion..."
                             value={existingPhoto.descripcion || ''}
-                            onChange={(e) => handlePhotoDescriptionChange(existingPhoto.id, e.target.value)}
+                            onChange={(event) => handlePhotoDescriptionChange(existingPhoto.id, event.target.value)}
                             rows="2"
                           />
                         </div>
@@ -214,12 +226,11 @@ export default function VehiclePhotosSection({
             </div>
           </div>
         ) : (
-          // MODO LECTURA
           <div className="read-mode">
             {editedPhotos.length > 0 ? (
               <div className="photos-grid">
-                {photoTypes.map(type => {
-                  const photo = editedPhotos.find(p => p.tipo_foto === type.id);
+                {PHOTO_TYPES.map((type) => {
+                  const photo = editedPhotos.find((item) => item.tipo_foto === type.id);
 
                   return (
                     <div key={type.id} className={`photo-card ${photo ? 'has-photo' : 'empty-photo'}`}>
@@ -228,7 +239,7 @@ export default function VehiclePhotosSection({
                           <img src={photo.archivo_url} alt={type.nombre} />
                         ) : (
                           <div className="empty-placeholder">
-                            <span>{type.emoji}</span>
+                            <span>Sin foto</span>
                           </div>
                         )}
                       </div>
@@ -238,7 +249,7 @@ export default function VehiclePhotosSection({
                           <p className="photo-description-text">{photo.descripcion}</p>
                         )}
                         {photo && (
-                          <span className="photo-status">✓ Capturada</span>
+                          <span className="photo-status">Capturada</span>
                         )}
                       </div>
                     </div>
@@ -247,7 +258,7 @@ export default function VehiclePhotosSection({
               </div>
             ) : (
               <div className="empty-state">
-                <p>📸 No hay fotografías registradas</p>
+                <p>No hay fotografias registradas</p>
                 <p className="subtitle">Haz clic en "Editar" para agregar fotos</p>
               </div>
             )}
@@ -255,7 +266,6 @@ export default function VehiclePhotosSection({
         )}
       </div>
 
-      {/* NOTIFICACIÓN */}
       {notification && (
         <NotificationModal
           type={notification.type}
