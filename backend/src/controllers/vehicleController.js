@@ -19,6 +19,7 @@ const extractFileList = (document) => {
 };
 
 const isRemoteUrl = (value = '') => /^https?:\/\//i.test(value);
+const VALID_VEHICLE_STATES = ['activo', 'inactivo', 'en_mantenimiento'];
 
 export const vehicleController = {
   // Crear vehículo con toda la información
@@ -190,6 +191,7 @@ export const vehicleController = {
         vehicle: {
           ...completeVehicle,
           documents: completeVehicle.documentos || [],
+          maintenanceRecords: completeVehicle.mantenimientos || [],
           safetyElements: completeVehicle.elementos_seguridad || [],
           photos: completeVehicle.fotografias || []
         },
@@ -226,6 +228,7 @@ export const vehicleController = {
       res.json({
         ...vehicle,
         documents: vehicle.documentos || [],
+        maintenanceRecords: vehicle.mantenimientos || [],
         safetyElements: vehicle.elementos_seguridad || [],
         photos: vehicle.fotografias || []
       });
@@ -236,6 +239,427 @@ export const vehicleController = {
         error: error.message
       });
     }
+  },
+
+  async getSafetyElements(req, res) {
+    try {
+      const { vehicleId } = req.params;
+      const vehicle = await vehicleModel.getVehicleById(vehicleId);
+
+      if (!vehicle) {
+        return res.status(404).json({
+          message: 'Vehículo no encontrado'
+        });
+      }
+
+      const safetyElements = await vehicleModel.getSafetyElementsByVehicleId(vehicleId);
+
+      res.json({
+        vehicleId,
+        vehicleStatus: vehicle.estado || 'activo',
+        safetyElements
+      });
+    } catch (error) {
+      console.error('Error obteniendo elementos de seguridad:', error);
+      res.status(500).json({
+        message: 'Error al obtener elementos de seguridad',
+        error: error.message
+      });
+    }
+  },
+
+  async getMaintenanceRecordById(req, res) {
+    try {
+      const { vehicleId, maintenanceId } = req.params;
+      const maintenanceRecord = await vehicleModel.getMaintenanceRecordById(vehicleId, maintenanceId);
+
+      if (!maintenanceRecord) {
+        return res.status(404).json({
+          message: 'Registro de mantenimiento no encontrado'
+        });
+      }
+
+      const fileRows = await vehicleModel.getMaintenanceFilesMetadata(maintenanceId);
+
+      res.json({
+        ...maintenanceRecord,
+        archivos_json: JSON.stringify(fileRows.map((fileRow, index) => ({
+          id: fileRow.id,
+          nombre_original: fileRow.nombre_original,
+          tipo_mime: fileRow.tipo_mime,
+          tamano: Number(fileRow.tamano_bytes || 0),
+          tamano_bytes: Number(fileRow.tamano_bytes || 0),
+          orden: fileRow.orden ?? index + 1,
+          download_url: `/api/vehicles/${vehicleId}/maintenance-records/${maintenanceId}/download?fileIndex=${index}`
+        })))
+      });
+    } catch (error) {
+      console.error('Error obteniendo registro de mantenimiento:', error);
+      res.status(500).json({
+        message: 'Error al obtener registro de mantenimiento',
+        error: error.message
+      });
+    }
+  },
+
+  async createMaintenanceRecord(req, res) {
+    try {
+      const { vehicleId } = req.params;
+      const vehicle = await vehicleModel.getVehicleById(vehicleId);
+
+      if (!vehicle) {
+        return res.status(404).json({
+          message: 'Vehículo no encontrado'
+        });
+      }
+
+      const maintenanceData = {
+        titulo: req.body.titulo?.trim(),
+        tipo_mantenimiento: req.body.tipo_mantenimiento?.trim(),
+        fecha_servicio: req.body.fecha_servicio,
+        costo: Number(req.body.costo || 0),
+        proveedor: req.body.proveedor?.trim() || '',
+        descripcion: req.body.descripcion?.trim() || '',
+        observaciones: req.body.observaciones?.trim() || ''
+      };
+
+      if (!maintenanceData.titulo || !maintenanceData.tipo_mantenimiento || !maintenanceData.fecha_servicio) {
+        return res.status(400).json({
+          message: 'Título, tipo de mantenimiento y fecha de servicio son requeridos'
+        });
+      }
+
+      const maintenanceRecord = await vehicleModel.createMaintenanceRecord(vehicleId, maintenanceData);
+
+      if (req.files && req.files.length > 0) {
+        await vehicleModel.addMaintenanceFiles(maintenanceRecord.id, req.files);
+      }
+
+      const createdRecord = await vehicleController.getMaintenanceRecordPayload(vehicleId, maintenanceRecord.id);
+
+      res.status(201).json({
+        message: 'Registro de mantenimiento creado correctamente',
+        maintenanceRecord: createdRecord
+      });
+    } catch (error) {
+      if (error.code === '42P01') {
+        return res.status(503).json({
+          message: 'El historial de mantenimiento aún no está disponible en la base de datos. Ejecuta la migración 013.'
+        });
+      }
+      console.error('Error creando registro de mantenimiento:', error);
+      res.status(500).json({
+        message: 'Error al crear registro de mantenimiento',
+        error: error.message
+      });
+    }
+  },
+
+  async updateMaintenanceRecord(req, res) {
+    try {
+      const { vehicleId, maintenanceId } = req.params;
+      const existingRecord = await vehicleModel.getMaintenanceRecordById(vehicleId, maintenanceId);
+
+      if (!existingRecord) {
+        return res.status(404).json({
+          message: 'Registro de mantenimiento no encontrado'
+        });
+      }
+
+      const maintenanceData = {
+        titulo: req.body.titulo?.trim(),
+        tipo_mantenimiento: req.body.tipo_mantenimiento?.trim(),
+        fecha_servicio: req.body.fecha_servicio,
+        costo: Number(req.body.costo || 0),
+        proveedor: req.body.proveedor?.trim() || '',
+        descripcion: req.body.descripcion?.trim() || '',
+        observaciones: req.body.observaciones?.trim() || ''
+      };
+
+      if (!maintenanceData.titulo || !maintenanceData.tipo_mantenimiento || !maintenanceData.fecha_servicio) {
+        return res.status(400).json({
+          message: 'Título, tipo de mantenimiento y fecha de servicio son requeridos'
+        });
+      }
+
+      await vehicleModel.updateMaintenanceRecord(vehicleId, maintenanceId, maintenanceData);
+
+      if (req.files && req.files.length > 0) {
+        await vehicleModel.addMaintenanceFiles(maintenanceId, req.files);
+      }
+
+      const updatedRecord = await vehicleController.getMaintenanceRecordPayload(vehicleId, maintenanceId);
+
+      res.json({
+        message: 'Registro de mantenimiento actualizado correctamente',
+        maintenanceRecord: updatedRecord
+      });
+    } catch (error) {
+      if (error.code === '42P01') {
+        return res.status(503).json({
+          message: 'El historial de mantenimiento aún no está disponible en la base de datos. Ejecuta la migración 013.'
+        });
+      }
+      console.error('Error actualizando registro de mantenimiento:', error);
+      res.status(500).json({
+        message: 'Error al actualizar registro de mantenimiento',
+        error: error.message
+      });
+    }
+  },
+
+  async deleteMaintenanceRecord(req, res) {
+    try {
+      const { vehicleId, maintenanceId } = req.params;
+      const deletedRecord = await vehicleModel.deleteMaintenanceRecord(vehicleId, maintenanceId);
+
+      if (!deletedRecord) {
+        return res.status(404).json({
+          message: 'Registro de mantenimiento no encontrado'
+        });
+      }
+
+      res.json({
+        message: 'Registro de mantenimiento eliminado correctamente'
+      });
+    } catch (error) {
+      if (error.code === '42P01') {
+        return res.status(503).json({
+          message: 'El historial de mantenimiento aún no está disponible en la base de datos. Ejecuta la migración 013.'
+        });
+      }
+      console.error('Error eliminando registro de mantenimiento:', error);
+      res.status(500).json({
+        message: 'Error al eliminar registro de mantenimiento',
+        error: error.message
+      });
+    }
+  },
+
+  async downloadMaintenanceFile(req, res) {
+    try {
+      const { vehicleId, maintenanceId } = req.params;
+      const parsedIndex = Number.parseInt(req.query.fileIndex ?? '0', 10);
+      const fileIndex = Number.isNaN(parsedIndex) || parsedIndex < 0 ? 0 : parsedIndex;
+
+      const selectedFile = await vehicleModel.getMaintenanceFileByIndex(vehicleId, maintenanceId, fileIndex);
+      if (!selectedFile?.archivo_data) {
+        return res.status(404).json({
+          message: 'Archivo de mantenimiento no encontrado'
+        });
+      }
+
+      const fileName = selectedFile.nombre_original || 'mantenimiento.bin';
+      const fileSize = Buffer.isBuffer(selectedFile.archivo_data)
+        ? selectedFile.archivo_data.length
+        : selectedFile.tamano_bytes || 0;
+
+      res.setHeader('Content-Type', selectedFile.tipo_mime || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.setHeader('Content-Length', fileSize);
+      return res.send(selectedFile.archivo_data);
+    } catch (error) {
+      if (error.code === '42P01') {
+        return res.status(503).json({
+          message: 'El historial de mantenimiento aún no está disponible en la base de datos. Ejecuta la migración 013.'
+        });
+      }
+      console.error('Error descargando archivo de mantenimiento:', error);
+      res.status(500).json({
+        message: 'Error al descargar archivo de mantenimiento',
+        error: error.message
+      });
+    }
+  },
+
+  async deleteMaintenanceFile(req, res) {
+    try {
+      const { vehicleId, maintenanceId, fileId } = req.params;
+      const maintenanceRecord = await vehicleModel.getMaintenanceRecordById(vehicleId, maintenanceId);
+
+      if (!maintenanceRecord) {
+        return res.status(404).json({
+          message: 'Registro de mantenimiento no encontrado'
+        });
+      }
+
+      const deletedFile = await vehicleModel.deleteMaintenanceFile(maintenanceId, fileId);
+
+      if (!deletedFile) {
+        return res.status(404).json({
+          message: 'Archivo no encontrado'
+        });
+      }
+
+      const updatedRecord = await vehicleController.getMaintenanceRecordPayload(vehicleId, maintenanceId);
+
+      res.json({
+        message: 'Archivo eliminado correctamente',
+        maintenanceRecord: updatedRecord
+      });
+    } catch (error) {
+      if (error.code === '42P01') {
+        return res.status(503).json({
+          message: 'El historial de mantenimiento aún no está disponible en la base de datos. Ejecuta la migración 013.'
+        });
+      }
+      console.error('Error eliminando archivo de mantenimiento:', error);
+      res.status(500).json({
+        message: 'Error al eliminar archivo de mantenimiento',
+        error: error.message
+      });
+    }
+  },
+
+  async createSafetyElements(req, res) {
+    try {
+      const { vehicleId } = req.params;
+      const { safetyElements = [], estado } = req.body;
+      const vehicle = await vehicleModel.getVehicleById(vehicleId);
+
+      if (!vehicle) {
+        return res.status(404).json({
+          message: 'Vehículo no encontrado'
+        });
+      }
+
+      const currentElements = vehicle.elementos_seguridad || [];
+      const normalizedElements = Array.isArray(safetyElements) ? safetyElements : [];
+
+      for (const element of normalizedElements) {
+        const elementId = Number(element.elemento_seguridad_id || element.id);
+        if (!elementId) continue;
+
+        const existing = currentElements.find(
+          (item) => Number(item.elemento_seguridad_id) === elementId
+        );
+
+        const resolvedObservation = typeof element.observaciones === 'string'
+          ? element.observaciones.trim()
+          : (existing?.observaciones || '');
+        const resolvedStatus = element.estatus || existing?.estatus || (resolvedObservation ? 'pendiente' : null);
+
+        if (!resolvedStatus) continue;
+
+        await vehicleModel.createSafetyElement(vehicleId, {
+          elemento_seguridad_id: elementId,
+          estatus: resolvedStatus,
+          observaciones: resolvedObservation
+        });
+      }
+
+      if (estado && VALID_VEHICLE_STATES.includes(estado)) {
+        await vehicleModel.updateVehicleStatus(vehicleId, estado);
+      }
+
+      const updatedVehicle = await vehicleModel.getVehicleById(vehicleId);
+
+      res.status(201).json({
+        message: 'Elementos de seguridad guardados correctamente',
+        vehicleId,
+        vehicleStatus: updatedVehicle?.estado || vehicle.estado || 'activo',
+        safetyElements: updatedVehicle?.elementos_seguridad || []
+      });
+    } catch (error) {
+      console.error('Error guardando elementos de seguridad:', error);
+      res.status(500).json({
+        message: 'Error al guardar elementos de seguridad',
+        error: error.message
+      });
+    }
+  },
+
+  async updateSafetyElement(req, res) {
+    try {
+      const { vehicleId, elementId } = req.params;
+      const vehicle = await vehicleModel.getVehicleById(vehicleId);
+
+      if (!vehicle) {
+        return res.status(404).json({
+          message: 'Vehículo no encontrado'
+        });
+      }
+
+      const existing = await vehicleModel.getSafetyElementByVehicleAndElementId(vehicleId, Number(elementId));
+      const resolvedObservation = typeof req.body.observaciones === 'string'
+        ? req.body.observaciones.trim()
+        : (existing?.observaciones || '');
+      const resolvedStatus = req.body.estatus || existing?.estatus || (resolvedObservation ? 'pendiente' : null);
+
+      if (!resolvedStatus) {
+        return res.status(400).json({
+          message: 'El estatus es requerido para guardar el elemento de seguridad'
+        });
+      }
+
+      const updatedElement = await vehicleModel.createSafetyElement(vehicleId, {
+        elemento_seguridad_id: Number(elementId),
+        estatus: resolvedStatus,
+        observaciones: resolvedObservation
+      });
+
+      res.json({
+        message: 'Elemento de seguridad actualizado correctamente',
+        safetyElement: updatedElement
+      });
+    } catch (error) {
+      console.error('Error actualizando elemento de seguridad:', error);
+      res.status(500).json({
+        message: 'Error al actualizar elemento de seguridad',
+        error: error.message
+      });
+    }
+  },
+
+  async deleteSafetyElement(req, res) {
+    try {
+      const { vehicleId, elementId } = req.params;
+      const vehicle = await vehicleModel.getVehicleById(vehicleId);
+
+      if (!vehicle) {
+        return res.status(404).json({
+          message: 'Vehículo no encontrado'
+        });
+      }
+
+      const deletedElement = await vehicleModel.deleteSafetyElement(vehicleId, Number(elementId));
+
+      if (!deletedElement) {
+        return res.status(404).json({
+          message: 'Elemento de seguridad no encontrado'
+        });
+      }
+
+      res.json({
+        message: 'Elemento de seguridad eliminado correctamente'
+      });
+    } catch (error) {
+      console.error('Error eliminando elemento de seguridad:', error);
+      res.status(500).json({
+        message: 'Error al eliminar elemento de seguridad',
+        error: error.message
+      });
+    }
+  },
+
+  async getMaintenanceRecordPayload(vehicleId, maintenanceId) {
+    const maintenanceRecord = await vehicleModel.getMaintenanceRecordById(vehicleId, maintenanceId);
+    if (!maintenanceRecord) return null;
+
+    const fileRows = await vehicleModel.getMaintenanceFilesMetadata(maintenanceId);
+
+    return {
+      ...maintenanceRecord,
+      archivos_json: JSON.stringify(fileRows.map((fileRow, index) => ({
+        id: fileRow.id,
+        nombre_original: fileRow.nombre_original,
+        tipo_mime: fileRow.tipo_mime,
+        tamano: Number(fileRow.tamano_bytes || 0),
+        tamano_bytes: Number(fileRow.tamano_bytes || 0),
+        orden: fileRow.orden ?? index + 1,
+        download_url: `/api/vehicles/${vehicleId}/maintenance-records/${maintenanceId}/download?fileIndex=${index}`
+      })))
+    };
   },
 
   // Listar vehículos
@@ -368,7 +792,7 @@ export const vehicleController = {
       }
 
       // 3.5 Actualizar estado del vehículo si se proporciona
-      if (estado && ['activo', 'inactivo', 'en_mantenimiento'].includes(estado)) {
+      if (estado && VALID_VEHICLE_STATES.includes(estado)) {
         try {
           await vehicleModel.updateVehicleStatus(id, estado);
           console.log(`✅ Estado del vehículo actualizado a: ${estado}`);
@@ -448,6 +872,7 @@ export const vehicleController = {
       res.json({
         ...updatedVehicle,
         documents: updatedVehicle.documentos || [],
+        maintenanceRecords: updatedVehicle.mantenimientos || [],
         safetyElements: updatedVehicle.elementos_seguridad || [],
         photos: updatedVehicle.fotografias || []
       });

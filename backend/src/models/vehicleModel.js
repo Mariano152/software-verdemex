@@ -1,5 +1,23 @@
 import pool, { query } from '../config/database.js';
 
+const normalizeSafetyStatus = (status) => {
+  if (status === 'incorrecto') return 'pendiente';
+  return status;
+};
+
+const getSafetyStatusVariants = (status) => {
+  const normalizedStatus = normalizeSafetyStatus(status);
+  if (normalizedStatus === 'pendiente') {
+    return ['pendiente', 'incorrecto'];
+  }
+
+  if (normalizedStatus === 'incorrecto') {
+    return ['incorrecto', 'pendiente'];
+  }
+
+  return [normalizedStatus];
+};
+
 const mapDocumentFileRow = (fileRow, vehicleId, documentId, index) => ({
   id: fileRow.id,
   nombre_original: fileRow.nombre_original,
@@ -24,6 +42,16 @@ const buildLegacyDocumentFile = (document, vehicleId, documentId) => {
     ruta_legacy: document.archivo_url
   }];
 };
+
+const mapMaintenanceFileRow = (fileRow, vehicleId, maintenanceId, index) => ({
+  id: fileRow.id,
+  nombre_original: fileRow.nombre_original,
+  tipo_mime: fileRow.tipo_mime,
+  tamano: Number(fileRow.tamano_bytes || 0),
+  tamano_bytes: Number(fileRow.tamano_bytes || 0),
+  orden: fileRow.orden ?? index + 1,
+  download_url: `/api/vehicles/${vehicleId}/maintenance-records/${maintenanceId}/download?fileIndex=${index}`
+});
 
 export const vehicleModel = {
   async createVehicle(vehicleData) {
@@ -64,18 +92,275 @@ export const vehicleModel = {
 
   async createSafetyElement(vehicleId, elementData) {
     const { elemento_seguridad_id, estatus, observaciones } = elementData;
+    const statusVariants = getSafetyStatusVariants(estatus);
+    let lastError = null;
+
+    for (const candidateStatus of statusVariants) {
+      try {
+        const result = await query(
+          `INSERT INTO vehiculo_elementos_seguridad
+           (vehiculo_id, elemento_seguridad_id, estatus, observaciones, deleted_at)
+           VALUES ($1, $2, $3, $4, NULL)
+           ON CONFLICT (vehiculo_id, elemento_seguridad_id)
+           DO UPDATE SET estatus = $3, observaciones = $4, deleted_at = NULL, updated_at = NOW()
+           RETURNING *`,
+          [vehicleId, elemento_seguridad_id, candidateStatus, observaciones]
+        );
+
+        return result.rows[0];
+      } catch (error) {
+        lastError = error;
+        if (error.code !== '23514' || candidateStatus === statusVariants[statusVariants.length - 1]) {
+          throw error;
+        }
+      }
+    }
+
+    throw lastError;
+  },
+
+  async getSafetyElementsByVehicleId(vehicleId) {
+    const result = await query(
+      `SELECT e.*, s.nombre as elemento_nombre
+       FROM vehiculo_elementos_seguridad e
+       JOIN catalogo_elementos_seguridad s ON e.elemento_seguridad_id = s.id
+       WHERE e.vehiculo_id = $1 AND e.deleted_at IS NULL
+       ORDER BY e.elemento_seguridad_id ASC`,
+      [vehicleId]
+    );
+
+    return result.rows;
+  },
+
+  async getSafetyElementByVehicleAndElementId(vehicleId, elementId) {
+    const result = await query(
+      `SELECT e.*, s.nombre as elemento_nombre
+       FROM vehiculo_elementos_seguridad e
+       JOIN catalogo_elementos_seguridad s ON e.elemento_seguridad_id = s.id
+       WHERE e.vehiculo_id = $1
+         AND e.elemento_seguridad_id = $2
+         AND e.deleted_at IS NULL
+       LIMIT 1`,
+      [vehicleId, elementId]
+    );
+
+    return result.rows[0] || null;
+  },
+
+  async deleteSafetyElement(vehicleId, elementId) {
+    const result = await query(
+      `UPDATE vehiculo_elementos_seguridad
+       SET deleted_at = NOW(), updated_at = NOW()
+       WHERE vehiculo_id = $1
+         AND elemento_seguridad_id = $2
+         AND deleted_at IS NULL
+       RETURNING *`,
+      [vehicleId, elementId]
+    );
+
+    return result.rows[0] || null;
+  },
+
+  async createMaintenanceRecord(vehicleId, maintenanceData) {
+    const {
+      titulo,
+      tipo_mantenimiento,
+      fecha_servicio,
+      costo,
+      proveedor,
+      descripcion,
+      observaciones
+    } = maintenanceData;
 
     const result = await query(
-      `INSERT INTO vehiculo_elementos_seguridad
-       (vehiculo_id, elemento_seguridad_id, estatus, observaciones, deleted_at)
-       VALUES ($1, $2, $3, $4, NULL)
-       ON CONFLICT (vehiculo_id, elemento_seguridad_id)
-       DO UPDATE SET estatus = $3, observaciones = $4, deleted_at = NULL, updated_at = NOW()
+      `INSERT INTO vehiculo_mantenimientos
+       (vehiculo_id, titulo, tipo_mantenimiento, fecha_servicio, costo, proveedor, descripcion, observaciones)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
-      [vehicleId, elemento_seguridad_id, estatus, observaciones]
+      [vehicleId, titulo, tipo_mantenimiento, fecha_servicio, costo, proveedor, descripcion, observaciones]
     );
 
     return result.rows[0];
+  },
+
+  async updateMaintenanceRecord(vehicleId, maintenanceId, maintenanceData) {
+    const {
+      titulo,
+      tipo_mantenimiento,
+      fecha_servicio,
+      costo,
+      proveedor,
+      descripcion,
+      observaciones
+    } = maintenanceData;
+
+    const result = await query(
+      `UPDATE vehiculo_mantenimientos
+       SET titulo = $1,
+           tipo_mantenimiento = $2,
+           fecha_servicio = $3,
+           costo = $4,
+           proveedor = $5,
+           descripcion = $6,
+           observaciones = $7,
+           updated_at = NOW()
+       WHERE id = $8 AND vehiculo_id = $9 AND deleted_at IS NULL
+       RETURNING *`,
+      [titulo, tipo_mantenimiento, fecha_servicio, costo, proveedor, descripcion, observaciones, maintenanceId, vehicleId]
+    );
+
+    return result.rows[0] || null;
+  },
+
+  async getMaintenanceRecordsByVehicleId(vehicleId) {
+    try {
+      const result = await query(
+        `SELECT *
+         FROM vehiculo_mantenimientos
+         WHERE vehiculo_id = $1 AND deleted_at IS NULL
+         ORDER BY fecha_servicio DESC, created_at DESC`,
+        [vehicleId]
+      );
+
+      return result.rows;
+    } catch (error) {
+      if (error.code === '42P01') {
+        return [];
+      }
+      throw error;
+    }
+  },
+
+  async getMaintenanceRecordById(vehicleId, maintenanceId) {
+    try {
+      const result = await query(
+        `SELECT *
+         FROM vehiculo_mantenimientos
+         WHERE vehiculo_id = $1 AND id = $2 AND deleted_at IS NULL
+         LIMIT 1`,
+        [vehicleId, maintenanceId]
+      );
+
+      return result.rows[0] || null;
+    } catch (error) {
+      if (error.code === '42P01') {
+        return null;
+      }
+      throw error;
+    }
+  },
+
+  async addMaintenanceFiles(maintenanceId, files = []) {
+    if (!files.length) return [];
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const insertedFiles = [];
+      for (const [index, file] of files.entries()) {
+        const result = await client.query(
+          `INSERT INTO vehiculo_mantenimiento_archivos
+           (vehiculo_mantenimiento_id, nombre_original, tipo_mime, tamano_bytes, archivo_data, orden)
+           VALUES ($1, $2, $3, $4, $5, $6)
+           RETURNING *`,
+          [
+            maintenanceId,
+            file.originalname,
+            file.mimetype,
+            file.size,
+            file.buffer,
+            index + 1
+          ]
+        );
+
+        insertedFiles.push(result.rows[0]);
+      }
+
+      await client.query('COMMIT');
+      return insertedFiles;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  },
+
+  async getMaintenanceFilesMetadata(maintenanceId) {
+    try {
+      const result = await query(
+        `SELECT id, vehiculo_mantenimiento_id, nombre_original, tipo_mime, tamano_bytes, orden, created_at
+         FROM vehiculo_mantenimiento_archivos
+         WHERE vehiculo_mantenimiento_id = $1 AND deleted_at IS NULL
+         ORDER BY orden ASC, created_at ASC`,
+        [maintenanceId]
+      );
+
+      return result.rows;
+    } catch (error) {
+      if (error.code === '42P01') {
+        return [];
+      }
+      throw error;
+    }
+  },
+
+  async getMaintenanceFileByIndex(vehicleId, maintenanceId, fileIndex = 0) {
+    const safeIndex = Number.isInteger(fileIndex) && fileIndex >= 0 ? fileIndex : 0;
+    const result = await query(
+      `SELECT
+         m.id AS maintenance_id,
+         f.id,
+         f.nombre_original,
+         f.tipo_mime,
+         f.tamano_bytes,
+         f.archivo_data,
+         f.orden
+       FROM vehiculo_mantenimientos m
+       LEFT JOIN vehiculo_mantenimiento_archivos f
+         ON f.vehiculo_mantenimiento_id = m.id
+        AND f.deleted_at IS NULL
+       WHERE m.vehiculo_id = $1
+         AND m.id = $2
+         AND m.deleted_at IS NULL
+       ORDER BY f.orden ASC NULLS LAST, f.created_at ASC NULLS LAST
+       LIMIT 1 OFFSET $3`,
+      [vehicleId, maintenanceId, safeIndex]
+    );
+
+    return result.rows[0] || null;
+  },
+
+  async deleteMaintenanceFile(maintenanceId, fileId) {
+    const result = await query(
+      `UPDATE vehiculo_mantenimiento_archivos
+       SET deleted_at = NOW(), updated_at = NOW()
+       WHERE id = $1 AND vehiculo_mantenimiento_id = $2 AND deleted_at IS NULL
+       RETURNING *`,
+      [fileId, maintenanceId]
+    );
+
+    return result.rows[0] || null;
+  },
+
+  async deleteMaintenanceRecord(vehicleId, maintenanceId) {
+    const result = await query(
+      `UPDATE vehiculo_mantenimientos
+       SET deleted_at = NOW(), updated_at = NOW()
+       WHERE vehiculo_id = $1 AND id = $2 AND deleted_at IS NULL
+       RETURNING *`,
+      [vehicleId, maintenanceId]
+    );
+
+    await query(
+      `UPDATE vehiculo_mantenimiento_archivos
+       SET deleted_at = NOW(), updated_at = NOW()
+       WHERE vehiculo_mantenimiento_id = $1 AND deleted_at IS NULL`,
+      [maintenanceId]
+    );
+
+    return result.rows[0] || null;
   },
 
   async createPhoto(vehicleId, photoData) {
@@ -260,13 +545,8 @@ export const vehicleModel = {
       [vehicleId]
     );
 
-    const safetyResult = await query(
-      `SELECT e.*, s.nombre as elemento_nombre
-       FROM vehiculo_elementos_seguridad e
-       JOIN catalogo_elementos_seguridad s ON e.elemento_seguridad_id = s.id
-       WHERE e.vehiculo_id = $1 AND e.deleted_at IS NULL`,
-      [vehicleId]
-    );
+    const safetyRows = await vehicleModel.getSafetyElementsByVehicleId(vehicleId);
+    const maintenanceRows = await vehicleModel.getMaintenanceRecordsByVehicleId(vehicleId);
 
     const photosResult = await query(
       `SELECT * FROM vehiculo_fotografias
@@ -289,10 +569,25 @@ export const vehicleModel = {
       })
     );
 
+    const maintenanceRecords = await Promise.all(
+      maintenanceRows.map(async (record) => {
+        const fileRows = await vehicleModel.getMaintenanceFilesMetadata(record.id);
+        const normalizedFiles = fileRows.map((fileRow, fileIndex) =>
+          mapMaintenanceFileRow(fileRow, vehicleId, record.id, fileIndex)
+        );
+
+        return {
+          ...record,
+          archivos_json: JSON.stringify(normalizedFiles)
+        };
+      })
+    );
+
     return {
       ...vehicle,
       documentos: documents,
-      elementos_seguridad: safetyResult.rows,
+      mantenimientos: maintenanceRecords,
+      elementos_seguridad: safetyRows,
       fotografias: photosResult.rows
     };
   },

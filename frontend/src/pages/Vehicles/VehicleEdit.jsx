@@ -99,8 +99,8 @@ export default function VehicleEdit() {
       const token = localStorage.getItem('authToken');
       console.log('📤 Guardando mantenimiento y estado...', { safetyElements, vehicleState });
       
-      const response = await fetch(`/api/vehicles/${id}`, {
-        method: 'PUT',
+      const response = await fetch(`/api/vehicles/${id}/safety-elements`, {
+        method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
@@ -108,11 +108,18 @@ export default function VehicleEdit() {
         body: JSON.stringify({ safetyElements, estado: vehicleState })
       });
 
-      if (!response.ok) throw new Error('Error al guardar mantenimiento');
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || 'Error al guardar mantenimiento');
+      }
 
-      const updated = await response.json();
-      console.log('✅ Mantenimiento y estado guardados:', updated);
-      setVehicle(updated);
+      const savedData = await response.json();
+      console.log('✅ Mantenimiento y estado guardados:', savedData);
+      setVehicle((prev) => ({
+        ...prev,
+        estado: savedData.vehicleStatus || vehicleState,
+        safetyElements: savedData.safetyElements || []
+      }));
       
       setNotification({
         type: 'success',
@@ -123,6 +130,96 @@ export default function VehicleEdit() {
       console.error('❌ Error al guardar mantenimiento:', err);
       throw new Error(err.message);
     }
+  };
+
+  const handleCreateMaintenanceRecord = async (formData, files = []) => {
+    const token = localStorage.getItem('authToken');
+    const payload = new FormData();
+
+    Object.entries(formData).forEach(([key, value]) => {
+      payload.append(key, value ?? '');
+    });
+
+    files.forEach((file) => {
+      payload.append('documento', file);
+    });
+
+    const response = await fetch(`/api/vehicles/${id}/maintenance-records`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: payload
+    });
+
+    const responseData = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(responseData.message || 'Error al crear mantenimiento');
+    }
+
+    const savedRecord = responseData.maintenanceRecord;
+    setVehicle((prev) => ({
+      ...prev,
+      maintenanceRecords: [savedRecord, ...(prev?.maintenanceRecords || [])]
+    }));
+
+    return savedRecord;
+  };
+
+  const handleUpdateMaintenanceRecord = async (recordId, formData, files = []) => {
+    const token = localStorage.getItem('authToken');
+    const payload = new FormData();
+
+    Object.entries(formData).forEach(([key, value]) => {
+      payload.append(key, value ?? '');
+    });
+
+    files.forEach((file) => {
+      payload.append('documento', file);
+    });
+
+    const response = await fetch(`/api/vehicles/${id}/maintenance-records/${recordId}`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: payload
+    });
+
+    const responseData = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(responseData.message || 'Error al actualizar mantenimiento');
+    }
+
+    const savedRecord = responseData.maintenanceRecord;
+    setVehicle((prev) => ({
+      ...prev,
+      maintenanceRecords: (prev?.maintenanceRecords || []).map((record) =>
+        record.id === savedRecord.id ? savedRecord : record
+      )
+    }));
+
+    return savedRecord;
+  };
+
+  const handleDeleteMaintenanceRecord = async (recordId) => {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`/api/vehicles/${id}/maintenance-records/${recordId}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    const responseData = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(responseData.message || 'Error al eliminar mantenimiento');
+    }
+
+    setVehicle((prev) => ({
+      ...prev,
+      maintenanceRecords: (prev?.maintenanceRecords || []).filter((record) => record.id !== recordId)
+    }));
   };
 
   const handlePhotosSave = async (photos) => {
@@ -264,9 +361,13 @@ export default function VehicleEdit() {
           // SECCIÓN MANTENIMIENTO
           <VehicleMaintenanceSection
             vehicleId={id}
+            maintenanceRecords={vehicle.maintenanceRecords || []}
             safetyElements={vehicle.safetyElements || []}
             vehicleStatus={vehicle.estado || 'activo'}
-            onSave={handleMaintenanceSave}
+            onSaveSafety={handleMaintenanceSave}
+            onCreateMaintenanceRecord={handleCreateMaintenanceRecord}
+            onUpdateMaintenanceRecord={handleUpdateMaintenanceRecord}
+            onDeleteMaintenanceRecord={handleDeleteMaintenanceRecord}
             onCancel={() => setActiveSection(null)}
             onBack={() => setActiveSection(null)}
           />
