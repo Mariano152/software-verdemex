@@ -1,4 +1,5 @@
 import { vehicleModel } from '../models/vehicleModel.js';
+import { vehicleHistoryModel } from '../models/vehicleHistoryModel.js';
 import { cloudinaryService } from '../services/cloudinaryService.js';
 
 const extractFileList = (document) => {
@@ -26,6 +27,62 @@ const VEHICLE_PHOTO_TYPES = [
   'torreta', 'proteccion_antiderrames', 'equipo_comunicacion',
   'arnes_y_conectores', 'equipo_proteccion_personal'
 ];
+const PHOTO_TYPE_LABELS = {
+  frente: 'Frente',
+  parte_trasera: 'Parte trasera',
+  lado_piloto: 'Lado piloto',
+  lado_copiloto: 'Lado copiloto',
+  senales_y_luces: 'Senales y luces',
+  estrobos: 'Estrobos',
+  extintor: 'Extintor',
+  rotulacion: 'Rotulacion',
+  torreta: 'Torreta',
+  proteccion_antiderrames: 'Proteccion antiderrames',
+  equipo_comunicacion: 'Equipo de comunicacion',
+  arnes_y_conectores: 'Arnes y conectores',
+  equipo_proteccion_personal: 'Equipo de proteccion personal'
+};
+
+const getPhotoTypeLabel = (photoType) => PHOTO_TYPE_LABELS[photoType] || photoType;
+
+const getDocumentTypeLabel = (document) => (
+  document?.tipo_nombre ||
+  document?.tipo_documento_id ||
+  'documento'
+);
+
+const normalizeText = (value) => String(value || '').trim();
+const normalizeNullableText = (value) => {
+  const normalized = normalizeText(value);
+  return normalized || null;
+};
+const normalizeNumber = (value) => {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? null : parsed;
+};
+const valuesAreDifferent = (previous, next) => {
+  if (previous === null && next === null) return false;
+  return previous !== next;
+};
+const buildChanges = (fieldMap, previousData, nextData) => (
+  Object.entries(fieldMap).reduce((changes, [field, label]) => {
+    const previous = previousData[field] ?? null;
+    const next = nextData[field] ?? null;
+
+    if (!valuesAreDifferent(previous, next)) {
+      return changes;
+    }
+
+    changes.push({
+      field,
+      label,
+      before: previous,
+      after: next
+    });
+    return changes;
+  }, [])
+);
 
 export const vehicleController = {
   // Crear vehículo con toda la información
@@ -153,6 +210,8 @@ export const vehicleController = {
 
       // 5. Procesar fotos adicionales (OPCIONAL - sin fotos está bien)
       let uploadedPhotos = 0;
+      const uploadedPhotoTypes = [];
+      const updatedDescriptionTypes = [];
 
       for (const photoType of VEHICLE_PHOTO_TYPES) {
         if (req.files && req.files[photoType]) {
@@ -174,6 +233,7 @@ export const vehicleController = {
             });
 
             uploadedPhotos++;
+            uploadedPhotoTypes.push(photoType);
             console.log(`✅ Foto upload: ${photoType} → Cloudinary`);
           } catch (photoError) {
             console.error(`⚠️ Error subiendo foto ${photoType}:`, photoError.message);
@@ -269,6 +329,35 @@ export const vehicleController = {
     }
   },
 
+  async getVehicleHistory(req, res) {
+    try {
+      const { vehicleId } = req.params;
+      const parsedLimit = Number.parseInt(req.query.limit ?? '', 10);
+      const limit = Number.isNaN(parsedLimit) || parsedLimit <= 0 ? null : parsedLimit;
+
+      const vehicle = await vehicleModel.getVehicleById(vehicleId);
+      if (!vehicle) {
+        return res.status(404).json({
+          message: 'Vehiculo no encontrado'
+        });
+      }
+
+      const history = await vehicleHistoryModel.getHistoryByVehicleId(vehicleId, { limit });
+
+      res.json({
+        vehicleId,
+        total: history.length,
+        history
+      });
+    } catch (error) {
+      console.error('Error obteniendo historial del vehiculo:', error);
+      res.status(500).json({
+        message: 'Error al obtener historial del vehiculo',
+        error: error.message
+      });
+    }
+  },
+
   async getMaintenanceRecordById(req, res) {
     try {
       const { vehicleId, maintenanceId } = req.params;
@@ -338,6 +427,33 @@ export const vehicleController = {
 
       const createdRecord = await vehicleController.getMaintenanceRecordPayload(vehicleId, maintenanceRecord.id);
 
+      await vehicleController.logHistory(req, vehicleId, {
+        module: 'mantenimiento',
+        action: 'crear',
+        entityType: 'maintenance_record',
+        entityId: maintenanceRecord.id,
+        description: `Agrego mantenimiento "${maintenanceData.titulo}" del tipo "${maintenanceData.tipo_mantenimiento}"`,
+        details: {
+          fecha_servicio: maintenanceData.fecha_servicio,
+          costo: maintenanceData.costo,
+          proveedor: maintenanceData.proveedor || null,
+          archivos_adjuntos: req.files?.length || 0
+        }
+      });
+
+      if (req.files && req.files.length > 0) {
+        await vehicleController.logHistory(req, vehicleId, {
+          module: 'mantenimiento',
+          action: 'agregar_archivo',
+          entityType: 'maintenance_file',
+          entityId: maintenanceRecord.id,
+          description: `Agrego ${req.files.length} documento(s) al mantenimiento "${maintenanceData.titulo}"`,
+          details: {
+            archivos_agregados: req.files.map((file) => file.originalname)
+          }
+        });
+      }
+
       res.status(201).json({
         message: 'Registro de mantenimiento creado correctamente',
         maintenanceRecord: createdRecord
@@ -390,6 +506,61 @@ export const vehicleController = {
       }
 
       const updatedRecord = await vehicleController.getMaintenanceRecordPayload(vehicleId, maintenanceId);
+      const changes = buildChanges(
+        {
+          titulo: 'Titulo',
+          tipo_mantenimiento: 'Tipo de mantenimiento',
+          fecha_servicio: 'Fecha de servicio',
+          costo: 'Costo',
+          proveedor: 'Proveedor',
+          descripcion: 'Descripcion',
+          observaciones: 'Observaciones'
+        },
+        {
+          titulo: normalizeNullableText(existingRecord.titulo),
+          tipo_mantenimiento: normalizeNullableText(existingRecord.tipo_mantenimiento),
+          fecha_servicio: normalizeNullableText(existingRecord.fecha_servicio),
+          costo: normalizeNumber(existingRecord.costo),
+          proveedor: normalizeNullableText(existingRecord.proveedor),
+          descripcion: normalizeNullableText(existingRecord.descripcion),
+          observaciones: normalizeNullableText(existingRecord.observaciones)
+        },
+        {
+          titulo: normalizeNullableText(maintenanceData.titulo),
+          tipo_mantenimiento: normalizeNullableText(maintenanceData.tipo_mantenimiento),
+          fecha_servicio: normalizeNullableText(maintenanceData.fecha_servicio),
+          costo: normalizeNumber(maintenanceData.costo),
+          proveedor: normalizeNullableText(maintenanceData.proveedor),
+          descripcion: normalizeNullableText(maintenanceData.descripcion),
+          observaciones: normalizeNullableText(maintenanceData.observaciones)
+        }
+      );
+
+      await vehicleController.logHistory(req, vehicleId, {
+        module: 'mantenimiento',
+        action: 'actualizar',
+        entityType: 'maintenance_record',
+        entityId: maintenanceId,
+        description: `Actualizo mantenimiento "${maintenanceData.titulo}"`,
+        details: {
+          changes,
+          archivos_nuevos: req.files?.length || 0
+        }
+      });
+
+      if (req.files && req.files.length > 0) {
+        await vehicleController.logHistory(req, vehicleId, {
+          module: 'mantenimiento',
+          action: 'agregar_archivo',
+          entityType: 'maintenance_file',
+          entityId: maintenanceId,
+          description: `Agrego ${req.files.length} documento(s) al mantenimiento "${maintenanceData.titulo}"`,
+          details: {
+            maintenance_id: maintenanceId,
+            archivos_agregados: req.files.map((file) => file.originalname)
+          }
+        });
+      }
 
       res.json({
         message: 'Registro de mantenimiento actualizado correctamente',
@@ -422,6 +593,17 @@ export const vehicleController = {
 
       res.json({
         message: 'Registro de mantenimiento eliminado correctamente'
+      });
+
+      await vehicleController.logHistory(req, vehicleId, {
+        module: 'mantenimiento',
+        action: 'eliminar',
+        entityType: 'maintenance_record',
+        entityId: maintenanceId,
+        description: `Elimino el mantenimiento "${deletedRecord.titulo || maintenanceId}"`,
+        details: {
+          fecha_servicio: deletedRecord.fecha_servicio || null
+        }
       });
     } catch (error) {
       if (error.code === '42P01') {
@@ -493,6 +675,18 @@ export const vehicleController = {
       }
 
       const updatedRecord = await vehicleController.getMaintenanceRecordPayload(vehicleId, maintenanceId);
+
+      await vehicleController.logHistory(req, vehicleId, {
+        module: 'mantenimiento',
+        action: 'eliminar_archivo',
+        entityType: 'maintenance_file',
+        entityId: fileId,
+        description: `Elimino un archivo adjunto del mantenimiento "${maintenanceRecord.titulo || maintenanceId}"`,
+        details: {
+          maintenance_id: maintenanceId,
+          archivo_id: fileId
+        }
+      });
 
       res.json({
         message: 'Archivo eliminado correctamente',
@@ -588,6 +782,35 @@ export const vehicleController = {
 
       const createdRecord = await vehicleController.getGasolineRecordPayload(vehicleId, gasolineRecord.id);
 
+      await vehicleController.logHistory(req, vehicleId, {
+        module: 'gasolina',
+        action: 'crear',
+        entityType: 'gasoline_record',
+        entityId: gasolineRecord.id,
+        description: `Agrego carga de gasolina "${gasolineData.titulo}"`,
+        details: {
+          fecha_carga: gasolineData.fecha_carga,
+          tipo_combustible: gasolineData.tipo_combustible,
+          costo_total: gasolineData.costo_total,
+          litros: gasolineData.litros,
+          proveedor: gasolineData.proveedor || null,
+          archivos_adjuntos: req.files?.length || 0
+        }
+      });
+
+      if (req.files && req.files.length > 0) {
+        await vehicleController.logHistory(req, vehicleId, {
+          module: 'gasolina',
+          action: 'agregar_archivo',
+          entityType: 'gasoline_file',
+          entityId: gasolineRecord.id,
+          description: `Agrego ${req.files.length} documento(s) a la carga de gasolina "${gasolineData.titulo}"`,
+          details: {
+            archivos_agregados: req.files.map((file) => file.originalname)
+          }
+        });
+      }
+
       res.status(201).json({
         message: 'Registro de gasolina creado correctamente',
         gasolineRecord: createdRecord
@@ -647,6 +870,61 @@ export const vehicleController = {
       }
 
       const updatedRecord = await vehicleController.getGasolineRecordPayload(vehicleId, gasolineId);
+      const changes = buildChanges(
+        {
+          titulo: 'Titulo',
+          tipo_combustible: 'Tipo de combustible',
+          costo_total: 'Costo total',
+          litros: 'Litros',
+          proveedor: 'Proveedor',
+          descripcion: 'Descripcion',
+          observaciones: 'Observaciones'
+        },
+        {
+          titulo: normalizeNullableText(existingRecord.titulo),
+          tipo_combustible: normalizeNullableText(existingRecord.tipo_combustible),
+          costo_total: normalizeNumber(existingRecord.costo_total),
+          litros: normalizeNumber(existingRecord.litros),
+          proveedor: normalizeNullableText(existingRecord.proveedor),
+          descripcion: normalizeNullableText(existingRecord.descripcion),
+          observaciones: normalizeNullableText(existingRecord.observaciones)
+        },
+        {
+          titulo: normalizeNullableText(gasolineData.titulo),
+          tipo_combustible: normalizeNullableText(gasolineData.tipo_combustible),
+          costo_total: normalizeNumber(gasolineData.costo_total),
+          litros: normalizeNumber(gasolineData.litros),
+          proveedor: normalizeNullableText(gasolineData.proveedor),
+          descripcion: normalizeNullableText(gasolineData.descripcion),
+          observaciones: normalizeNullableText(gasolineData.observaciones)
+        }
+      );
+
+      await vehicleController.logHistory(req, vehicleId, {
+        module: 'gasolina',
+        action: 'actualizar',
+        entityType: 'gasoline_record',
+        entityId: gasolineId,
+        description: `Actualizo la carga de gasolina "${gasolineData.titulo}"`,
+        details: {
+          changes,
+          archivos_nuevos: req.files?.length || 0
+        }
+      });
+
+      if (req.files && req.files.length > 0) {
+        await vehicleController.logHistory(req, vehicleId, {
+          module: 'gasolina',
+          action: 'agregar_archivo',
+          entityType: 'gasoline_file',
+          entityId: gasolineId,
+          description: `Agrego ${req.files.length} documento(s) a la carga de gasolina "${gasolineData.titulo}"`,
+          details: {
+            gasoline_id: gasolineId,
+            archivos_agregados: req.files.map((file) => file.originalname)
+          }
+        });
+      }
 
       res.json({
         message: 'Registro de gasolina actualizado correctamente',
@@ -679,6 +957,17 @@ export const vehicleController = {
 
       res.json({
         message: 'Registro de gasolina eliminado correctamente'
+      });
+
+      await vehicleController.logHistory(req, vehicleId, {
+        module: 'gasolina',
+        action: 'eliminar',
+        entityType: 'gasoline_record',
+        entityId: gasolineId,
+        description: `Elimino la carga de gasolina "${deletedRecord.titulo || gasolineId}"`,
+        details: {
+          fecha_carga: deletedRecord.fecha_carga || null
+        }
       });
     } catch (error) {
       if (error.code === '42P01') {
@@ -751,6 +1040,18 @@ export const vehicleController = {
 
       const updatedRecord = await vehicleController.getGasolineRecordPayload(vehicleId, gasolineId);
 
+      await vehicleController.logHistory(req, vehicleId, {
+        module: 'gasolina',
+        action: 'eliminar_archivo',
+        entityType: 'gasoline_file',
+        entityId: fileId,
+        description: `Elimino un archivo adjunto de la carga de gasolina "${gasolineRecord.titulo || gasolineId}"`,
+        details: {
+          gasoline_id: gasolineId,
+          archivo_id: fileId
+        }
+      });
+
       res.json({
         message: 'Archivo eliminado correctamente',
         gasolineRecord: updatedRecord
@@ -811,6 +1112,80 @@ export const vehicleController = {
       }
 
       const updatedVehicle = await vehicleModel.getVehicleById(vehicleId);
+
+      const changedElements = normalizedElements.filter((element) => {
+        const elementId = Number(element.elemento_seguridad_id || element.id);
+        if (!elementId) return false;
+
+        const previous = currentElements.find(
+          (item) => Number(item.elemento_seguridad_id) === elementId
+        );
+
+        const previousStatus = normalizeText(previous?.estatus);
+        const previousObservation = normalizeText(previous?.observaciones);
+        const nextStatus = normalizeText(element.estatus);
+        const nextObservation = normalizeText(element.observaciones);
+
+        return previousStatus !== nextStatus || previousObservation !== nextObservation;
+      });
+
+      const stateChanged = estado && vehicle.estado !== updatedVehicle?.estado;
+
+      if (changedElements.length > 0 || stateChanged) {
+        const detailParts = [];
+        if (changedElements.length > 0) {
+          detailParts.push(`actualizo ${changedElements.length} elemento(s) de seguridad`);
+        }
+        if (stateChanged) {
+          detailParts.push(`cambio el estado del vehiculo de "${vehicle.estado}" a "${updatedVehicle?.estado}"`);
+        }
+
+        await vehicleController.logHistory(req, vehicleId, {
+          module: 'mantenimiento',
+          action: 'actualizar',
+          entityType: 'safety_and_status',
+          entityId: vehicleId,
+          description: `Actualizo mantenimiento: ${detailParts.join(' y ')}`,
+          details: {
+            elementos_actualizados: changedElements.map((item) => ({
+              elemento_seguridad_id: item.elemento_seguridad_id || item.id,
+              elemento_nombre: (() => {
+                const previous = currentElements.find(
+                  (element) => Number(element.elemento_seguridad_id) === Number(item.elemento_seguridad_id || item.id)
+                );
+                return previous?.elemento_nombre || `Elemento ${item.elemento_seguridad_id || item.id}`;
+              })(),
+              changes: buildChanges(
+                {
+                  estatus: 'Estatus',
+                  observaciones: 'Observaciones'
+                },
+                (() => {
+                  const previous = currentElements.find(
+                    (element) => Number(element.elemento_seguridad_id) === Number(item.elemento_seguridad_id || item.id)
+                  );
+                  return {
+                    estatus: normalizeNullableText(previous?.estatus),
+                    observaciones: normalizeNullableText(previous?.observaciones)
+                  };
+                })(),
+                {
+                  estatus: normalizeNullableText(item.estatus),
+                  observaciones: normalizeNullableText(item.observaciones)
+                }
+              )
+            })),
+            estado_changes: stateChanged
+              ? [{
+                  field: 'estado',
+                  label: 'Estado del vehiculo',
+                  before: vehicle.estado || null,
+                  after: updatedVehicle?.estado || null
+                }]
+              : []
+          }
+        });
+      }
 
       res.status(201).json({
         message: 'Elementos de seguridad guardados correctamente',
@@ -941,6 +1316,25 @@ export const vehicleController = {
   },
 
   // Listar vehículos
+  async logHistory(req, vehicleId, payload) {
+    try {
+      if (!vehicleId || !payload?.module || !payload?.action || !payload?.description) return;
+
+      await vehicleHistoryModel.createEntry({
+        vehicleId,
+        userId: req.user?.id || null,
+        module: payload.module,
+        action: payload.action,
+        entityType: payload.entityType || null,
+        entityId: payload.entityId ? String(payload.entityId) : null,
+        description: payload.description,
+        details: payload.details || null
+      });
+    } catch (error) {
+      console.error('Error registrando historial del vehiculo:', error.message);
+    }
+  },
+
   async listVehicles(req, res) {
     try {
       const vehicles = await vehicleModel.getActiveVehicles();
@@ -1139,10 +1533,15 @@ export const vehicleController = {
       for (const photoType of VEHICLE_PHOTO_TYPES) {
         if (Object.prototype.hasOwnProperty.call(req.body, `descripcion_${photoType}`)) {
           try {
+            const previousPhoto = existingVehicle?.fotografias?.find((photo) => photo.tipo_foto === photoType);
+            const nextDescription = req.body[`descripcion_${photoType}`] || '';
+            if (normalizeText(previousPhoto?.descripcion) !== normalizeText(nextDescription)) {
+              updatedDescriptionTypes.push(photoType);
+            }
             await vehicleModel.updatePhotoDescriptionByType(
               id,
               photoType,
-              req.body[`descripcion_${photoType}`] || ''
+              nextDescription
             );
           } catch (descriptionError) {
             console.error(`Error actualizando descripcion de foto ${photoType}:`, descriptionError.message);
@@ -1152,6 +1551,44 @@ export const vehicleController = {
 
       // 6. Retornar vehículo actualizado
       const updatedVehicle = await vehicleModel.getVehicleById(id);
+
+      if (deletedPhotosCount > 0 || uploadedPhotoTypes.length > 0 || updatedDescriptionTypes.length > 0) {
+        const changes = [];
+        if (uploadedPhotoTypes.length > 0) changes.push(`agrego o reemplazo ${uploadedPhotoTypes.length} foto(s)`);
+        if (deletedPhotosCount > 0) changes.push(`elimino ${deletedPhotosCount} foto(s)`);
+        if (updatedDescriptionTypes.length > 0) changes.push(`actualizo ${updatedDescriptionTypes.length} descripcion(es)`);
+
+        await vehicleController.logHistory(req, id, {
+          module: 'fotos',
+          action: 'actualizar',
+          entityType: 'vehicle_photos',
+          entityId: id,
+          description: `Actualizo fotografias: ${changes.join(', ')}`,
+          details: {
+            fotos_agregadas: uploadedPhotoTypes.map((photoType) => ({
+              field: photoType,
+              label: getPhotoTypeLabel(photoType),
+              action: 'agregar_o_reemplazar'
+            })),
+            fotos_eliminadas: Array.isArray(deletedPhotos)
+              ? deletedPhotos.map((photoType) => ({
+                  field: photoType,
+                  label: getPhotoTypeLabel(photoType),
+                  action: 'eliminar'
+                }))
+              : [],
+            descripciones_actualizadas: updatedDescriptionTypes.map((photoType) => {
+              const previousPhoto = existingVehicle?.fotografias?.find((photo) => photo.tipo_foto === photoType);
+              return {
+                field: `descripcion_${photoType}`,
+                label: `Descripcion de ${getPhotoTypeLabel(photoType)}`,
+                before: normalizeNullableText(previousPhoto?.descripcion),
+                after: normalizeNullableText(req.body[`descripcion_${photoType}`] || '')
+              };
+            })
+          }
+        });
+      }
 
       // Normalizar respuesta a camelCase para frontend
       res.json({
@@ -1282,6 +1719,33 @@ export const vehicleController = {
 
       const createdDocument = await vehicleModel.getDocumentById(vehicleId, document.id);
 
+      await vehicleController.logHistory(req, vehicleId, {
+        module: 'documentos',
+        action: 'crear',
+        entityType: 'document',
+        entityId: document.id,
+        description: `Agrego el documento "${getDocumentTypeLabel(createdDocument)}"`,
+        details: {
+          tipo_documento_id: createdDocument?.tipo_documento_id || null,
+          vigencia: createdDocument?.vigencia || null,
+          archivos_adjuntos: archivosGuardados.length
+        }
+      });
+
+      if (req.files && req.files.length > 0) {
+        await vehicleController.logHistory(req, vehicleId, {
+          module: 'documentos',
+          action: 'agregar_archivo',
+          entityType: 'document_file',
+          entityId: document.id,
+          description: `Agrego ${req.files.length} archivo(s) al documento "${getDocumentTypeLabel(createdDocument)}"`,
+          details: {
+            documento_id: document.id,
+            archivos_agregados: req.files.map((file) => file.originalname)
+          }
+        });
+      }
+
       console.error(`✅✅✅ [DOC_CREATE] documento_id=${document.id} archivos=${req.files?.length || 0}`);
 
       res.status(201).json({
@@ -1372,6 +1836,64 @@ export const vehicleController = {
       const updatedDoc = await vehicleModel.updateDocument(vehicleId, docId, documentData);
 
       const enrichedUpdatedDoc = await vehicleModel.getDocumentById(vehicleId, docId);
+      const changes = buildChanges(
+        {
+          tipo_documento_id: 'Tipo de documento',
+          ambito: 'Ambito',
+          estado: 'Estado',
+          dependencia_otorga: 'Dependencia que otorga',
+          vigencia: 'Vigencia',
+          folio_oficio: 'Folio u oficio',
+          observaciones: 'Observaciones',
+          estatus: 'Estatus'
+        },
+        {
+          tipo_documento_id: existingDoc?.tipo_documento_id ?? null,
+          ambito: normalizeNullableText(existingDoc?.ambito),
+          estado: normalizeNullableText(existingDoc?.estado),
+          dependencia_otorga: normalizeNullableText(existingDoc?.dependencia_otorga),
+          vigencia: normalizeNullableText(existingDoc?.vigencia),
+          folio_oficio: normalizeNullableText(existingDoc?.folio_oficio),
+          observaciones: normalizeNullableText(existingDoc?.observaciones),
+          estatus: normalizeNullableText(existingDoc?.estatus)
+        },
+        {
+          tipo_documento_id: Number.parseInt(tipo_documento_id, 10),
+          ambito: normalizeNullableText(ambito || 'federal'),
+          estado: normalizeNullableText(estado || 'vÃ¡lido'),
+          dependencia_otorga: normalizeNullableText(dependencia_otorga),
+          vigencia: normalizeNullableText(vigencia),
+          folio_oficio: normalizeNullableText(folio_oficio),
+          observaciones: normalizeNullableText(observaciones || ''),
+          estatus: normalizeNullableText(estatus || 'vigente')
+        }
+      );
+
+      await vehicleController.logHistory(req, vehicleId, {
+        module: 'documentos',
+        action: 'actualizar',
+        entityType: 'document',
+        entityId: docId,
+        description: `Actualizo el documento "${getDocumentTypeLabel(enrichedUpdatedDoc || existingDoc)}"`,
+        details: {
+          changes,
+          archivos_nuevos: archivosGuardados.length
+        }
+      });
+
+      if (req.files && req.files.length > 0) {
+        await vehicleController.logHistory(req, vehicleId, {
+          module: 'documentos',
+          action: 'agregar_archivo',
+          entityType: 'document_file',
+          entityId: docId,
+          description: `Agrego ${req.files.length} archivo(s) al documento "${getDocumentTypeLabel(enrichedUpdatedDoc || existingDoc)}"`,
+          details: {
+            documento_id: docId,
+            archivos_agregados: req.files.map((file) => file.originalname)
+          }
+        });
+      }
 
       console.error(`✅✅✅ [DOC_UPDATE] docId=${docId} archivos_nuevos=${archivosGuardados.length}`);
 
@@ -1404,6 +1926,18 @@ export const vehicleController = {
 
       // Eliminar documento (soft delete)
       await vehicleModel.deleteDocument(vehicleId, docId);
+
+      await vehicleController.logHistory(req, vehicleId, {
+        module: 'documentos',
+        action: 'eliminar',
+        entityType: 'document',
+        entityId: docId,
+        description: `Elimino el documento "${getDocumentTypeLabel(existingDoc)}"`,
+        details: {
+          tipo_documento_id: existingDoc?.tipo_documento_id || null,
+          vigencia: existingDoc?.vigencia || null
+        }
+      });
 
       res.json({
         message: 'Documento eliminado exitosamente'
@@ -1517,6 +2051,18 @@ export const vehicleController = {
 
       // Retornar documento actualizado
       const updatedDocument = await vehicleModel.getDocumentById(vehicleId, docId);
+
+      await vehicleController.logHistory(req, vehicleId, {
+        module: 'documentos',
+        action: 'eliminar_archivo',
+        entityType: 'document_file',
+        entityId: fileId,
+        description: `Elimino un archivo adjunto del documento "${getDocumentTypeLabel(document)}"`,
+        details: {
+          documento_id: docId,
+          archivo_id: fileId
+        }
+      });
 
       res.json({
         message: 'Archivo eliminado exitosamente',

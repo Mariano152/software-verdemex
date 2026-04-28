@@ -5,14 +5,13 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
   display: flex;
   flex-direction: column;
-  height: fit-content;
+  min-height: 420px;
 }
 
 .expediente-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin: 0;
   padding: 1.5rem;
   border-bottom: 2px solid #ecf0f1;
   background: linear-gradient(135deg, var(--color-primary-dark) 0%, var(--color-primary) 100%);
@@ -52,8 +51,11 @@
   padding: 2rem;
   text-align: center;
   background: #f8f9fa;
-  border-radius: 0;
   color: #95a5a6;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .expedientes-list {
@@ -69,16 +71,15 @@
 .expediente-card {
   background: #f8f9fa;
   border: 1px solid #ecf0f1;
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 15px;
   transition: all 0.3s;
-  cursor: pointer;
 }
 
-.expediente-card:hover {
+.history-card:hover {
   border-color: #3498db;
-  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.15);
-  background: #f0f8ff;
+  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.12);
+  background: #fdfefe;
 }
 
 .expediente-card-header {
@@ -91,41 +92,37 @@
 
 .expediente-card-header h4 {
   margin: 0;
-  font-size: 16px;
+  font-size: 15px;
   color: #2c3e50;
   font-weight: 600;
   flex: 1;
+  line-height: 1.35;
 }
 
 .estado-badge {
   padding: 4px 10px;
   border: 1px solid;
-  border-radius: 4px;
+  border-radius: 999px;
   font-size: 11px;
-  font-weight: 600;
+  font-weight: 700;
   white-space: nowrap;
-  text-transform: capitalize;
-  color: #34495e;
 }
 
 .expediente-description {
-  margin: 8px 0;
+  margin: 8px 0 0;
   font-size: 13px;
   color: #7f8c8d;
   line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 
 .expediente-stats {
   display: flex;
   gap: 15px;
-  margin: 10px 0;
+  margin: 10px 0 0;
   font-size: 12px;
   font-weight: 600;
   color: #34495e;
+  flex-wrap: wrap;
 }
 
 .stat {
@@ -134,87 +131,111 @@
   gap: 4px;
 }
 
-.progress-bar {
-  width: 100%;
-  height: 6px;
-  background: #ecf0f1;
-  border-radius: 3px;
+.history-meta {
+  margin-top: 0;
+}
+
+.history-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  z-index: 1000;
+}
+
+.history-modal {
+  width: min(920px, 100%);
+  max-height: 85vh;
+  background: white;
+  border-radius: 18px;
   overflow: hidden;
-  margin: 10px 0;
+  box-shadow: 0 24px 60px rgba(15, 23, 42, 0.24);
 }
 
-.progress-fill {
-  height: 100%;
-  background: linear-gradient(90deg, #3498db 0%, #2980b9 100%);
-  transition: width 0.3s ease;
-  border-radius: 3px;
+.history-modal-header {
+  padding: 1.25rem 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
 }
 
-.btn-access-expediente {
-  width: 100%;
-  padding: 10px;
-  margin-top: 12px;
-  background: #3498db;
-  color: white;
+.history-modal-header h3 {
+  margin: 0 0 0.25rem;
+  color: #1f2937;
+}
+
+.history-modal-header p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.95rem;
+}
+
+.history-close-btn {
   border: none;
-  border-radius: 6px;
+  border-radius: 10px;
+  background: #eef2ff;
+  color: #1f3a8a;
+  padding: 0.8rem 1rem;
+  font-weight: 700;
   cursor: pointer;
+}
+
+.history-modal-body {
+  padding: 1.25rem 1.5rem 1.5rem;
+  overflow-y: auto;
+  max-height: calc(85vh - 88px);
+}
+
+.history-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.history-timeline-item {
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 1rem;
+  background: #fbfdff;
+}
+
+.history-timeline-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.history-timeline-top h4 {
+  margin: 0 0 0.35rem;
+  color: #1f2937;
+  font-size: 1rem;
+}
+
+.history-timeline-top p {
+  margin: 0;
+  color: #6b7280;
+  font-size: 0.9rem;
+}
+
+.history-timeline-meta {
+  margin-top: 0.85rem;
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  color: #475569;
+  font-size: 0.9rem;
   font-weight: 600;
-  font-size: 13px;
-  transition: all 0.2s;
-}
-
-.btn-access-expediente:hover {
-  background: #2980b9;
-  transform: translateY(-2px);
-}
-
-.notification {
-  padding: 12px 15px;
-  border-radius: 6px;
-  margin-top: 15px;
-  font-size: 13px;
-  font-weight: 600;
-  animation: slideIn 0.3s ease;
-}
-
-.notification-success {
-  background: #d5f4e6;
-  color: #27ae60;
-  border-left: 3px solid #27ae60;
-}
-
-.notification-error {
-  background: #fadbd8;
-  color: #e74c3c;
-  border-left: 3px solid #e74c3c;
-}
-
-.loading {
-  font-size: 12px;
-  color: #95a5a6;
-  font-weight: 500;
-}
-
-@keyframes slideIn {
-  from { 
-    opacity: 0; 
-    transform: translateY(-10px);
-  }
-  to { 
-    opacity: 1; 
-    transform: translateY(0);
-  }
 }
 
 @media (max-width: 768px) {
-  .expediente-section {
-    padding: 15px;
-  }
-
   .expediente-header {
     flex-direction: column;
-    gap: 12px;
     align-items: flex-start;
   }
 
@@ -222,12 +243,14 @@
     width: 100%;
   }
 
-  .expediente-card-header {
+  .expediente-card-header,
+  .history-timeline-top,
+  .history-modal-header {
     flex-direction: column;
-    gap: 8px;
+    align-items: flex-start;
   }
 
-  .estado-badge {
-    align-self: flex-start;
+  .history-close-btn {
+    width: 100%;
   }
 }

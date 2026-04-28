@@ -33,6 +33,7 @@ const normalizeElements = (elements = []) =>
 export default function VehicleMaintenanceSection({
   vehicleId,
   maintenanceRecords = [],
+  initialRecordId = null,
   safetyElements = [],
   vehicleStatus = 'activo',
   onSaveSafety,
@@ -58,6 +59,15 @@ export default function VehicleMaintenanceSection({
     setRecords(maintenanceRecords);
     setVehicleState(vehicleStatus);
   }, [safetyElements, maintenanceRecords, vehicleStatus]);
+
+  useEffect(() => {
+    if (!initialRecordId || !maintenanceRecords.length) return;
+
+    const targetRecord = maintenanceRecords.find((record) => String(record.id) === String(initialRecordId));
+    if (targetRecord) {
+      openViewRecordModal(targetRecord);
+    }
+  }, [initialRecordId, maintenanceRecords]);
 
   const getElementState = (elementId) =>
     editedElements.find((element) => element.elemento_seguridad_id === elementId) || null;

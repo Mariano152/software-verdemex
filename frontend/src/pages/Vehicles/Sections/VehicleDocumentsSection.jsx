@@ -14,6 +14,7 @@ import './VehicleDocumentsSection.css';
 export default function VehicleDocumentsSection({
   vehicleId,
   documents = [],
+  initialDocumentId = null,
   onSave,
   onDocumentSaved,
   onCancel,
@@ -33,6 +34,17 @@ export default function VehicleDocumentsSection({
     console.log('📋 Documentos recibidos:', documents);
     setEditedDocuments(documents);
   }, [documents]);
+
+  useEffect(() => {
+    if (!initialDocumentId || !documents.length) return;
+
+    const targetDocument = documents.find((doc) => String(doc.id) === String(initialDocumentId));
+    if (targetDocument) {
+      setSelectedDocument(targetDocument);
+      setIsNewDocument(false);
+      setDocumentModalOpen(true);
+    }
+  }, [documents, initialDocumentId]);
 
   const handleEdit = () => {
     setIsEditing(true);

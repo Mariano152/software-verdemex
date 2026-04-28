@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import NotificationModal from '../../../components/Notifications/NotificationModal';
 import GasolineRecordModal from './GasolineRecordModal';
 import '../../../components/Notifications/NotificationModal.css';
@@ -58,6 +58,7 @@ const sortRecordsByDateDesc = (records = []) => {
 export default function VehicleGasolineSection({
   vehicleId,
   gasolineRecords = [],
+  initialRecordId = null,
   onCreateGasolineRecord,
   onUpdateGasolineRecord,
   onDeleteGasolineRecord,
@@ -74,10 +75,34 @@ export default function VehicleGasolineSection({
   const [recordModalMode, setRecordModalMode] = useState('edit');
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   const [selectedYear, setSelectedYear] = useState(currentYear);
+  const openedFromHistoryRef = useRef(null);
 
   useEffect(() => {
     setRecords(sortRecordsByDateDesc(gasolineRecords));
   }, [gasolineRecords]);
+
+  useEffect(() => {
+    if (!initialRecordId) {
+      openedFromHistoryRef.current = null;
+      return;
+    }
+
+    if (openedFromHistoryRef.current === String(initialRecordId)) return;
+
+    const targetRecord = records.find((record) => String(record.id) === String(initialRecordId))
+      || gasolineRecords.find((record) => String(record.id) === String(initialRecordId));
+
+    if (!targetRecord) return;
+
+    const targetDate = getRecordDate(targetRecord);
+    if (targetDate) {
+      setSelectedMonth(targetDate.getMonth() + 1);
+      setSelectedYear(targetDate.getFullYear());
+    }
+
+    openViewRecordModal(targetRecord);
+    openedFromHistoryRef.current = String(initialRecordId);
+  }, [gasolineRecords, initialRecordId, records]);
 
   const availableYears = useMemo(() => {
     const years = new Set();
@@ -168,6 +193,9 @@ export default function VehicleGasolineSection({
 
         return sortRecordsByDateDesc(nextRecords);
       });
+      setSelectedRecord((current) => (
+        current && String(current.id) === String(savedRecord.id) ? savedRecord : current
+      ));
 
       setNotification({
         type: 'success',

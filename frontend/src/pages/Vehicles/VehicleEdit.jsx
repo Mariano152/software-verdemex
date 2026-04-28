@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import VehicleDetailView from './VehicleDetailView';
 import VehicleDocumentsSection from './Sections/VehicleDocumentsSection';
 import VehicleMaintenanceSection from './Sections/VehicleMaintenanceSection';
@@ -17,11 +17,16 @@ import './VehicleEdit.css';
 export default function VehicleEdit() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [vehicle, setVehicle] = useState(null);
   const [activeSection, setActiveSection] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [notification, setNotification] = useState(null);
+  const requestedSection = searchParams.get('section');
+  const requestedDocumentId = searchParams.get('documentId');
+  const requestedMaintenanceId = searchParams.get('maintenanceId');
+  const requestedGasolineId = searchParams.get('gasolineId');
 
   // Cargar datos del vehículo desde API
   useEffect(() => {
@@ -57,6 +62,11 @@ export default function VehicleEdit() {
       fetchVehicle();
     }
   }, [id]);
+
+  useEffect(() => {
+    if (!requestedSection) return;
+    setActiveSection(requestedSection);
+  }, [requestedSection]);
 
   const handleDocumentsSave = async (documents) => {
     try {
@@ -448,6 +458,7 @@ export default function VehicleEdit() {
           <VehicleDocumentsSection
             vehicleId={id}
             documents={vehicle.documents || []}
+            initialDocumentId={requestedDocumentId}
             onSave={handleDocumentsSave}
             onDocumentSaved={handleDocumentSaved}
             onCancel={() => setActiveSection(null)}
@@ -460,6 +471,7 @@ export default function VehicleEdit() {
             maintenanceRecords={vehicle.maintenanceRecords || []}
             safetyElements={vehicle.safetyElements || []}
             vehicleStatus={vehicle.estado || 'activo'}
+            initialRecordId={requestedMaintenanceId}
             onSaveSafety={handleMaintenanceSave}
             onCreateMaintenanceRecord={handleCreateMaintenanceRecord}
             onUpdateMaintenanceRecord={handleUpdateMaintenanceRecord}
@@ -471,6 +483,7 @@ export default function VehicleEdit() {
           <VehicleGasolineSection
             vehicleId={id}
             gasolineRecords={vehicle.gasolineRecords || []}
+            initialRecordId={requestedGasolineId}
             onCreateGasolineRecord={handleCreateGasolineRecord}
             onUpdateGasolineRecord={handleUpdateGasolineRecord}
             onDeleteGasolineRecord={handleDeleteGasolineRecord}
