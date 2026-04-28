@@ -1,0 +1,62 @@
+@import './VehicleMaintenanceSection.css';
+
+.gasoline-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.gasoline-summary-card {
+  background: linear-gradient(135deg, #ffffff 0%, #edfdf8 100%);
+  border: 1px solid #ccefe5;
+  border-radius: 16px;
+  padding: 1rem 1.1rem;
+  box-shadow: 0 12px 30px rgba(22, 160, 133, 0.08);
+}
+
+.gasoline-summary-card span {
+  display: block;
+  color: #5d6d68;
+  font-size: 0.85rem;
+  margin-bottom: 0.4rem;
+}
+
+.gasoline-summary-card strong {
+  color: #0f5132;
+  font-size: 1.35rem;
+}
+
+.gasoline-filter-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.gasoline-filter-row label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  color: #29443b;
+  font-weight: 600;
+}
+
+.gasoline-filter-row select {
+  border: 1px solid #cfd8d3;
+  border-radius: 12px;
+  padding: 0.8rem 0.9rem;
+  background: #fff;
+  color: #173229;
+}
+
+.gasoline-record-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 1rem;
+}
+
+.gasoline-empty-note {
+  margin-top: 0.5rem;
+  color: #6c757d;
+}

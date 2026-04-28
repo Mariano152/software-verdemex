@@ -53,6 +53,16 @@ const mapMaintenanceFileRow = (fileRow, vehicleId, maintenanceId, index) => ({
   download_url: `/api/vehicles/${vehicleId}/maintenance-records/${maintenanceId}/download?fileIndex=${index}`
 });
 
+const mapGasolineFileRow = (fileRow, vehicleId, gasolineId, index) => ({
+  id: fileRow.id,
+  nombre_original: fileRow.nombre_original,
+  tipo_mime: fileRow.tipo_mime,
+  tamano: Number(fileRow.tamano_bytes || 0),
+  tamano_bytes: Number(fileRow.tamano_bytes || 0),
+  orden: fileRow.orden ?? index + 1,
+  download_url: `/api/vehicles/${vehicleId}/gasoline-records/${gasolineId}/download?fileIndex=${index}`
+});
+
 export const vehicleModel = {
   async createVehicle(vehicleData) {
     const {
@@ -363,6 +373,211 @@ export const vehicleModel = {
     return result.rows[0] || null;
   },
 
+  async createGasolineRecord(vehicleId, gasolineData) {
+    const {
+      titulo,
+      tipo_combustible,
+      fecha_carga,
+      costo_total,
+      litros,
+      proveedor,
+      descripcion,
+      observaciones
+    } = gasolineData;
+
+    const result = await query(
+      `INSERT INTO vehiculo_gasolina_registros
+       (vehiculo_id, titulo, tipo_combustible, fecha_carga, costo_total, litros, proveedor, descripcion, observaciones)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING *`,
+      [vehicleId, titulo, tipo_combustible, fecha_carga, costo_total, litros, proveedor, descripcion, observaciones]
+    );
+
+    return result.rows[0];
+  },
+
+  async updateGasolineRecord(vehicleId, gasolineId, gasolineData) {
+    const {
+      titulo,
+      tipo_combustible,
+      fecha_carga,
+      costo_total,
+      litros,
+      proveedor,
+      descripcion,
+      observaciones
+    } = gasolineData;
+
+    const result = await query(
+      `UPDATE vehiculo_gasolina_registros
+       SET titulo = $1,
+           tipo_combustible = $2,
+           fecha_carga = $3,
+           costo_total = $4,
+           litros = $5,
+           proveedor = $6,
+           descripcion = $7,
+           observaciones = $8,
+           updated_at = NOW()
+       WHERE id = $9 AND vehiculo_id = $10 AND deleted_at IS NULL
+       RETURNING *`,
+      [titulo, tipo_combustible, fecha_carga, costo_total, litros, proveedor, descripcion, observaciones, gasolineId, vehicleId]
+    );
+
+    return result.rows[0] || null;
+  },
+
+  async getGasolineRecordsByVehicleId(vehicleId) {
+    try {
+      const result = await query(
+        `SELECT *
+         FROM vehiculo_gasolina_registros
+         WHERE vehiculo_id = $1 AND deleted_at IS NULL
+         ORDER BY fecha_carga DESC, created_at DESC`,
+        [vehicleId]
+      );
+
+      return result.rows;
+    } catch (error) {
+      if (error.code === '42P01') {
+        return [];
+      }
+      throw error;
+    }
+  },
+
+  async getGasolineRecordById(vehicleId, gasolineId) {
+    try {
+      const result = await query(
+        `SELECT *
+         FROM vehiculo_gasolina_registros
+         WHERE vehiculo_id = $1 AND id = $2 AND deleted_at IS NULL
+         LIMIT 1`,
+        [vehicleId, gasolineId]
+      );
+
+      return result.rows[0] || null;
+    } catch (error) {
+      if (error.code === '42P01') {
+        return null;
+      }
+      throw error;
+    }
+  },
+
+  async addGasolineFiles(gasolineId, files = []) {
+    if (!files.length) return [];
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const insertedFiles = [];
+      for (const [index, file] of files.entries()) {
+        const result = await client.query(
+          `INSERT INTO vehiculo_gasolina_archivos
+           (vehiculo_gasolina_registro_id, nombre_original, tipo_mime, tamano_bytes, archivo_data, orden)
+           VALUES ($1, $2, $3, $4, $5, $6)
+           RETURNING *`,
+          [
+            gasolineId,
+            file.originalname,
+            file.mimetype,
+            file.size,
+            file.buffer,
+            index + 1
+          ]
+        );
+
+        insertedFiles.push(result.rows[0]);
+      }
+
+      await client.query('COMMIT');
+      return insertedFiles;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  },
+
+  async getGasolineFilesMetadata(gasolineId) {
+    try {
+      const result = await query(
+        `SELECT id, vehiculo_gasolina_registro_id, nombre_original, tipo_mime, tamano_bytes, orden, created_at
+         FROM vehiculo_gasolina_archivos
+         WHERE vehiculo_gasolina_registro_id = $1 AND deleted_at IS NULL
+         ORDER BY orden ASC, created_at ASC`,
+        [gasolineId]
+      );
+
+      return result.rows;
+    } catch (error) {
+      if (error.code === '42P01') {
+        return [];
+      }
+      throw error;
+    }
+  },
+
+  async getGasolineFileByIndex(vehicleId, gasolineId, fileIndex = 0) {
+    const safeIndex = Number.isInteger(fileIndex) && fileIndex >= 0 ? fileIndex : 0;
+    const result = await query(
+      `SELECT
+         g.id AS gasoline_id,
+         f.id,
+         f.nombre_original,
+         f.tipo_mime,
+         f.tamano_bytes,
+         f.archivo_data,
+         f.orden
+       FROM vehiculo_gasolina_registros g
+       LEFT JOIN vehiculo_gasolina_archivos f
+         ON f.vehiculo_gasolina_registro_id = g.id
+        AND f.deleted_at IS NULL
+       WHERE g.vehiculo_id = $1
+         AND g.id = $2
+         AND g.deleted_at IS NULL
+       ORDER BY f.orden ASC NULLS LAST, f.created_at ASC NULLS LAST
+       LIMIT 1 OFFSET $3`,
+      [vehicleId, gasolineId, safeIndex]
+    );
+
+    return result.rows[0] || null;
+  },
+
+  async deleteGasolineFile(gasolineId, fileId) {
+    const result = await query(
+      `UPDATE vehiculo_gasolina_archivos
+       SET deleted_at = NOW(), updated_at = NOW()
+       WHERE id = $1 AND vehiculo_gasolina_registro_id = $2 AND deleted_at IS NULL
+       RETURNING *`,
+      [fileId, gasolineId]
+    );
+
+    return result.rows[0] || null;
+  },
+
+  async deleteGasolineRecord(vehicleId, gasolineId) {
+    const result = await query(
+      `UPDATE vehiculo_gasolina_registros
+       SET deleted_at = NOW(), updated_at = NOW()
+       WHERE vehiculo_id = $1 AND id = $2 AND deleted_at IS NULL
+       RETURNING *`,
+      [vehicleId, gasolineId]
+    );
+
+    await query(
+      `UPDATE vehiculo_gasolina_archivos
+       SET deleted_at = NOW(), updated_at = NOW()
+       WHERE vehiculo_gasolina_registro_id = $1 AND deleted_at IS NULL`,
+      [gasolineId]
+    );
+
+    return result.rows[0] || null;
+  },
+
   async createPhoto(vehicleId, photoData) {
     const {
       tipo_foto,
@@ -559,6 +774,7 @@ export const vehicleModel = {
 
     const safetyRows = await vehicleModel.getSafetyElementsByVehicleId(vehicleId);
     const maintenanceRows = await vehicleModel.getMaintenanceRecordsByVehicleId(vehicleId);
+    const gasolineRows = await vehicleModel.getGasolineRecordsByVehicleId(vehicleId);
 
     const photosResult = await query(
       `SELECT * FROM vehiculo_fotografias
@@ -595,10 +811,25 @@ export const vehicleModel = {
       })
     );
 
+    const gasolineRecords = await Promise.all(
+      gasolineRows.map(async (record) => {
+        const fileRows = await vehicleModel.getGasolineFilesMetadata(record.id);
+        const normalizedFiles = fileRows.map((fileRow, fileIndex) =>
+          mapGasolineFileRow(fileRow, vehicleId, record.id, fileIndex)
+        );
+
+        return {
+          ...record,
+          archivos_json: JSON.stringify(normalizedFiles)
+        };
+      })
+    );
+
     return {
       ...vehicle,
       documentos: documents,
       mantenimientos: maintenanceRecords,
+      gasolina_registros: gasolineRecords,
       elementos_seguridad: safetyRows,
       fotografias: photosResult.rows
     };

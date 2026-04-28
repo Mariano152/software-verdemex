@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import VehicleDetailView from './VehicleDetailView';
 import VehicleDocumentsSection from './Sections/VehicleDocumentsSection';
 import VehicleMaintenanceSection from './Sections/VehicleMaintenanceSection';
+import VehicleGasolineSection from './Sections/VehicleGasolineSection';
 import VehiclePhotosSection from './Sections/VehiclePhotosSection';
 import NotificationModal from '../../components/Notifications/NotificationModal';
 import '../../components/Notifications/NotificationModal.css';
@@ -222,6 +223,96 @@ export default function VehicleEdit() {
     }));
   };
 
+  const handleCreateGasolineRecord = async (formData, files = []) => {
+    const token = localStorage.getItem('authToken');
+    const payload = new FormData();
+
+    Object.entries(formData).forEach(([key, value]) => {
+      payload.append(key, value ?? '');
+    });
+
+    files.forEach((file) => {
+      payload.append('documento', file);
+    });
+
+    const response = await fetch(`/api/vehicles/${id}/gasoline-records`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: payload
+    });
+
+    const responseData = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(responseData.message || 'Error al crear registro de gasolina');
+    }
+
+    const savedRecord = responseData.gasolineRecord;
+    setVehicle((prev) => ({
+      ...prev,
+      gasolineRecords: [savedRecord, ...(prev?.gasolineRecords || [])]
+    }));
+
+    return savedRecord;
+  };
+
+  const handleUpdateGasolineRecord = async (recordId, formData, files = []) => {
+    const token = localStorage.getItem('authToken');
+    const payload = new FormData();
+
+    Object.entries(formData).forEach(([key, value]) => {
+      payload.append(key, value ?? '');
+    });
+
+    files.forEach((file) => {
+      payload.append('documento', file);
+    });
+
+    const response = await fetch(`/api/vehicles/${id}/gasoline-records/${recordId}`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token}`
+      },
+      body: payload
+    });
+
+    const responseData = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(responseData.message || 'Error al actualizar registro de gasolina');
+    }
+
+    const savedRecord = responseData.gasolineRecord;
+    setVehicle((prev) => ({
+      ...prev,
+      gasolineRecords: (prev?.gasolineRecords || []).map((record) =>
+        record.id === savedRecord.id ? savedRecord : record
+      )
+    }));
+
+    return savedRecord;
+  };
+
+  const handleDeleteGasolineRecord = async (recordId) => {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`/api/vehicles/${id}/gasoline-records/${recordId}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    const responseData = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(responseData.message || 'Error al eliminar registro de gasolina');
+    }
+
+    setVehicle((prev) => ({
+      ...prev,
+      gasolineRecords: (prev?.gasolineRecords || []).filter((record) => record.id !== recordId)
+    }));
+  };
+
   const handlePhotosSave = async (photos, deletedPhotoTypes = []) => {
     try {
       const token = localStorage.getItem('authToken');
@@ -349,6 +440,7 @@ export default function VehicleEdit() {
             vehicleId={id}
             onDocumentsClick={() => setActiveSection('documents')}
             onMaintenanceClick={() => setActiveSection('maintenance')}
+            onGasolineClick={() => setActiveSection('gasoline')}
             onPhotosClick={() => setActiveSection('photos')}
           />
         ) : activeSection === 'documents' ? (
@@ -373,6 +465,15 @@ export default function VehicleEdit() {
             onUpdateMaintenanceRecord={handleUpdateMaintenanceRecord}
             onDeleteMaintenanceRecord={handleDeleteMaintenanceRecord}
             onCancel={() => setActiveSection(null)}
+            onBack={() => setActiveSection(null)}
+          />
+        ) : activeSection === 'gasoline' ? (
+          <VehicleGasolineSection
+            vehicleId={id}
+            gasolineRecords={vehicle.gasolineRecords || []}
+            onCreateGasolineRecord={handleCreateGasolineRecord}
+            onUpdateGasolineRecord={handleUpdateGasolineRecord}
+            onDeleteGasolineRecord={handleDeleteGasolineRecord}
             onBack={() => setActiveSection(null)}
           />
         ) : activeSection === 'photos' ? (

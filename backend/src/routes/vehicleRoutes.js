@@ -53,6 +53,26 @@ router.delete('/:vehicleId/maintenance-records/:maintenanceId/files/:fileId', ve
 // GET /api/vehicles/:vehicleId/maintenance-records/:maintenanceId/download - Descargar archivo adjunto
 router.get('/:vehicleId/maintenance-records/:maintenanceId/download', vehicleController.downloadMaintenanceFile);
 
+// ===== RUTAS PARA HISTORIAL DE GASOLINA =====
+
+// GET /api/vehicles/:vehicleId/gasoline-records/:gasolineId - Obtener registro individual
+router.get('/:vehicleId/gasoline-records/:gasolineId', vehicleController.getGasolineRecordById);
+
+// POST /api/vehicles/:vehicleId/gasoline-records - Crear registro con archivos
+router.post('/:vehicleId/gasoline-records', documentUploadMiddleware, vehicleController.createGasolineRecord);
+
+// PUT /api/vehicles/:vehicleId/gasoline-records/:gasolineId - Actualizar registro con archivos
+router.put('/:vehicleId/gasoline-records/:gasolineId', documentUploadMiddleware, vehicleController.updateGasolineRecord);
+
+// DELETE /api/vehicles/:vehicleId/gasoline-records/:gasolineId - Eliminar registro
+router.delete('/:vehicleId/gasoline-records/:gasolineId', vehicleController.deleteGasolineRecord);
+
+// DELETE /api/vehicles/:vehicleId/gasoline-records/:gasolineId/files/:fileId - Eliminar archivo individual
+router.delete('/:vehicleId/gasoline-records/:gasolineId/files/:fileId', vehicleController.deleteGasolineFile);
+
+// GET /api/vehicles/:vehicleId/gasoline-records/:gasolineId/download - Descargar archivo adjunto
+router.get('/:vehicleId/gasoline-records/:gasolineId/download', vehicleController.downloadGasolineFile);
+
 // ===== RUTAS PARA DOCUMENTOS INDIVIDUALES =====
 
 // GET /api/vehicles/:vehicleId/documents/:docId - Obtener documento individual

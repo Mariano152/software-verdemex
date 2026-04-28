@@ -191,6 +191,7 @@ export const vehicleController = {
           ...completeVehicle,
           documents: completeVehicle.documentos || [],
           maintenanceRecords: completeVehicle.mantenimientos || [],
+          gasolineRecords: completeVehicle.gasolina_registros || [],
           safetyElements: completeVehicle.elementos_seguridad || [],
           photos: completeVehicle.fotografias || []
         },
@@ -228,6 +229,7 @@ export const vehicleController = {
         ...vehicle,
         documents: vehicle.documentos || [],
         maintenanceRecords: vehicle.mantenimientos || [],
+        gasolineRecords: vehicle.gasolina_registros || [],
         safetyElements: vehicle.elementos_seguridad || [],
         photos: vehicle.fotografias || []
       });
@@ -510,6 +512,263 @@ export const vehicleController = {
     }
   },
 
+  async getGasolineRecordById(req, res) {
+    try {
+      const { vehicleId, gasolineId } = req.params;
+      const gasolineRecord = await vehicleModel.getGasolineRecordById(vehicleId, gasolineId);
+
+      if (!gasolineRecord) {
+        return res.status(404).json({
+          message: 'Registro de gasolina no encontrado'
+        });
+      }
+
+      const fileRows = await vehicleModel.getGasolineFilesMetadata(gasolineId);
+
+      res.json({
+        ...gasolineRecord,
+        archivos_json: JSON.stringify(fileRows.map((fileRow, index) => ({
+          id: fileRow.id,
+          nombre_original: fileRow.nombre_original,
+          tipo_mime: fileRow.tipo_mime,
+          tamano: Number(fileRow.tamano_bytes || 0),
+          tamano_bytes: Number(fileRow.tamano_bytes || 0),
+          orden: fileRow.orden ?? index + 1,
+          download_url: `/api/vehicles/${vehicleId}/gasoline-records/${gasolineId}/download?fileIndex=${index}`
+        })))
+      });
+    } catch (error) {
+      console.error('Error obteniendo registro de gasolina:', error);
+      res.status(500).json({
+        message: 'Error al obtener registro de gasolina',
+        error: error.message
+      });
+    }
+  },
+
+  async createGasolineRecord(req, res) {
+    try {
+      const { vehicleId } = req.params;
+      const vehicle = await vehicleModel.getVehicleById(vehicleId);
+
+      if (!vehicle) {
+        return res.status(404).json({
+          message: 'VehÃ­culo no encontrado'
+        });
+      }
+
+      const gasolineData = {
+        titulo: req.body.titulo?.trim(),
+        tipo_combustible: req.body.tipo_combustible?.trim(),
+        fecha_carga: req.body.fecha_carga,
+        costo_total: Number(req.body.costo_total || 0),
+        litros: Number(req.body.litros || 0),
+        proveedor: req.body.proveedor?.trim() || '',
+        descripcion: req.body.descripcion?.trim() || '',
+        observaciones: req.body.observaciones?.trim() || ''
+      };
+
+      if (!gasolineData.titulo || !gasolineData.tipo_combustible || !gasolineData.fecha_carga) {
+        return res.status(400).json({
+          message: 'TÃ­tulo, tipo de combustible y fecha de carga son requeridos'
+        });
+      }
+
+      if (gasolineData.costo_total < 0 || gasolineData.litros <= 0) {
+        return res.status(400).json({
+          message: 'El costo total debe ser mayor o igual a 0 y los litros deben ser mayores a 0'
+        });
+      }
+
+      const gasolineRecord = await vehicleModel.createGasolineRecord(vehicleId, gasolineData);
+
+      if (req.files && req.files.length > 0) {
+        await vehicleModel.addGasolineFiles(gasolineRecord.id, req.files);
+      }
+
+      const createdRecord = await vehicleController.getGasolineRecordPayload(vehicleId, gasolineRecord.id);
+
+      res.status(201).json({
+        message: 'Registro de gasolina creado correctamente',
+        gasolineRecord: createdRecord
+      });
+    } catch (error) {
+      if (error.code === '42P01') {
+        return res.status(503).json({
+          message: 'El historial de gasolina aÃºn no estÃ¡ disponible en la base de datos. Ejecuta la migraciÃ³n 014.'
+        });
+      }
+      console.error('Error creando registro de gasolina:', error);
+      res.status(500).json({
+        message: 'Error al crear registro de gasolina',
+        error: error.message
+      });
+    }
+  },
+
+  async updateGasolineRecord(req, res) {
+    try {
+      const { vehicleId, gasolineId } = req.params;
+      const existingRecord = await vehicleModel.getGasolineRecordById(vehicleId, gasolineId);
+
+      if (!existingRecord) {
+        return res.status(404).json({
+          message: 'Registro de gasolina no encontrado'
+        });
+      }
+
+      const gasolineData = {
+        titulo: req.body.titulo?.trim(),
+        tipo_combustible: req.body.tipo_combustible?.trim(),
+        fecha_carga: req.body.fecha_carga,
+        costo_total: Number(req.body.costo_total || 0),
+        litros: Number(req.body.litros || 0),
+        proveedor: req.body.proveedor?.trim() || '',
+        descripcion: req.body.descripcion?.trim() || '',
+        observaciones: req.body.observaciones?.trim() || ''
+      };
+
+      if (!gasolineData.titulo || !gasolineData.tipo_combustible || !gasolineData.fecha_carga) {
+        return res.status(400).json({
+          message: 'TÃ­tulo, tipo de combustible y fecha de carga son requeridos'
+        });
+      }
+
+      if (gasolineData.costo_total < 0 || gasolineData.litros <= 0) {
+        return res.status(400).json({
+          message: 'El costo total debe ser mayor o igual a 0 y los litros deben ser mayores a 0'
+        });
+      }
+
+      await vehicleModel.updateGasolineRecord(vehicleId, gasolineId, gasolineData);
+
+      if (req.files && req.files.length > 0) {
+        await vehicleModel.addGasolineFiles(gasolineId, req.files);
+      }
+
+      const updatedRecord = await vehicleController.getGasolineRecordPayload(vehicleId, gasolineId);
+
+      res.json({
+        message: 'Registro de gasolina actualizado correctamente',
+        gasolineRecord: updatedRecord
+      });
+    } catch (error) {
+      if (error.code === '42P01') {
+        return res.status(503).json({
+          message: 'El historial de gasolina aÃºn no estÃ¡ disponible en la base de datos. Ejecuta la migraciÃ³n 014.'
+        });
+      }
+      console.error('Error actualizando registro de gasolina:', error);
+      res.status(500).json({
+        message: 'Error al actualizar registro de gasolina',
+        error: error.message
+      });
+    }
+  },
+
+  async deleteGasolineRecord(req, res) {
+    try {
+      const { vehicleId, gasolineId } = req.params;
+      const deletedRecord = await vehicleModel.deleteGasolineRecord(vehicleId, gasolineId);
+
+      if (!deletedRecord) {
+        return res.status(404).json({
+          message: 'Registro de gasolina no encontrado'
+        });
+      }
+
+      res.json({
+        message: 'Registro de gasolina eliminado correctamente'
+      });
+    } catch (error) {
+      if (error.code === '42P01') {
+        return res.status(503).json({
+          message: 'El historial de gasolina aÃºn no estÃ¡ disponible en la base de datos. Ejecuta la migraciÃ³n 014.'
+        });
+      }
+      console.error('Error eliminando registro de gasolina:', error);
+      res.status(500).json({
+        message: 'Error al eliminar registro de gasolina',
+        error: error.message
+      });
+    }
+  },
+
+  async downloadGasolineFile(req, res) {
+    try {
+      const { vehicleId, gasolineId } = req.params;
+      const parsedIndex = Number.parseInt(req.query.fileIndex ?? '0', 10);
+      const fileIndex = Number.isNaN(parsedIndex) || parsedIndex < 0 ? 0 : parsedIndex;
+
+      const selectedFile = await vehicleModel.getGasolineFileByIndex(vehicleId, gasolineId, fileIndex);
+      if (!selectedFile?.archivo_data) {
+        return res.status(404).json({
+          message: 'Archivo de gasolina no encontrado'
+        });
+      }
+
+      const fileName = selectedFile.nombre_original || 'gasolina.bin';
+      const fileSize = Buffer.isBuffer(selectedFile.archivo_data)
+        ? selectedFile.archivo_data.length
+        : selectedFile.tamano_bytes || 0;
+
+      res.setHeader('Content-Type', selectedFile.tipo_mime || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.setHeader('Content-Length', fileSize);
+      return res.send(selectedFile.archivo_data);
+    } catch (error) {
+      if (error.code === '42P01') {
+        return res.status(503).json({
+          message: 'El historial de gasolina aÃºn no estÃ¡ disponible en la base de datos. Ejecuta la migraciÃ³n 014.'
+        });
+      }
+      console.error('Error descargando archivo de gasolina:', error);
+      res.status(500).json({
+        message: 'Error al descargar archivo de gasolina',
+        error: error.message
+      });
+    }
+  },
+
+  async deleteGasolineFile(req, res) {
+    try {
+      const { vehicleId, gasolineId, fileId } = req.params;
+      const gasolineRecord = await vehicleModel.getGasolineRecordById(vehicleId, gasolineId);
+
+      if (!gasolineRecord) {
+        return res.status(404).json({
+          message: 'Registro de gasolina no encontrado'
+        });
+      }
+
+      const deletedFile = await vehicleModel.deleteGasolineFile(gasolineId, fileId);
+
+      if (!deletedFile) {
+        return res.status(404).json({
+          message: 'Archivo no encontrado'
+        });
+      }
+
+      const updatedRecord = await vehicleController.getGasolineRecordPayload(vehicleId, gasolineId);
+
+      res.json({
+        message: 'Archivo eliminado correctamente',
+        gasolineRecord: updatedRecord
+      });
+    } catch (error) {
+      if (error.code === '42P01') {
+        return res.status(503).json({
+          message: 'El historial de gasolina aÃºn no estÃ¡ disponible en la base de datos. Ejecuta la migraciÃ³n 014.'
+        });
+      }
+      console.error('Error eliminando archivo de gasolina:', error);
+      res.status(500).json({
+        message: 'Error al eliminar archivo de gasolina',
+        error: error.message
+      });
+    }
+  },
+
   async createSafetyElements(req, res) {
     try {
       const { vehicleId } = req.params;
@@ -657,6 +916,26 @@ export const vehicleController = {
         tamano_bytes: Number(fileRow.tamano_bytes || 0),
         orden: fileRow.orden ?? index + 1,
         download_url: `/api/vehicles/${vehicleId}/maintenance-records/${maintenanceId}/download?fileIndex=${index}`
+      })))
+    };
+  },
+
+  async getGasolineRecordPayload(vehicleId, gasolineId) {
+    const gasolineRecord = await vehicleModel.getGasolineRecordById(vehicleId, gasolineId);
+    if (!gasolineRecord) return null;
+
+    const fileRows = await vehicleModel.getGasolineFilesMetadata(gasolineId);
+
+    return {
+      ...gasolineRecord,
+      archivos_json: JSON.stringify(fileRows.map((fileRow, index) => ({
+        id: fileRow.id,
+        nombre_original: fileRow.nombre_original,
+        tipo_mime: fileRow.tipo_mime,
+        tamano: Number(fileRow.tamano_bytes || 0),
+        tamano_bytes: Number(fileRow.tamano_bytes || 0),
+        orden: fileRow.orden ?? index + 1,
+        download_url: `/api/vehicles/${vehicleId}/gasoline-records/${gasolineId}/download?fileIndex=${index}`
       })))
     };
   },
@@ -879,6 +1158,7 @@ export const vehicleController = {
         ...updatedVehicle,
         documents: updatedVehicle.documentos || [],
         maintenanceRecords: updatedVehicle.mantenimientos || [],
+        gasolineRecords: updatedVehicle.gasolina_registros || [],
         safetyElements: updatedVehicle.elementos_seguridad || [],
         photos: updatedVehicle.fotografias || []
       });

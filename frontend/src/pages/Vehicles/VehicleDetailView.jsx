@@ -1,18 +1,19 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import ExpedienteSection from './Sections/ExpedienteSection';
 import './VehicleDetailView.css';
 
 /**
- * VehicleDetailView - Vista profesional de detalles del vehículo
+ * VehicleDetailView - Vista profesional de detalles del vehiculo
  * Muestra:
- * 1. Información básica (izquierda) + Expedientes (derecha)
- * 2. 3 cards de módulos (Documentos, Mantenimiento, Fotografías)
+ * 1. Informacion basica (izquierda) + Expedientes (derecha)
+ * 2. 4 cards de modulos (Documentos, Mantenimiento, Gasolina, Fotografias)
  */
 export default function VehicleDetailView({
   vehicle,
   vehicleId,
   onDocumentsClick,
   onMaintenanceClick,
+  onGasolineClick,
   onPhotosClick
 }) {
   const [activeSection, setActiveSection] = useState(null);
@@ -31,19 +32,18 @@ export default function VehicleDetailView({
     setActiveSection(module);
     if (module === 'documents') onDocumentsClick?.();
     else if (module === 'maintenance') onMaintenanceClick?.();
+    else if (module === 'gasoline') onGasolineClick?.();
     else if (module === 'photos') onPhotosClick?.();
   };
 
   return (
     <div className="vehicle-detail-view">
-      {/* LAYOUT PRINCIPAL - INFO + EXPEDIENTES LADO A LADO */}
       <div className="detail-main-layout">
-        {/* COLUMNA IZQUIERDA - INFORMACIÓN BÁSICA */}
         <div className="detail-left-column">
           <div className="info-section">
             <h2 className="info-title">
               <span className="icon">ℹ️</span>
-              Información Básica del Vehículo
+              Informacion Basica del Vehiculo
             </h2>
 
             <div className="table-wrapper">
@@ -60,7 +60,7 @@ export default function VehicleDetailView({
                     </td>
                   </tr>
                   <tr>
-                    <td className="label">Número de Serie</td>
+                    <td className="label">Numero de Serie</td>
                     <td className="value font-mono">{vehicle.numero_serie}</td>
                   </tr>
                   <tr>
@@ -68,13 +68,13 @@ export default function VehicleDetailView({
                     <td className="value">{vehicle.marca}</td>
                   </tr>
                   <tr>
-                    <td className="label">Modelo (Año)</td>
+                    <td className="label">Modelo (Ano)</td>
                     <td className="value">{vehicle.modelo}</td>
                   </tr>
                   <tr>
                     <td className="label">Color</td>
                     <td className="value">
-                      <span className="color-box" style={{backgroundColor: vehicle.color || '#ccc'}}>
+                      <span className="color-box" style={{ backgroundColor: vehicle.color || '#ccc' }}>
                         {vehicle.color || '-'}
                       </span>
                     </td>
@@ -95,7 +95,7 @@ export default function VehicleDetailView({
                   </tr>
                   {vehicle.descripcion && (
                     <tr>
-                      <td className="label">Descripción</td>
+                      <td className="label">Descripcion</td>
                       <td className="value description">{vehicle.descripcion}</td>
                     </tr>
                   )}
@@ -105,7 +105,6 @@ export default function VehicleDetailView({
           </div>
         </div>
 
-        {/* COLUMNA DERECHA - EXPEDIENTES */}
         {vehicleId && (
           <div className="detail-right-column">
             <ExpedienteSection vehicleId={vehicleId} />
@@ -113,15 +112,13 @@ export default function VehicleDetailView({
         )}
       </div>
 
-      {/* MÓDULOS */}
       <div className="modules-section">
         <h2 className="modules-title">
           <span className="icon">📋</span>
-          Módulos de Información
+          Modulos de Informacion
         </h2>
 
         <div className="modules-grid">
-          {/* DOCUMENTOS */}
           <div
             className="module-card documents"
             onClick={() => handleModuleClick('documents')}
@@ -131,7 +128,7 @@ export default function VehicleDetailView({
               <span>Documentos</span>
             </div>
             <div className="module-info">
-              Permisos, licencias y documentos del vehículo
+              Permisos, licencias y documentos del vehiculo
             </div>
             <div className="module-stats">
               {vehicle.documents?.length || 0} documentos registrados
@@ -141,7 +138,6 @@ export default function VehicleDetailView({
             </button>
           </div>
 
-          {/* MANTENIMIENTO */}
           <div
             className="module-card maintenance"
             onClick={() => handleModuleClick('maintenance')}
@@ -161,17 +157,35 @@ export default function VehicleDetailView({
             </button>
           </div>
 
-          {/* FOTOGRAFÍAS */}
+          <div
+            className="module-card gasoline"
+            onClick={() => handleModuleClick('gasoline')}
+          >
+            <div className="module-header">
+              <span className="module-icon">⛽</span>
+              <span>Gasolina</span>
+            </div>
+            <div className="module-info">
+              Historial de cargas, litros comprados y gasto mensual
+            </div>
+            <div className="module-stats">
+              {vehicle.gasolineRecords?.length || 0} cargas registradas
+            </div>
+            <button className="module-button">
+              👁️ Ver Detalles
+            </button>
+          </div>
+
           <div
             className="module-card photos"
             onClick={() => handleModuleClick('photos')}
           >
             <div className="module-header">
               <span className="module-icon">📸</span>
-              <span>Fotografías</span>
+              <span>Fotografias</span>
             </div>
             <div className="module-info">
-              Registro fotográfico del vehículo
+              Registro fotografico del vehiculo
             </div>
             <div className="module-stats">
               {vehicle.photos?.length || 0}/13 fotos capturadas

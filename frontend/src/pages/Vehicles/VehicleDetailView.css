@@ -197,7 +197,7 @@
 
 .modules-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1.5rem;
   margin-top: 1.5rem;
 }
@@ -247,6 +247,14 @@
   border-left-color: #d68910;
 }
 
+.module-card.gasoline {
+  border-left-color: #16a085;
+}
+
+.module-card.gasoline:hover {
+  border-left-color: #117864;
+}
+
 .module-header {
   font-size: 1.1rem;
   font-weight: 700;
@@ -288,6 +296,10 @@
   border-left-color: #f39c12;
 }
 
+.module-card.gasoline .module-stats {
+  border-left-color: #16a085;
+}
+
 .module-button {
   background: var(--color-primary);
   color: white;
@@ -326,6 +338,15 @@
 .module-card.photos .module-button:hover {
   background: #d68910;
   box-shadow: 0 4px 8px rgba(243, 156, 18, 0.3);
+}
+
+.module-card.gasoline .module-button {
+  background: #16a085;
+}
+
+.module-card.gasoline .module-button:hover {
+  background: #117864;
+  box-shadow: 0 4px 8px rgba(22, 160, 133, 0.3);
 }
 
 /* ============================================
