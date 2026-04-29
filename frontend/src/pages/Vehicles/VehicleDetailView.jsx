@@ -2,6 +2,54 @@ import { useState } from 'react';
 import ExpedienteSection from './Sections/ExpedienteSection';
 import './VehicleDetailView.css';
 
+const normalizeStatus = (status) => {
+  const normalizedStatus = String(status || '').trim().toLowerCase();
+
+  if (normalizedStatus === 'en_mantenimiento') {
+    return 'mantenimiento';
+  }
+
+  return normalizedStatus || 'desconocido';
+};
+
+const getStatusBadgeClass = (status) => {
+  switch (normalizeStatus(status)) {
+    case 'activo':
+      return 'badge-success';
+    case 'mantenimiento':
+      return 'badge-warning';
+    case 'inactivo':
+      return 'badge-danger';
+    default:
+      return 'badge-primary';
+  }
+};
+
+const getStatusIcon = (status) => {
+  switch (normalizeStatus(status)) {
+    case 'activo':
+      return '✓';
+    case 'mantenimiento':
+      return '🔧';
+    case 'inactivo':
+      return '🚫';
+    default:
+      return '•';
+  }
+};
+
+const formatStatus = (status) => {
+  const normalizedStatus = normalizeStatus(status);
+  const statusMap = {
+    activo: 'Activo',
+    mantenimiento: 'Mantenimiento',
+    inactivo: 'Inactivo',
+    desconocido: 'Sin estado'
+  };
+
+  return statusMap[normalizedStatus] || status || 'Sin estado';
+};
+
 /**
  * VehicleDetailView - Vista profesional de detalles del vehiculo
  * Muestra:
@@ -17,16 +65,6 @@ export default function VehicleDetailView({
   onPhotosClick
 }) {
   const [activeSection, setActiveSection] = useState(null);
-
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case 'activo': return '🟢';
-      case 'inactivo': return '⚫';
-      case 'en_mantenimiento': return '🔧';
-      case 'disponible': return '🚗';
-      default: return '❓';
-    }
-  };
 
   const handleModuleClick = (module) => {
     setActiveSection(module);
@@ -74,9 +112,7 @@ export default function VehicleDetailView({
                   <tr>
                     <td className="label">Color</td>
                     <td className="value">
-                      <span className="color-box" style={{ backgroundColor: vehicle.color || '#ccc' }}>
-                        {vehicle.color || '-'}
-                      </span>
+                      <span className="color-name">{vehicle.color || '-'}</span>
                     </td>
                   </tr>
                   <tr>
@@ -88,8 +124,11 @@ export default function VehicleDetailView({
                   <tr>
                     <td className="label">Estado</td>
                     <td className="value">
-                      <span className="status-badge">
-                        {getStatusIcon(vehicle.estado)} {vehicle.estado?.charAt(0).toUpperCase() + vehicle.estado?.slice(1)}
+                      <span className={`status-badge ${getStatusBadgeClass(vehicle.estado)}`}>
+                        <span className="status-icon" aria-hidden="true">
+                          {getStatusIcon(vehicle.estado)}
+                        </span>
+                        <span>{formatStatus(vehicle.estado)}</span>
                       </span>
                     </td>
                   </tr>
@@ -122,6 +161,7 @@ export default function VehicleDetailView({
           <div
             className="module-card documents"
             onClick={() => handleModuleClick('documents')}
+            data-active={activeSection === 'documents'}
           >
             <div className="module-header">
               <span className="module-icon">📄</span>
@@ -134,13 +174,14 @@ export default function VehicleDetailView({
               {vehicle.documents?.length || 0} documentos registrados
             </div>
             <button className="module-button">
-              👁️ Ver Detalles
+              Ver Detalles
             </button>
           </div>
 
           <div
             className="module-card maintenance"
             onClick={() => handleModuleClick('maintenance')}
+            data-active={activeSection === 'maintenance'}
           >
             <div className="module-header">
               <span className="module-icon">🔧</span>
@@ -153,13 +194,14 @@ export default function VehicleDetailView({
               {vehicle.safetyElements?.length || 0}/11 elementos completados
             </div>
             <button className="module-button">
-              👁️ Ver Detalles
+              Ver Detalles
             </button>
           </div>
 
           <div
             className="module-card gasoline"
             onClick={() => handleModuleClick('gasoline')}
+            data-active={activeSection === 'gasoline'}
           >
             <div className="module-header">
               <span className="module-icon">⛽</span>
@@ -172,13 +214,14 @@ export default function VehicleDetailView({
               {vehicle.gasolineRecords?.length || 0} cargas registradas
             </div>
             <button className="module-button">
-              👁️ Ver Detalles
+              Ver Detalles
             </button>
           </div>
 
           <div
             className="module-card photos"
             onClick={() => handleModuleClick('photos')}
+            data-active={activeSection === 'photos'}
           >
             <div className="module-header">
               <span className="module-icon">📸</span>
@@ -191,7 +234,7 @@ export default function VehicleDetailView({
               {vehicle.photos?.length || 0}/13 fotos capturadas
             </div>
             <button className="module-button">
-              👁️ Ver Detalles
+              Ver Detalles
             </button>
           </div>
         </div>
