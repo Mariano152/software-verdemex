@@ -27,19 +27,6 @@ const getStatusBadgeClass = (status) => {
   }
 };
 
-const getStatusIcon = (status) => {
-  switch (normalizeStatus(status)) {
-    case 'activo':
-      return '✓';
-    case 'mantenimiento':
-      return '🔧';
-    case 'inactivo':
-      return '🚫';
-    default:
-      return '•';
-  }
-};
-
 const formatStatus = (status) => {
   const normalizedStatus = normalizeStatus(status);
   const statusMap = {
@@ -55,6 +42,7 @@ const formatStatus = (status) => {
 export default function VehiclesList() {
   const [vehicles, setVehicles] = useState([]);
   const [filter, setFilter] = useState('todos');
+  const [searchTerm, setSearchTerm] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const navigate = useNavigate();
@@ -92,9 +80,30 @@ export default function VehiclesList() {
     fetchVehicles();
   }, []);
 
-  const filteredVehicles = filter === 'todos'
-    ? vehicles
-    : vehicles.filter((vehicle) => normalizeStatus(vehicle.estado) === filter);
+  const filteredVehicles = vehicles.filter((vehicle) => {
+    const matchesFilter = filter === 'todos'
+      ? true
+      : normalizeStatus(vehicle.estado) === filter;
+
+    const normalizedQuery = searchTerm.trim().toLowerCase();
+    const searchableText = [
+      vehicle.placa,
+      vehicle.propietario_nombre,
+      vehicle.marca,
+      vehicle.modelo,
+      vehicle.color,
+      formatStatus(vehicle.estado)
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+
+    const matchesSearch = normalizedQuery
+      ? searchableText.includes(normalizedQuery)
+      : true;
+
+    return matchesFilter && matchesSearch;
+  });
 
   return (
     <div className="vehicles-list">
@@ -110,19 +119,32 @@ export default function VehiclesList() {
 
       <div className="card mb-3">
         <div className="card-body">
-          <div className="filter-group">
-            <label>Filtrar por Estado:</label>
-            <div className="filter-buttons">
-              {FILTER_OPTIONS.map((status) => (
-                <button
-                  type="button"
-                  key={status}
-                  className={`filter-btn ${filter === status ? 'active' : ''}`}
-                  onClick={() => setFilter(status)}
-                >
-                  {status === 'todos' ? 'Todos' : formatStatus(status)}
-                </button>
-              ))}
+          <div className="vehicles-toolbar">
+            <div className="filter-group">
+              <label>Filtrar por estado:</label>
+              <div className="filter-buttons">
+                {FILTER_OPTIONS.map((status) => (
+                  <button
+                    type="button"
+                    key={status}
+                    className={`filter-btn ${filter === status ? 'active' : ''}`}
+                    onClick={() => setFilter(status)}
+                  >
+                    {status === 'todos' ? 'Todos' : formatStatus(status)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="vehicles-search">
+              <label htmlFor="vehicles-search">Buscar vehículo</label>
+              <input
+                id="vehicles-search"
+                type="search"
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+                placeholder="Placa, propietario, marca o color"
+              />
             </div>
           </div>
         </div>
@@ -169,20 +191,11 @@ export default function VehiclesList() {
                     <td>{vehicle.marca}/{vehicle.modelo}</td>
                     <td>{vehicle.modelo}</td>
                     <td>
-                      <span
-                        className="color-badge"
-                        style={{ backgroundColor: vehicle.color || '#ccc' }}
-                        title={vehicle.color || 'Sin color'}
-                        aria-label={vehicle.color || 'Sin color'}
-                      />
                       <span className="color-name">{vehicle.color || '-'}</span>
                     </td>
                     <td>{vehicle.capacidad_kg ? vehicle.capacidad_kg.toLocaleString() : '-'} kg</td>
                     <td>
                       <span className={`badge vehicle-status-badge ${getStatusBadgeClass(vehicle.estado)}`}>
-                        <span className="vehicle-status-icon" aria-hidden="true">
-                          {getStatusIcon(vehicle.estado)}
-                        </span>
                         <span>{formatStatus(vehicle.estado)}</span>
                       </span>
                     </td>
@@ -206,9 +219,9 @@ export default function VehiclesList() {
           ) : (
             <div className="empty-state">
               <p>
-                {filter === 'todos'
+                {filter === 'todos' && !searchTerm.trim()
                   ? 'No hay vehículos registrados'
-                  : `No hay vehículos con estado "${formatStatus(filter)}"`}
+                  : 'No se encontraron vehículos con los filtros actuales'}
               </p>
               <Link to="/vehicles/create" className="btn btn-primary">
                 Crear el primero

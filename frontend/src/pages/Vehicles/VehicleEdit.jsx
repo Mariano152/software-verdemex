@@ -10,9 +10,9 @@ import '../../components/Notifications/NotificationModal.css';
 import './VehicleEdit.css';
 
 /**
- * VehicleEdit - Página principal de edición de vehículos
+ * VehicleEdit - Pagina principal de edicion de vehiculos
  * Muestra VehicleDetailView por defecto
- * Permite navegación a secciones específicas (Documentos, Mantenimiento, Fotos)
+ * Permite navegacion a secciones especificas (Documentos, Mantenimiento, Fotos)
  */
 export default function VehicleEdit() {
   const { id } = useParams();
@@ -28,17 +28,16 @@ export default function VehicleEdit() {
   const requestedMaintenanceId = searchParams.get('maintenanceId');
   const requestedGasolineId = searchParams.get('gasolineId');
 
-  // Cargar datos del vehículo desde API
   useEffect(() => {
     const fetchVehicle = async () => {
       try {
         setLoading(true);
         const token = localStorage.getItem('authToken');
-        
+
         const response = await fetch(`/api/vehicles/${id}`, {
           method: 'GET',
           headers: {
-            'Authorization': `Bearer ${token}`,
+            Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
         });
@@ -71,12 +70,11 @@ export default function VehicleEdit() {
   const handleDocumentsSave = async (documents) => {
     try {
       const token = localStorage.getItem('authToken');
-      console.log('📤 Guardando documentos en backend...', { documents, id });
-      
+
       const response = await fetch(`/api/vehicles/${id}`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ documents })
@@ -88,19 +86,15 @@ export default function VehicleEdit() {
       }
 
       const updated = await response.json();
-      console.log('✅ Backend retornó vehículo actualizado:', updated);
-      
-      // Actualizar el estado del vehículo con la respuesta del backend
       setVehicle(updated);
-      
-      // Mostrar notificación de éxito
+
       setNotification({
         type: 'success',
-        title: '✓ Éxito',
+        title: 'Éxito',
         message: 'Documentos guardados correctamente'
       });
     } catch (err) {
-      console.error('❌ Error:', err);
+      console.error('Error:', err);
       throw new Error(err.message);
     }
   };
@@ -108,12 +102,11 @@ export default function VehicleEdit() {
   const handleMaintenanceSave = async (safetyElements, vehicleState) => {
     try {
       const token = localStorage.getItem('authToken');
-      console.log('📤 Guardando mantenimiento y estado...', { safetyElements, vehicleState });
-      
+
       const response = await fetch(`/api/vehicles/${id}/safety-elements`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({ safetyElements, estado: vehicleState })
@@ -125,20 +118,19 @@ export default function VehicleEdit() {
       }
 
       const savedData = await response.json();
-      console.log('✅ Mantenimiento y estado guardados:', savedData);
       setVehicle((prev) => ({
         ...prev,
         estado: savedData.vehicleStatus || vehicleState,
         safetyElements: savedData.safetyElements || []
       }));
-      
+
       setNotification({
         type: 'success',
-        title: '✓ Éxito',
+        title: 'Éxito',
         message: 'Mantenimiento y estado guardados correctamente'
       });
     } catch (err) {
-      console.error('❌ Error al guardar mantenimiento:', err);
+      console.error('Error al guardar mantenimiento:', err);
       throw new Error(err.message);
     }
   };
@@ -333,11 +325,9 @@ export default function VehicleEdit() {
       photos.forEach((photo) => {
         formData.append(`descripcion_${photo.tipo_foto}`, photo.descripcion || '');
       });
-      
-      // Procesar fotos nuevas
+
       for (const photo of photos) {
         if (photo.isNew && photo.archivo_url && typeof photo.archivo_url === 'string' && photo.archivo_url.startsWith('data:')) {
-          // Convertir data URL a blob
           const response = await fetch(photo.archivo_url);
           const blob = await response.blob();
           const extension = blob.type.split('/')[1] || 'jpg';
@@ -348,7 +338,7 @@ export default function VehicleEdit() {
       const responseUpdate = await fetch(`/api/vehicles/${id}`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`
+          Authorization: `Bearer ${token}`
         },
         body: formData
       });
@@ -386,7 +376,7 @@ export default function VehicleEdit() {
     return (
       <div className="edit-loading">
         <div className="spinner"></div>
-        <p>⏳ Cargando vehículo...</p>
+        <p>Cargando vehículo...</p>
       </div>
     );
   }
@@ -395,7 +385,7 @@ export default function VehicleEdit() {
     return (
       <div className="edit-error">
         <div className="error-box">
-          <p className="error-message">❌ Error: {error}</p>
+          <p className="error-message">Error: {error}</p>
           <div className="error-actions">
             <button onClick={() => navigate('/vehicles')} className="btn btn-secondary">
               Volver al listado
@@ -413,7 +403,7 @@ export default function VehicleEdit() {
     return (
       <div className="edit-error">
         <div className="error-box">
-          <p className="error-message">❌ Vehículo no encontrado</p>
+          <p className="error-message">Vehículo no encontrado</p>
           <button onClick={() => navigate('/vehicles')} className="btn btn-secondary">
             Volver al listado
           </button>
@@ -424,27 +414,28 @@ export default function VehicleEdit() {
 
   return (
     <div className="vehicle-edit-page">
-      {/* HEADER GLOBAL */}
       <div className="edit-page-header">
-        <button className="btn-back-main" onClick={() => {
-          if (activeSection) {
-            setActiveSection(null);
-          } else {
-            navigate('/vehicles');
-          }
-        }}>
-          ← Volver
+        <button
+          className="btn-back-main"
+          onClick={() => {
+            if (activeSection) {
+              setActiveSection(null);
+            } else {
+              navigate('/vehicles');
+            }
+          }}
+        >
+          Volver
         </button>
-        <div>
-          <h1>🚗 {vehicle.placa}</h1>
+        <div className="edit-header-copy">
+          <span className="edit-header-eyebrow">Expediente del vehículo</span>
+          <h1>{vehicle.placa}</h1>
           <p className="owner-info">Propietario: {vehicle.propietario_nombre}</p>
         </div>
       </div>
 
-      {/* CONTENIDO PRINCIPAL */}
       <div className="edit-page-content">
         {activeSection === null ? (
-          // VISTA PRINCIPAL - DETALLES
           <VehicleDetailView
             vehicle={vehicle}
             vehicleId={id}
@@ -454,7 +445,6 @@ export default function VehicleEdit() {
             onPhotosClick={() => setActiveSection('photos')}
           />
         ) : activeSection === 'documents' ? (
-          // SECCIÓN DOCUMENTOS
           <VehicleDocumentsSection
             vehicleId={id}
             documents={vehicle.documents || []}
@@ -465,7 +455,6 @@ export default function VehicleEdit() {
             onBack={() => setActiveSection(null)}
           />
         ) : activeSection === 'maintenance' ? (
-          // SECCIÓN MANTENIMIENTO
           <VehicleMaintenanceSection
             vehicleId={id}
             maintenanceRecords={vehicle.maintenanceRecords || []}
@@ -490,7 +479,6 @@ export default function VehicleEdit() {
             onBack={() => setActiveSection(null)}
           />
         ) : activeSection === 'photos' ? (
-          // SECCIÓN FOTOS
           <VehiclePhotosSection
             vehicleId={id}
             photos={vehicle.photos || []}
@@ -501,7 +489,6 @@ export default function VehicleEdit() {
         ) : null}
       </div>
 
-      {/* NOTIFICACIÓN */}
       {notification && (
         <NotificationModal
           type={notification.type}

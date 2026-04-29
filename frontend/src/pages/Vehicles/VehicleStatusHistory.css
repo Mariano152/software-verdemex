@@ -21,7 +21,6 @@
 }
 
 .page-header .btn {
-  margin-top: 0.5rem;
   white-space: nowrap;
 }
 
@@ -39,13 +38,9 @@
   margin: 0;
 }
 
-/* ============================================
-   TIMELINE
-   ============================================ */
-
 .timeline {
   position: relative;
-  padding: 2rem 0;
+  padding: 2rem 0 0.5rem;
 }
 
 .timeline::before {
@@ -54,14 +49,15 @@
   left: 20px;
   top: 0;
   bottom: 0;
-  width: 2px;
+  width: 3px;
+  border-radius: 999px;
   background: linear-gradient(180deg, var(--color-primary), var(--color-accent));
 }
 
 .timeline-item {
   display: flex;
   gap: 2rem;
-  margin-bottom: 2rem;
+  margin-bottom: 1.75rem;
   position: relative;
 }
 
@@ -86,20 +82,20 @@
   inset: -8px;
   border: 2px solid currentColor;
   border-radius: 50%;
-  opacity: 0.3;
+  opacity: 0.22;
 }
 
 .timeline-content {
   flex: 1;
-  background-color: var(--color-light-gray);
-  border-radius: 8px;
-  padding: 1.5rem;
-  transition: all 0.3s ease;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdf9 100%);
+  border-radius: 18px;
+  padding: 1.35rem 1.4rem;
+  transition: all 0.25s ease;
+  border: 1px solid rgba(26, 77, 38, 0.08);
 }
 
 .timeline-item:hover .timeline-content {
-  background-color: var(--color-gray);
-  box-shadow: var(--shadow-md);
+  box-shadow: var(--shadow-sm);
   transform: translateX(4px);
 }
 
@@ -118,50 +114,47 @@
 }
 
 .timeline-status {
-  font-weight: 700;
-  font-size: 1.05rem;
+  font-weight: 800;
+  font-size: 1.02rem;
 }
 
 .timeline-date {
   color: var(--color-text-light);
-  font-size: 0.9rem;
+  font-size: 0.88rem;
+  font-weight: 600;
 }
 
 .timeline-details {
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
+  gap: 0.3rem;
 }
 
 .timeline-details p {
   margin: 0;
   color: var(--color-text);
-  font-size: 0.95rem;
+  font-size: 0.94rem;
 }
 
 .history-change-block {
-  margin-top: 0.85rem;
-  padding: 0.85rem 1rem;
-  background: rgba(45, 122, 62, 0.05);
-  border-radius: 10px;
-  border: 1px solid rgba(45, 122, 62, 0.12);
+  margin-top: 0.9rem;
+  padding: 0.95rem 1rem;
+  background: rgba(67, 176, 42, 0.06);
+  border-radius: 14px;
+  border: 1px solid rgba(67, 176, 42, 0.12);
 }
 
 .history-change-title {
-  font-weight: 700;
+  font-weight: 800;
   color: var(--color-primary-dark);
   margin-bottom: 0.45rem !important;
 }
 
 .history-subgroup + .history-subgroup {
-  margin-top: 0.5rem;
-  padding-top: 0.5rem;
+  margin-top: 0.55rem;
+  padding-top: 0.55rem;
   border-top: 1px dashed rgba(45, 122, 62, 0.16);
 }
-
-/* ============================================
-   RESPONSIVE
-   ============================================ */
 
 @media (max-width: 768px) {
   .page-header {
@@ -177,7 +170,7 @@
   }
 
   .timeline-item {
-    gap: 1.5rem;
+    gap: 1.25rem;
   }
 
   .timeline-marker {
@@ -188,9 +181,5 @@
   .timeline-header {
     flex-direction: column;
     align-items: flex-start;
-  }
-
-  .timeline-status {
-    font-size: 0.95rem;
   }
 }

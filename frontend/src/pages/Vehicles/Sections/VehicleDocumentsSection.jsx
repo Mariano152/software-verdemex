@@ -7,7 +7,7 @@ import './VehicleDocumentsSection.css';
 /**
  * VehicleDocumentsSection - Gestión de documentos del vehículo
  * Modo lectura por defecto, con:
- * - Tabla clickeable para ver/editar documentos individuales
+ * - Tabla clickeable para ver y editar documentos individuales
  * - Botón para agregar nuevos documentos
  * - Modal para editar documento individual
  */
@@ -24,14 +24,11 @@ export default function VehicleDocumentsSection({
   const [editedDocuments, setEditedDocuments] = useState(documents);
   const [notification, setNotification] = useState(null);
   const [loading, setLoading] = useState(false);
-  
-  // Estado para el DocumentModal
   const [documentModalOpen, setDocumentModalOpen] = useState(false);
   const [selectedDocument, setSelectedDocument] = useState(null);
   const [isNewDocument, setIsNewDocument] = useState(false);
 
   useEffect(() => {
-    console.log('📋 Documentos recibidos:', documents);
     setEditedDocuments(documents);
   }, [documents]);
 
@@ -46,47 +43,17 @@ export default function VehicleDocumentsSection({
     }
   }, [documents, initialDocumentId]);
 
-  const handleEdit = () => {
-    setIsEditing(true);
-  };
-
   const handleCancel = () => {
     setIsEditing(false);
     setEditedDocuments(documents);
     onCancel?.();
   };
 
-  const handleAddDocument = () => {
-    const newDoc = {
-      id: Date.now(),
-      tipo_documento_id: '',
-      ambito: 'federal',
-      estado: '',
-      dependencia_otorga: '',
-      vigencia: '',
-      folio_oficio: '',
-      observaciones: '',
-      estatus: 'vigente',
-      isNew: true
-    };
-    setEditedDocuments([...editedDocuments, newDoc]);
-  };
-
-  const handleRemoveDocument = (docId) => {
-    setEditedDocuments(editedDocuments.filter(doc => doc.id !== docId));
-  };
-
-  const handleDocumentChange = (docId, field, value) => {
-    setEditedDocuments(editedDocuments.map(doc =>
-      doc.id === docId ? { ...doc, [field]: value } : doc
-    ));
-  };
-
   const validateDocument = (doc) => {
     const missingFields = [];
-    
+
     if (!doc.tipo_documento_id || doc.tipo_documento_id === '') {
-      missingFields.push('Tipo de Documento');
+      missingFields.push('Tipo de documento');
     }
     if (!doc.ambito || doc.ambito === '') {
       missingFields.push('Ámbito');
@@ -95,81 +62,67 @@ export default function VehicleDocumentsSection({
       missingFields.push('Estado');
     }
     if (!doc.dependencia_otorga || doc.dependencia_otorga.trim() === '') {
-      missingFields.push('Dependencia que Otorga');
+      missingFields.push('Dependencia que otorga');
     }
     if (!doc.vigencia || doc.vigencia === '') {
       missingFields.push('Vigencia');
     }
     if (!doc.folio_oficio || doc.folio_oficio.trim() === '') {
-      missingFields.push('Folio/Oficio');
+      missingFields.push('Folio u oficio');
     }
-    
-    // Observaciones es OPCIONAL - no se valida
-    
+
     return missingFields;
   };
 
   const handleSave = async () => {
     try {
-      // PASO 1: Validar todos los documentos
       const allDocuments = editedDocuments;
       const incompleteDocuments = [];
-      
-      for (let i = 0; i < allDocuments.length; i++) {
+
+      for (let i = 0; i < allDocuments.length; i += 1) {
         const doc = allDocuments[i];
         const missingFields = validateDocument(doc);
-        
+
         if (missingFields.length > 0) {
           incompleteDocuments.push({
             index: i + 1,
-            documento: tiposDocumento.find(t => t.id == doc.tipo_documento_id)?.nombre || 'Sin tipo',
+            documento: tiposDocumento.find((t) => t.id === Number(doc.tipo_documento_id))?.nombre || 'Sin tipo',
             campos: missingFields
           });
         }
       }
 
-      // Si hay documentos incompletos, mostrar error y no guardar
       if (incompleteDocuments.length > 0) {
         const mensaje = incompleteDocuments
-          .map(d => `Documento ${d.index}: ${d.campos.join(', ')}`)
+          .map((d) => `Documento ${d.index}: ${d.campos.join(', ')}`)
           .join('\n');
-        
-        console.warn('❌ Documentos incompletos:', incompleteDocuments);
-        
+
         setNotification({
           type: 'error',
-          title: '⚠️ Campos Incompletos',
-          message: `Rellena todos los campos del documento:\n${mensaje}`
+          title: 'Campos incompletos',
+          message: `Completa los campos requeridos:\n${mensaje}`
         });
-        return; // No continuar
+        return;
       }
 
-      // PASO 2: Todos los documentos están válidos, proceder a guardar
       setLoading(true);
-      console.log('📤 Guardando documentos:', editedDocuments);
-      
       await onSave?.(editedDocuments);
-      
-      console.log('✅ Documentos guardados exitosamente');
-      
+
       setNotification({
         type: 'success',
-        title: '✓ Éxito',
+        title: 'Éxito',
         message: `${editedDocuments.length} documento(s) guardado(s) correctamente`
       });
-      
-      // Actualizar el estado local con los documentos guardados
+
       setEditedDocuments(editedDocuments);
-      
-      // Cerrar modo edición después de 1 segundo
+
       setTimeout(() => {
         setIsEditing(false);
       }, 1000);
     } catch (error) {
-      console.error('❌ Error guardando:', error);
       setNotification({
         type: 'error',
-        title: '✗ Error',
+        title: 'Error',
         message: error.message || 'Error al guardar documentos'
       });
     } finally {
@@ -177,25 +130,19 @@ export default function VehicleDocumentsSection({
     }
   };
 
-  // Abrir modal para editar documento
   const handleOpenDocumentModal = (doc) => {
-    console.log('📂 [DOC_SECTION] Abriendo modal para editar documento:', { id: doc.id, tipo: doc.tipo_documento_id });
     setSelectedDocument(doc);
     setIsNewDocument(false);
     setDocumentModalOpen(true);
   };
 
-  // Abrir modal para nuevo documento
   const handleOpenNewDocumentModal = () => {
-    console.log('➕ [DOC_SECTION] Abriendo modal para NUEVO documento');
     setSelectedDocument(null);
     setIsNewDocument(true);
     setDocumentModalOpen(true);
   };
 
-  // Guardar documento desde el modal
   const handleSaveDocument = (savedDocument) => {
-    console.log('📝 Documento guardado:', savedDocument);
     setDocumentModalOpen(false);
 
     if (savedDocument?.id) {
@@ -210,11 +157,10 @@ export default function VehicleDocumentsSection({
     }
 
     onDocumentSaved?.(savedDocument);
-    
-    // Recargar documentos
+
     setNotification({
       type: 'success',
-      title: '✓ Éxito',
+      title: 'Éxito',
       message: 'Documento guardado correctamente'
     });
   };
@@ -243,13 +189,11 @@ export default function VehicleDocumentsSection({
     const directUrl = doc?.archivo_url;
 
     if (cloudinaryUrl && cloudinaryUrl.includes('cloudinary')) {
-      console.log('⬇️ Descargando desde Cloudinary (archivos_json):', cloudinaryUrl);
       window.open(cloudinaryUrl, '_blank', 'noopener,noreferrer');
       return;
     }
 
     if (directUrl && /^https?:\/\//i.test(directUrl)) {
-      console.log('⬇️ Descargando desde URL directa (archivo_url):', directUrl);
       window.open(directUrl, '_blank', 'noopener,noreferrer');
       return;
     }
@@ -257,7 +201,7 @@ export default function VehicleDocumentsSection({
     if (!doc?.id) {
       setNotification({
         type: 'warning',
-        title: '⚠️ Sin archivo',
+        title: 'Sin archivo',
         message: 'Este documento no tiene archivo disponible para descargar'
       });
       return;
@@ -275,7 +219,6 @@ export default function VehicleDocumentsSection({
       );
 
       if (!response.ok) {
-        console.error('❌ Descarga falló', { status: response.status, docId: doc.id, vehicleId });
         throw new Error(`Error ${response.status}`);
       }
 
@@ -289,10 +232,9 @@ export default function VehicleDocumentsSection({
       window.document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
     } catch (error) {
-      console.error('Error descargando documento:', error);
       setNotification({
         type: 'error',
-        title: '✗ Error',
+        title: 'Error',
         message: 'No se pudo descargar el archivo del documento'
       });
     }
@@ -309,63 +251,34 @@ export default function VehicleDocumentsSection({
     { id: 8, nombre: 'Otros Documentos' }
   ];
 
-  // Formatear fecha para input type="date" (YYYY-MM-DD)
-  const formatDateForInput = (dateValue) => {
-    if (!dateValue) return '';
-    
-    // Si ya está en formato YYYY-MM-DD, retornar tal cual
-    if (typeof dateValue === 'string' && dateValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      return dateValue;
-    }
-    
-    // Si es una fecha con otro formato, convertir
-    try {
-      const date = new Date(dateValue);
-      if (!isNaN(date.getTime())) {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-      }
-    } catch (e) {
-      console.warn('Error formateando fecha:', dateValue);
-    }
-    
-    return '';
-  };
-
-  // Formatear fecha para mostrar en tabla (DD/MM/YYYY)
   const formatDateForDisplay = (dateValue) => {
     if (!dateValue) return '-';
-    
+
     try {
       const date = new Date(dateValue);
-      if (!isNaN(date.getTime())) {
+      if (!Number.isNaN(date.getTime())) {
         return date.toLocaleDateString('es-ES');
       }
-    } catch (e) {
-      console.warn('Error formateando fecha para mostrar:', dateValue);
+    } catch (error) {
+      console.warn('Error formateando fecha para mostrar:', dateValue, error);
     }
-    
+
     return '-';
   };
 
   return (
     <div className="documents-section">
-      {/* HEADER */}
       <div className="section-header">
         <div className="header-content">
-          <button className="btn-back" onClick={onBack}>← Volver</button>
-          <h2>📄 Documentos del Vehículo</h2>
+          <button className="btn-back" onClick={onBack}>Volver</button>
+          <h2>Documentos del Vehículo</h2>
         </div>
         <button className="btn-add-document-header" onClick={handleOpenNewDocumentModal}>
-          ➕ Agregar Documento
+          Agregar Documento
         </button>
       </div>
 
-      {/* CONTENIDO */}
       <div className="section-content">
-        {/* MODO LECTURA (ahora es el único modo) */}
         <div className="read-mode">
           {editedDocuments.length > 0 ? (
             <div className="documents-table-wrapper">
@@ -382,22 +295,22 @@ export default function VehicleDocumentsSection({
                   </tr>
                 </thead>
                 <tbody>
-                  {editedDocuments.map(doc => (
+                  {editedDocuments.map((doc) => (
                     <tr
                       key={doc.id}
                       className="document-row"
                       onClick={() => handleOpenDocumentModal(doc)}
                       title="Haz clic para editar este documento"
                     >
-                      <td>{tiposDocumento.find(t => t.id == doc.tipo_documento_id)?.nombre || '-'}</td>
+                      <td>{tiposDocumento.find((t) => t.id === Number(doc.tipo_documento_id))?.nombre || '-'}</td>
                       <td>
-                        <span className="badge-ambito">{doc.ambito.replace('_', ' ')}</span>
+                        <span className="badge-ambito">{String(doc.ambito || '-').replace('_', ' ')}</span>
                       </td>
                       <td>{formatDateForDisplay(doc.vigencia)}</td>
                       <td>{doc.estado || '-'}</td>
                       <td>
                         <span className={`badge-estatus ${doc.estatus}`}>
-                          {doc.estatus === 'vigente' ? '✓ Vigente' : doc.estatus === 'vencido' ? '⚠ Vencido' : doc.estatus}
+                          {doc.estatus === 'vigente' ? 'Vigente' : doc.estatus === 'vencido' ? 'Vencido' : doc.estatus}
                         </span>
                       </td>
                       <td className="observaciones">{doc.observaciones || '-'}</td>
@@ -408,16 +321,16 @@ export default function VehicleDocumentsSection({
                             e.stopPropagation();
                             handleOpenDocumentModal(doc);
                           }}
-                          title="Ver/Editar documento"
+                          title="Ver documento"
                         >
-                          📋
+                          Ver
                         </button>
                         <button
                           className="btn-action download"
                           onClick={(e) => handleDownloadDocument(doc, e)}
                           title="Descargar archivo"
                         >
-                          ⬇️
+                          Descargar
                         </button>
                       </td>
                     </tr>
@@ -427,13 +340,12 @@ export default function VehicleDocumentsSection({
             </div>
           ) : (
             <div className="empty-state">
-              <p>📋 No hay documentos registrados</p>
+              <p>No hay documentos registrados</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* DocumentModal */}
       <DocumentModal
         document={selectedDocument}
         vehicleId={vehicleId}
@@ -443,7 +355,6 @@ export default function VehicleDocumentsSection({
         onSave={handleSaveDocument}
       />
 
-      {/* NOTIFICACIÓN */}
       <NotificationModal
         isOpen={!!notification}
         type={notification?.type}

@@ -139,8 +139,8 @@ export default function VehiclePhotosSection({
       await onSave?.(editedPhotos, deletedPhotoTypes);
       setNotification({
         type: 'success',
-        title: 'Exito',
-        message: 'Fotografias guardadas correctamente'
+        title: 'Éxito',
+        message: 'Fotografías guardadas correctamente'
       });
       setIsEditing(false);
       setDeletedPhotoTypes([]);
@@ -148,7 +148,7 @@ export default function VehiclePhotosSection({
       setNotification({
         type: 'error',
         title: 'Error',
-        message: error.message || 'Error al guardar fotografias'
+        message: error.message || 'Error al guardar fotografías'
       });
     } finally {
       setLoading(false);
@@ -173,8 +173,8 @@ export default function VehiclePhotosSection({
         <div className="header-content">
           <button className="btn-back" onClick={onBack}>Volver</button>
           <div>
-            <h2>Fotografias del vehiculo</h2>
-            <p className="progress-text">{completed}/13 fotografias capturadas</p>
+            <h2>Fotografías del vehículo</h2>
+            <p className="progress-text">{completed}/13 fotografías capturadas</p>
           </div>
         </div>
         {!isEditing ? (
@@ -248,7 +248,7 @@ export default function VehiclePhotosSection({
                       {existingPhoto && (
                         <div className="photo-description">
                           <textarea
-                            placeholder="Agregar descripcion..."
+                            placeholder="Agregar descripción..."
                             value={existingPhoto.descripcion || ''}
                             onChange={(event) => handlePhotoDescriptionChange(existingPhoto.id, event.target.value)}
                             rows="2"
@@ -300,8 +300,8 @@ export default function VehiclePhotosSection({
               </div>
             ) : (
               <div className="empty-state">
-                <p>No hay fotografias registradas</p>
-                <p className="subtitle">Haz clic en "Editar" para agregar fotos</p>
+                <p>No hay fotografías registradas</p>
+                <p className="subtitle">Haz clic en "Editar" para agregar fotografías</p>
               </div>
             )}
           </div>

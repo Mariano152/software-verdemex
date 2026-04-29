@@ -25,19 +25,6 @@ const getStatusBadgeClass = (status) => {
   }
 };
 
-const getStatusIcon = (status) => {
-  switch (normalizeStatus(status)) {
-    case 'activo':
-      return '✓';
-    case 'mantenimiento':
-      return '🔧';
-    case 'inactivo':
-      return '🚫';
-    default:
-      return '•';
-  }
-};
-
 const formatStatus = (status) => {
   const normalizedStatus = normalizeStatus(status);
   const statusMap = {
@@ -51,10 +38,10 @@ const formatStatus = (status) => {
 };
 
 /**
- * VehicleDetailView - Vista profesional de detalles del vehiculo
+ * VehicleDetailView - Vista profesional de detalles del vehículo
  * Muestra:
- * 1. Informacion basica (izquierda) + Expedientes (derecha)
- * 2. 4 cards de modulos (Documentos, Mantenimiento, Gasolina, Fotografias)
+ * 1. Información básica (izquierda) + Historial (derecha)
+ * 2. Módulos de documentos, mantenimiento, gasolina y fotografías
  */
 export default function VehicleDetailView({
   vehicle,
@@ -81,8 +68,31 @@ export default function VehicleDetailView({
           <div className="info-section">
             <h2 className="info-title">
               <span className="icon">ℹ️</span>
-              Informacion Basica del Vehiculo
+              Información Básica del Vehículo
             </h2>
+
+            <div className="vehicle-summary-strip">
+              <div className="summary-card">
+                <span className="summary-label">Placa</span>
+                <strong className="summary-value">{vehicle.placa}</strong>
+              </div>
+              <div className="summary-card">
+                <span className="summary-label">Propietario</span>
+                <strong className="summary-value">{vehicle.propietario_nombre || '-'}</strong>
+              </div>
+              <div className="summary-card">
+                <span className="summary-label">Estado</span>
+                <span className={`status-badge status-badge-large ${getStatusBadgeClass(vehicle.estado)}`}>
+                  <span>{formatStatus(vehicle.estado)}</span>
+                </span>
+              </div>
+              <div className="summary-card">
+                <span className="summary-label">Capacidad</span>
+                <strong className="summary-value">
+                  {vehicle.capacidad_kg ? `${vehicle.capacidad_kg.toLocaleString()} kg` : '-'}
+                </strong>
+              </div>
+            </div>
 
             <div className="table-wrapper">
               <table className="info-table">
@@ -94,25 +104,27 @@ export default function VehicleDetailView({
                   <tr>
                     <td className="label">Placa</td>
                     <td className="value">
-                      <span className="plate-badge">{vehicle.placa}</span>
+                      <span className="detail-value-text">{vehicle.placa}</span>
                     </td>
                   </tr>
                   <tr>
-                    <td className="label">Numero de Serie</td>
-                    <td className="value font-mono">{vehicle.numero_serie}</td>
+                    <td className="label">Número de Serie</td>
+                    <td className="value">
+                      <span className="detail-value-text">{vehicle.numero_serie}</span>
+                    </td>
                   </tr>
                   <tr>
                     <td className="label">Marca</td>
                     <td className="value">{vehicle.marca}</td>
                   </tr>
                   <tr>
-                    <td className="label">Modelo (Ano)</td>
+                    <td className="label">Modelo (Año)</td>
                     <td className="value">{vehicle.modelo}</td>
                   </tr>
                   <tr>
                     <td className="label">Color</td>
                     <td className="value">
-                      <span className="color-name">{vehicle.color || '-'}</span>
+                      <span className="detail-value-text">{vehicle.color || '-'}</span>
                     </td>
                   </tr>
                   <tr>
@@ -125,16 +137,13 @@ export default function VehicleDetailView({
                     <td className="label">Estado</td>
                     <td className="value">
                       <span className={`status-badge ${getStatusBadgeClass(vehicle.estado)}`}>
-                        <span className="status-icon" aria-hidden="true">
-                          {getStatusIcon(vehicle.estado)}
-                        </span>
                         <span>{formatStatus(vehicle.estado)}</span>
                       </span>
                     </td>
                   </tr>
                   {vehicle.descripcion && (
                     <tr>
-                      <td className="label">Descripcion</td>
+                      <td className="label">Descripción</td>
                       <td className="value description">{vehicle.descripcion}</td>
                     </tr>
                   )}
@@ -154,7 +163,7 @@ export default function VehicleDetailView({
       <div className="modules-section">
         <h2 className="modules-title">
           <span className="icon">📋</span>
-          Modulos de Informacion
+          Módulos de Información
         </h2>
 
         <div className="modules-grid">
@@ -168,13 +177,13 @@ export default function VehicleDetailView({
               <span>Documentos</span>
             </div>
             <div className="module-info">
-              Permisos, licencias y documentos del vehiculo
+              Permisos, licencias y documentos del vehículo
             </div>
             <div className="module-stats">
               {vehicle.documents?.length || 0} documentos registrados
             </div>
             <button className="module-button">
-              Ver Detalles
+              Ver detalles
             </button>
           </div>
 
@@ -184,17 +193,17 @@ export default function VehicleDetailView({
             data-active={activeSection === 'maintenance'}
           >
             <div className="module-header">
-              <span className="module-icon">🔧</span>
+              <span className="module-icon">🛠️</span>
               <span>Mantenimiento</span>
             </div>
             <div className="module-info">
-              Elementos de seguridad y mantenimiento
+              Elementos de seguridad, checklist y servicios realizados
             </div>
             <div className="module-stats">
               {vehicle.safetyElements?.length || 0}/11 elementos completados
             </div>
             <button className="module-button">
-              Ver Detalles
+              Ver detalles
             </button>
           </div>
 
@@ -214,7 +223,7 @@ export default function VehicleDetailView({
               {vehicle.gasolineRecords?.length || 0} cargas registradas
             </div>
             <button className="module-button">
-              Ver Detalles
+              Ver detalles
             </button>
           </div>
 
@@ -225,16 +234,16 @@ export default function VehicleDetailView({
           >
             <div className="module-header">
               <span className="module-icon">📸</span>
-              <span>Fotografias</span>
+              <span>Fotografías</span>
             </div>
             <div className="module-info">
-              Registro fotografico del vehiculo
+              Registro fotográfico del vehículo
             </div>
             <div className="module-stats">
               {vehicle.photos?.length || 0}/13 fotos capturadas
             </div>
             <button className="module-button">
-              Ver Detalles
+              Ver detalles
             </button>
           </div>
         </div>

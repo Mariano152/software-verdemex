@@ -23,7 +23,7 @@ const getModuleLabel = (moduleName) => {
     case 'documentos': return 'Documentos';
     case 'mantenimiento': return 'Mantenimiento';
     case 'gasolina': return 'Gasolina';
-    case 'fotos': return 'Fotografias';
+    case 'fotos': return 'Fotografías';
     default: return moduleName || 'General';
   }
 };
@@ -31,9 +31,9 @@ const getModuleLabel = (moduleName) => {
 const getModuleColor = (moduleName) => {
   switch (moduleName) {
     case 'documentos': return '#2d7a3e';
-    case 'mantenimiento': return '#e74c3c';
-    case 'gasolina': return '#16a085';
-    case 'fotos': return '#f39c12';
+    case 'mantenimiento': return '#d97706';
+    case 'gasolina': return '#2563eb';
+    case 'fotos': return '#7aa53e';
     default: return '#34495e';
   }
 };
@@ -77,7 +77,7 @@ export default function ExpedienteSection({ vehicleId }) {
   return (
     <div className='expediente-section'>
       <div className='expediente-header'>
-        <h3>🕘 Historial</h3>
+        <h3>Historial</h3>
         <button className='btn-create-expediente' onClick={() => navigate(`/vehicles/${vehicleId}/history`)}>
           Ver todo
         </button>
@@ -93,7 +93,7 @@ export default function ExpedienteSection({ vehicleId }) {
         </div>
       ) : recentHistory.length === 0 ? (
         <div className='expediente-empty'>
-          <p>Aun no hay movimientos registrados para este vehiculo.</p>
+          <p>Aún no hay movimientos registrados para este vehículo.</p>
         </div>
       ) : (
         <div className='expedientes-list'>

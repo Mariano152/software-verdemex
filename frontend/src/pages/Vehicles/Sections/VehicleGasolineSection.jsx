@@ -199,7 +199,7 @@ export default function VehicleGasolineSection({
 
       setNotification({
         type: 'success',
-        title: 'Exito',
+        title: 'Éxito',
         message: recordId ? 'Carga actualizada correctamente' : 'Carga registrada correctamente'
       });
       setTimeout(() => setNotification(null), 2500);
@@ -225,7 +225,7 @@ export default function VehicleGasolineSection({
       setSelectedRecord(null);
       setNotification({
         type: 'success',
-        title: 'Exito',
+        title: 'Éxito',
         message: 'Registro eliminado correctamente'
       });
       setTimeout(() => setNotification(null), 2500);
@@ -278,7 +278,7 @@ export default function VehicleGasolineSection({
           <button className='btn-back' onClick={onBack}>Volver</button>
           <div className='header-info'>
             <h2>Gasolina</h2>
-            <p className='header-caption'>Registro de cargas, litros comprados y gasto del vehiculo</p>
+            <p className='header-caption'>Registro de cargas, litros comprados y gasto del vehículo</p>
           </div>
         </div>
         <div className='header-right'>
@@ -290,17 +290,17 @@ export default function VehicleGasolineSection({
         <div className='maintenance-history-header'>
           <div>
             <h3>Resumen de gasolina</h3>
-            <p>Consulta el gasto acumulado y el consumo comprado por mes y ano.</p>
+            <p>Consulta el gasto acumulado y el consumo comprado por mes y año.</p>
           </div>
         </div>
 
         <div className='gasoline-summary-grid'>
           <div className='gasoline-summary-card'>
-            <span>Gasto total historico</span>
+            <span>Gasto total histórico</span>
             <strong>{formatCurrency(overallTotals.totalCost)}</strong>
           </div>
           <div className='gasoline-summary-card'>
-            <span>Litros historicos</span>
+            <span>Litros históricos</span>
             <strong>{formatLiters(overallTotals.totalLiters)}</strong>
           </div>
           <div className='gasoline-summary-card'>
@@ -323,7 +323,7 @@ export default function VehicleGasolineSection({
             </select>
           </label>
           <label>
-            Ano
+            Año
             <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))}>
               {availableYears.map((year) => (
                 <option key={year} value={year}>{year}</option>
@@ -347,7 +347,7 @@ export default function VehicleGasolineSection({
         <div className='maintenance-records-list'>
           {records.length === 0 ? (
             <div className='maintenance-empty-state'>
-              <p>Aun no hay cargas de gasolina registradas para este vehiculo.</p>
+              <p>Aún no hay cargas de gasolina registradas para este vehículo.</p>
               <button type='button' className='maintenance-add-btn maintenance-add-btn-inline' onClick={openNewRecordModal}>
                 Agregar primera carga
               </button>
@@ -398,8 +398,8 @@ export default function VehicleGasolineSection({
 
                   <div className='maintenance-record-body'>
                     <div>
-                      <span className='record-label'>Descripcion</span>
-                      <p>{record.descripcion || 'Sin descripcion'}</p>
+                      <span className='record-label'>Descripción</span>
+                      <p>{record.descripcion || 'Sin descripción'}</p>
                     </div>
                     <div>
                       <span className='record-label'>Observaciones</span>

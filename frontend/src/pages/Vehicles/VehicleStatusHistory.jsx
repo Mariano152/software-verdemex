@@ -19,18 +19,18 @@ const formatDateTime = (value) => {
 };
 
 const formatValue = (value) => {
-  if (value === null || value === undefined || value === '') return 'Vacio';
+  if (value === null || value === undefined || value === '') return 'Vacío';
   if (typeof value === 'number') return value.toLocaleString('es-MX');
   return String(value);
 };
 
 const getActionLabel = (action) => {
   switch (action) {
-    case 'crear': return 'Creacion';
-    case 'actualizar': return 'Actualizacion';
-    case 'eliminar': return 'Eliminacion';
-    case 'agregar_archivo': return 'Archivo agregado';
-    case 'eliminar_archivo': return 'Archivo eliminado';
+    case 'crear': return 'Creación';
+    case 'actualizar': return 'Actualizó';
+    case 'eliminar': return 'Eliminación';
+    case 'agregar_archivo': return 'Agregó archivo';
+    case 'eliminar_archivo': return 'Eliminó archivo';
     default: return action || '-';
   }
 };
@@ -137,7 +137,7 @@ const getModuleLabel = (moduleName) => {
     case 'documentos': return 'Documentos';
     case 'mantenimiento': return 'Mantenimiento';
     case 'gasolina': return 'Gasolina';
-    case 'fotos': return 'Fotografias';
+    case 'fotos': return 'Fotografías';
     default: return moduleName || 'General';
   }
 };
@@ -145,9 +145,9 @@ const getModuleLabel = (moduleName) => {
 const getModuleColor = (moduleName) => {
   switch (moduleName) {
     case 'documentos': return '#2d7a3e';
-    case 'mantenimiento': return '#e74c3c';
-    case 'gasolina': return '#16a085';
-    case 'fotos': return '#f39c12';
+    case 'mantenimiento': return '#d97706';
+    case 'gasolina': return '#2563eb';
+    case 'fotos': return '#7aa53e';
     default: return '#34495e';
   }
 };
@@ -270,7 +270,7 @@ export default function VehicleStatusHistory() {
     return (
       <div className='vehicle-status-history'>
         <div className='page-header'>
-          <button className='btn btn-outline' onClick={() => navigate(`/vehicles/${id}/edit`)}>← Volver</button>
+          <button className='btn btn-outline' onClick={() => navigate(`/vehicles/${id}/edit`)}>Volver</button>
         </div>
         <div className='card'>
           <div className='card-header'>Error</div>
@@ -283,10 +283,10 @@ export default function VehicleStatusHistory() {
   return (
     <div className='vehicle-status-history'>
       <div className='page-header'>
-        <button className='btn btn-outline' onClick={() => navigate(`/vehicles/${id}/edit`)}>← Volver</button>
+        <button className='btn btn-outline' onClick={() => navigate(`/vehicles/${id}/edit`)}>Volver</button>
         <div>
-          <h1>Historial del vehiculo</h1>
-          <p className='subtitle'>Vehiculo: {vehicle?.placa || id}</p>
+          <h1>Historial del vehículo</h1>
+          <p className='subtitle'>Vehículo: {vehicle?.placa || id}</p>
         </div>
       </div>
 
@@ -295,7 +295,7 @@ export default function VehicleStatusHistory() {
 
         {history.length === 0 ? (
           <div className='history-empty-state'>
-            Aun no hay cambios registrados para este vehiculo.
+            Aún no hay cambios registrados para este vehículo.
           </div>
         ) : (
           <div className='timeline'>
@@ -320,11 +320,11 @@ export default function VehicleStatusHistory() {
                   <div className='timeline-details'>
                     <p><strong>{entry.descripcion}</strong></p>
                     <p>Usuario: {entry.usuario_nombre || 'Sistema'}</p>
-                    <p>Accion: {getActionLabel(entry.accion)}</p>
+                    <p>Acción: {getActionLabel(entry.accion)}</p>
                     {renderEntryChanges(entry)}
                     {entry.accion === 'eliminar'
-                      ? <p>Este cambio fue una eliminacion, por eso solo abre la seccion.</p>
-                      : <p>Haz clic para ir a la seccion relacionada.</p>}
+                      ? <p>Este cambio fue una eliminación, por eso solo abre la sección relacionada.</p>
+                      : <p>Haz clic para ir a la sección relacionada.</p>}
                   </div>
                 </div>
               </div>

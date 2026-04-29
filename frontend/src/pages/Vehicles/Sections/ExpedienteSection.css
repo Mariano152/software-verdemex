@@ -1,57 +1,54 @@
 .expediente-section {
   background: white;
-  border-radius: 10px;
+  border-radius: 20px;
   padding: 0;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  box-shadow: var(--shadow-sm);
   display: flex;
   flex-direction: column;
   min-height: 420px;
+  border: 1px solid var(--color-border);
 }
 
 .expediente-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.5rem;
-  border-bottom: 2px solid #ecf0f1;
-  background: linear-gradient(135deg, var(--color-primary-dark) 0%, var(--color-primary) 100%);
+  padding: 1.35rem 1.5rem;
+  border-bottom: 1px solid rgba(26, 77, 38, 0.08);
+  background:
+    radial-gradient(circle at top right, rgba(151, 215, 0, 0.18), transparent 24%),
+    linear-gradient(135deg, var(--color-primary-dark) 0%, #245c31 100%);
   color: white;
-  border-radius: 10px 10px 0 0;
+  border-radius: 20px 20px 0 0;
 }
 
 .expediente-header h3 {
   margin: 0;
-  font-size: 18px;
+  font-size: 1.08rem;
   color: white;
-  font-weight: 700;
+  font-weight: 800;
   display: flex;
   align-items: center;
   gap: 10px;
 }
 
 .btn-create-expediente {
-  padding: 8px 16px;
-  background: #3498db;
+  padding: 0.72rem 1rem;
+  background: rgba(255, 255, 255, 0.14);
   color: white;
-  border: none;
-  border-radius: 6px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 14px;
   cursor: pointer;
-  font-weight: 600;
+  font-weight: 700;
   transition: all 0.2s;
-  font-size: 13px;
-}
-
-.btn-create-expediente:hover {
-  background: #2980b9;
-  transform: translateY(-2px);
-  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.3);
+  font-size: 0.9rem;
 }
 
 .expediente-empty {
   padding: 2rem;
   text-align: center;
-  background: #f8f9fa;
-  color: #95a5a6;
+  background: #f8fbf6;
+  color: var(--color-text-light);
   flex: 1;
   display: flex;
   align-items: center;
@@ -61,25 +58,24 @@
 .expedientes-list {
   display: flex;
   flex-direction: column;
-  gap: 15px;
-  padding: 1.5rem;
+  gap: 14px;
+  padding: 1.25rem;
   flex: 1;
   overflow-y: auto;
   max-height: 500px;
 }
 
 .expediente-card {
-  background: #f8f9fa;
-  border: 1px solid #ecf0f1;
-  border-radius: 10px;
-  padding: 15px;
-  transition: all 0.3s;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfdf9 100%);
+  border: 1px solid rgba(26, 77, 38, 0.08);
+  border-radius: 18px;
+  padding: 16px;
+  transition: all 0.22s ease;
 }
 
 .history-card:hover {
-  border-color: #3498db;
-  box-shadow: 0 4px 12px rgba(52, 152, 219, 0.12);
-  background: #fdfefe;
+  border-color: rgba(67, 176, 42, 0.18);
+  box-shadow: var(--shadow-sm);
 }
 
 .expediente-card-header {
@@ -92,26 +88,26 @@
 
 .expediente-card-header h4 {
   margin: 0;
-  font-size: 15px;
-  color: #2c3e50;
-  font-weight: 600;
+  font-size: 0.98rem;
+  color: var(--color-text-dark);
+  font-weight: 700;
   flex: 1;
   line-height: 1.35;
 }
 
 .estado-badge {
-  padding: 4px 10px;
+  padding: 0.38rem 0.72rem;
   border: 1px solid;
   border-radius: 999px;
-  font-size: 11px;
-  font-weight: 700;
+  font-size: 0.76rem;
+  font-weight: 800;
   white-space: nowrap;
 }
 
 .expediente-description {
   margin: 8px 0 0;
-  font-size: 13px;
-  color: #7f8c8d;
+  font-size: 0.88rem;
+  color: var(--color-text-light);
   line-height: 1.4;
 }
 
@@ -119,8 +115,8 @@
   display: flex;
   gap: 15px;
   margin: 10px 0 0;
-  font-size: 12px;
-  font-weight: 600;
+  font-size: 0.82rem;
+  font-weight: 700;
   color: #34495e;
   flex-wrap: wrap;
 }
@@ -178,8 +174,8 @@
 .history-close-btn {
   border: none;
   border-radius: 10px;
-  background: #eef2ff;
-  color: #1f3a8a;
+  background: #eef7e6;
+  color: #296632;
   padding: 0.8rem 1rem;
   font-weight: 700;
   cursor: pointer;
@@ -198,59 +194,26 @@
 }
 
 .history-timeline-item {
-  border: 1px solid #e5e7eb;
+  border: 1px solid rgba(26, 77, 38, 0.08);
   border-radius: 14px;
   padding: 1rem;
-  background: #fbfdff;
-}
-
-.history-timeline-top {
-  display: flex;
-  justify-content: space-between;
-  gap: 1rem;
-  align-items: flex-start;
-}
-
-.history-timeline-top h4 {
-  margin: 0 0 0.35rem;
-  color: #1f2937;
-  font-size: 1rem;
-}
-
-.history-timeline-top p {
-  margin: 0;
-  color: #6b7280;
-  font-size: 0.9rem;
-}
-
-.history-timeline-meta {
-  margin-top: 0.85rem;
-  display: flex;
-  gap: 0.75rem;
-  flex-wrap: wrap;
-  color: #475569;
-  font-size: 0.9rem;
-  font-weight: 600;
+  background: #fbfdf9;
 }
 
 @media (max-width: 768px) {
   .expediente-header {
     flex-direction: column;
-    align-items: flex-start;
+    align-items: stretch;
   }
 
-  .btn-create-expediente {
+  .btn-create-expediente,
+  .history-close-btn {
     width: 100%;
   }
 
   .expediente-card-header,
-  .history-timeline-top,
   .history-modal-header {
     flex-direction: column;
     align-items: flex-start;
-  }
-
-  .history-close-btn {
-    width: 100%;
   }
 }
