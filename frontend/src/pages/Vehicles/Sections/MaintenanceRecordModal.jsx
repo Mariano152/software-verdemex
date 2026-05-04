@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import usePopupTopScroll from '../../../hooks/usePopupTopScroll';
 import './MaintenanceRecordModal.css';
 
 const EMPTY_FORM = {
@@ -41,6 +42,8 @@ export default function MaintenanceRecordModal({
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [existingFiles, setExistingFiles] = useState([]);
   const [loading, setLoading] = useState(false);
+  const overlayRef = useRef(null);
+  const modalRef = useRef(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -72,6 +75,8 @@ export default function MaintenanceRecordModal({
     }
     setSelectedFiles([]);
   }, [isOpen, isNew, record]);
+
+  usePopupTopScroll(isOpen, [overlayRef, modalRef], [mode, record?.id]);
 
   if (!isOpen) return null;
 
@@ -140,8 +145,8 @@ export default function MaintenanceRecordModal({
   };
 
   return (
-    <div className='maintenance-modal-overlay' onClick={onClose}>
-      <div className='maintenance-modal' onClick={(event) => event.stopPropagation()}>
+    <div ref={overlayRef} className='maintenance-modal-overlay' onClick={onClose}>
+      <div ref={modalRef} className='maintenance-modal' onClick={(event) => event.stopPropagation()}>
         <div className='maintenance-modal-header'>
           <div>
             <h3>

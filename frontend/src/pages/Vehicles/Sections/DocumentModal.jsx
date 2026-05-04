@@ -1,711 +1,650 @@
-import { useState, useEffect } from 'react';
-import '../../../components/Notifications/NotificationModal.css';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import usePopupTopScroll from '../../../hooks/usePopupTopScroll';
 import './DocumentModal.css';
 
-/**
- * DocumentModal - Modal para ver/editar documento individual
- * Permite:
- * - Ver detalles del documento
- * - Editar campos individuales
- * - Agregar múltiples archivos (drag-and-drop)
- * - Descargar archivo
- */
+const EMPTY_FORM = {
+  tipo_documento_id: '',
+  ambito: 'federal',
+  estado: '',
+  dependencia_otorga: '',
+  vigencia: '',
+  folio_oficio: '',
+  observaciones: '',
+  estatus: 'vigente'
+};
+
+const DOCUMENT_TYPES = [
+  { id: 1, nombre: 'Titulo de Propiedad' },
+  { id: 2, nombre: 'Registro de Circulacion' },
+  { id: 3, nombre: 'Seguro de Responsabilidad Civil' },
+  { id: 4, nombre: 'Inspeccion Tecnica' },
+  { id: 5, nombre: 'Permiso de Circulacion' },
+  { id: 6, nombre: 'Placas de Identificacion' },
+  { id: 7, nombre: 'Verificacion Vehicular' },
+  { id: 8, nombre: 'Otros Documentos' }
+];
+
+const AMBITO_OPTIONS = [
+  { value: 'federal', label: 'Federal' },
+  { value: 'estatal', label: 'Estatal' },
+  { value: 'municipal', label: 'Municipal' }
+];
+
+const ESTATUS_OPTIONS = [
+  { value: 'vigente', label: 'Vigente' },
+  { value: 'vencido', label: 'Vencido' },
+  { value: 'en_tramite', label: 'En tramite' }
+];
+
+const formatDateForInput = (dateValue) => {
+  if (!dateValue) return '';
+  if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) return dateValue;
+
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return '';
+
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const formatDateForDisplay = (dateValue) => {
+  if (!dateValue) return 'Sin fecha';
+
+  const date = new Date(dateValue);
+  if (Number.isNaN(date.getTime())) return dateValue;
+  return date.toLocaleDateString('es-MX');
+};
+
+const formatFileSize = (sizeInBytes) => {
+  const size = Number(sizeInBytes || 0);
+  if (!size) return 'Tamano no disponible';
+  if (size < 1024) return `${size} B`;
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+};
+
+const parseFiles = (currentDocument) => {
+  if (!currentDocument?.archivos_json) return [];
+
+  try {
+    const parsed = typeof currentDocument.archivos_json === 'string'
+      ? JSON.parse(currentDocument.archivos_json)
+      : currentDocument.archivos_json;
+
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const getDocumentTypeLabel = (documentOrForm) => {
+  const typeId = Number(documentOrForm?.tipo_documento_id || 0);
+  return DOCUMENT_TYPES.find((type) => type.id === typeId)?.nombre || 'Sin tipo';
+};
+
 export default function DocumentModal({
-  document,
   vehicleId,
+  document,
   isOpen,
   isNew = false,
+  mode = 'view',
   onClose,
-  onSave
+  onSave,
+  onDelete
 }) {
-  const formatDateForInput = (dateValue) => {
-    if (!dateValue) return '';
-
-    if (typeof dateValue === 'string' && dateValue.match(/^\d{4}-\d{2}-\d{2}$/)) {
-      return dateValue;
-    }
-
-    try {
-      const date = new Date(dateValue);
-      if (!isNaN(date.getTime())) {
-        const year = date.getFullYear();
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const day = String(date.getDate()).padStart(2, '0');
-        return `${year}-${month}-${day}`;
-      }
-    } catch (error) {
-      console.warn('Error formateando vigencia para input:', dateValue, error);
-    }
-
-    return '';
-  };
-
-  const [formData, setFormData] = useState({
-    tipo_documento_id: '',
-    ambito: 'federal',
-    estado: 'válido',
-    dependencia_otorga: '',
-    vigencia: '',
-    folio_oficio: '',
-    observaciones: '',
-    estatus: 'vigente',
-    archivo_url: null
-  });
-
+  const [formData, setFormData] = useState(EMPTY_FORM);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [existingFiles, setExistingFiles] = useState([]);
+  const [downloadState, setDownloadState] = useState({});
   const [isDragging, setIsDragging] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [notification, setNotification] = useState(null);
-  const [downloadState, setDownloadState] = useState({
-    isActive: false,
-    fileKey: null,
-    progress: 0,
-    receivedBytes: 0,
-    totalBytes: 0,
-    etaSeconds: null
-  });
+  const [isSaving, setIsSaving] = useState(false);
+  const [internalMode, setInternalMode] = useState(mode);
+  const [errorMessage, setErrorMessage] = useState('');
+  const overlayRef = useRef(null);
+  const modalRef = useRef(null);
 
-  const tiposDocumento = [
-    { id: 1, nombre: 'Título de Propiedad' },
-    { id: 2, nombre: 'Registro de Circulación' },
-    { id: 3, nombre: 'Seguro de Responsabilidad Civil' },
-    { id: 4, nombre: 'Inspección Técnica' },
-    { id: 5, nombre: 'Permiso de Circulación' },
-    { id: 6, nombre: 'Placas de Identificación' },
-    { id: 7, nombre: 'Verificación Vehicular' },
-    { id: 8, nombre: 'Otros Documentos' }
-  ];
-
-  // Inicializar formulario cuando se abre modal
   useEffect(() => {
-    if (isOpen) {
-      if (isNew) {
-        console.log('📝 [DOC_MODAL] Nuevo documento - formulario vacío');
-        // Formulario vacío para nuevo documento
-        setFormData({
-          tipo_documento_id: '',
-          ambito: 'federal',
-          estado: 'válido',
-          dependencia_otorga: '',
-          vigencia: '',
-          folio_oficio: '',
-          observaciones: '',
-          estatus: 'vigente',
-          archivo_url: null
-        });
-        setExistingFiles([]);
-      } else if (document) {
-        console.log('📂 [DOC_MODAL] Editar documento existente', { docId: document.id, hasArchivoUrl: !!document.archivo_url, hasArchivosJson: !!document.archivos_json });
-        // Cargar datos del documento existente
-        setFormData({
-          tipo_documento_id: document.tipo_documento_id || '',
-          ambito: document.ambito || 'federal',
-          estado: document.estado || 'válido',
-          dependencia_otorga: document.dependencia_otorga || '',
-          vigencia: formatDateForInput(document.vigencia),
-          folio_oficio: document.folio_oficio || '',
-          observaciones: document.observaciones || '',
-          estatus: document.estatus || 'vigente',
-          archivo_url: document.archivo_url || null
-        });
+    setInternalMode(mode);
+  }, [mode, isOpen]);
 
-        // Parsear archivos JSON si existen
-        try {
-          if (document.archivos_json) {
-            console.log('🔍 [DOC_MODAL] Parseando archivos_json');
-            const filesData = typeof document.archivos_json === 'string' 
-              ? JSON.parse(document.archivos_json) 
-              : document.archivos_json;
-            const filesArray = Array.isArray(filesData) ? filesData : [filesData];
-            console.log('✅ [DOC_MODAL] Archivos parseados:', { count: filesArray.length, files: filesArray });
-            setExistingFiles(filesArray);
-          } else {
-            console.warn('⚠️ [DOC_MODAL] Documento sin archivos_json. archivo_url=', document.archivo_url);
-            setExistingFiles([]);
-          }
-        } catch (error) {
-          console.error('❌ [DOC_MODAL] Error parseando archivos_json:', { error: error.message, archivos_json: document.archivos_json });
-          setExistingFiles([]);
-        }
-      }
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (isNew || !document) {
+      setFormData(EMPTY_FORM);
       setSelectedFiles([]);
-      setNotification(null);
-      setDownloadState({
-        isActive: false,
-        fileKey: null,
-        progress: 0,
-        receivedBytes: 0,
-        totalBytes: 0,
-        etaSeconds: null
-      });
+      setExistingFiles([]);
+      setErrorMessage('');
+      return;
     }
-  }, [isOpen, document, isNew]);
 
-  const getFileKey = (fileInfo, index = 0) => fileInfo?.id || `${fileInfo?.nombre_original || 'archivo'}-${fileInfo?.orden ?? index}`;
+    setFormData({
+      tipo_documento_id: String(document.tipo_documento_id || ''),
+      ambito: document.ambito || 'federal',
+      estado: document.estado || '',
+      dependencia_otorga: document.dependencia_otorga || '',
+      vigencia: formatDateForInput(document.vigencia),
+      folio_oficio: document.folio_oficio || '',
+      observaciones: document.observaciones || '',
+      estatus: document.estatus || 'vigente'
+    });
+    setSelectedFiles([]);
+    setExistingFiles(parseFiles(document));
+    setErrorMessage('');
+  }, [document, isNew, isOpen]);
 
-  const formatBytes = (bytes = 0) => {
-    if (!bytes || bytes < 0) return '0 B';
-    const units = ['B', 'KB', 'MB', 'GB'];
-    let value = bytes;
-    let unitIndex = 0;
-    while (value >= 1024 && unitIndex < units.length - 1) {
-      value /= 1024;
-      unitIndex += 1;
-    }
-    return `${value.toFixed(unitIndex === 0 ? 0 : 1)} ${units[unitIndex]}`;
-  };
+  usePopupTopScroll(isOpen, [overlayRef, modalRef], [internalMode, document?.id]);
 
-  const formatEta = (seconds) => {
-    if (seconds == null || Number.isNaN(seconds) || !Number.isFinite(seconds)) return 'Calculando...';
-    if (seconds <= 0) return '0s';
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
-    return mins > 0 ? `${mins}m ${secs}s` : `${secs}s`;
+  const isViewMode = !isNew && internalMode === 'view';
+
+  const summaryCards = useMemo(() => ([
+    { label: 'Tipo', value: getDocumentTypeLabel(document || formData) },
+    {
+      label: 'Ambito',
+      value: AMBITO_OPTIONS.find((option) => option.value === (document?.ambito || formData.ambito))?.label || 'Sin definir'
+    },
+    { label: 'Vigencia', value: formatDateForDisplay(document?.vigencia || formData.vigencia) },
+    { label: 'Archivos', value: String(existingFiles.length + selectedFiles.length) }
+  ]), [document, existingFiles.length, formData, selectedFiles.length]);
+
+  if (!isOpen) return null;
+
+  const addFiles = (filesToAdd) => {
+    if (isViewMode || !filesToAdd?.length) return;
+    setSelectedFiles((current) => [...current, ...filesToAdd]);
   };
 
   const handleChange = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
+    if (isViewMode) return;
+    setFormData((current) => ({
+      ...current,
       [field]: value
     }));
   };
 
-  // Agregar archivos del input
-  const handleFileChange = (e) => {
-    const files = e.target.files ? Array.from(e.target.files) : [];
-    if (files.length > 0) {
-      setSelectedFiles(prev => [...prev, ...files]);
+  const handleFileInputChange = (event) => {
+    const files = event.target.files ? Array.from(event.target.files) : [];
+    addFiles(files);
+    event.target.value = '';
+  };
+
+  const handleDeleteExistingFile = async (fileId) => {
+    if (!document?.id || !fileId || isViewMode) return;
+
+    if (!window.confirm('Seguro que deseas eliminar este archivo adjunto?')) return;
+
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`/api/vehicles/${vehicleId}/documents/${document.id}/files/${fileId}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    const responseData = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(responseData.message || 'No se pudo eliminar el archivo');
     }
+
+    setExistingFiles(parseFiles(responseData.document));
+    onSave?.(responseData.document);
   };
 
-  // Drag and Drop handlers
-  const handleDragOver = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(true);
-  };
-
-  const handleDragLeave = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-  };
-
-  const handleDrop = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(false);
-
-    const files = e.dataTransfer.files ? Array.from(e.dataTransfer.files) : [];
-    if (files.length > 0) {
-      setSelectedFiles(prev => [...prev, ...files]);
-    }
-  };
-
-  // Remover archivo de la lista
-  const handleRemoveFile = (index) => {
-    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
-  };
-
-  // Descargar archivo específico
-  const handleDownloadFile = async (fileInfo) => {
-    const fileKey = getFileKey(fileInfo);
+  const handleSubmit = async () => {
+    setIsSaving(true);
+    setErrorMessage('');
 
     try {
-      const token = localStorage.getItem('authToken');
-      
-      // Usar download_url del backend (construido desde mapDocumentFileRow)
-      const downloadUrl = fileInfo.download_url;
-      
-      console.log('🔵 [DOWNLOAD] START');
-      console.log('   fileInfo:', fileInfo);
-      console.log('   downloadUrl:', downloadUrl);
-
-      if (!downloadUrl) {
-        console.error('❌ No download_url encontrado en fileInfo:', fileInfo);
-        setNotification({
-          type: 'warning',
-          title: '⚠️ Aviso',
-          message: 'Este archivo no tiene URL de descarga válida'
-        });
-        return;
+      if (!formData.tipo_documento_id || !formData.estado.trim() || !formData.dependencia_otorga.trim() || !formData.vigencia || !formData.folio_oficio.trim()) {
+        throw new Error('Completa tipo, estado, dependencia, vigencia y folio antes de guardar.');
       }
 
-      setDownloadState({
-        isActive: true,
-        fileKey,
-        progress: 0,
-        receivedBytes: 0,
-        totalBytes: Number(fileInfo.tamaño_bytes || 0),
-        etaSeconds: null
+      const token = localStorage.getItem('authToken');
+      const payload = new FormData();
+
+      Object.entries(formData).forEach(([key, value]) => {
+        payload.append(key, value ?? '');
       });
 
-      console.log(`📥 Iniciando descarga con progreso: ${fileInfo.nombre_original}`);
+      selectedFiles.forEach((file) => {
+        payload.append('documento', file);
+      });
 
-      const response = await fetch(downloadUrl, {
+      const endpoint = document?.id
+        ? `/api/vehicles/${vehicleId}/documents/${document.id}`
+        : `/api/vehicles/${vehicleId}/documents`;
+
+      const response = await fetch(endpoint, {
+        method: document?.id ? 'PUT' : 'POST',
+        headers: {
+          Authorization: `Bearer ${token}`
+        },
+        body: payload
+      });
+
+      const responseData = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(responseData.message || 'No se pudo guardar el documento');
+      }
+
+      onSave?.(responseData.document);
+      onClose?.();
+    } catch (error) {
+      setErrorMessage(error.message || 'No se pudo guardar el documento');
+      throw error;
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteDocument = async () => {
+    if (!document?.id) return;
+
+    if (!window.confirm('Seguro que deseas eliminar este documento?')) return;
+
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`/api/vehicles/${vehicleId}/documents/${document.id}`, {
+      method: 'DELETE',
+      headers: {
+        Authorization: `Bearer ${token}`
+      }
+    });
+
+    const responseData = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(responseData.message || 'No se pudo eliminar el documento');
+    }
+
+    onDelete?.(document.id);
+    onClose?.();
+  };
+
+  const handleDownload = async (fileInfo, index) => {
+    const fileKey = fileInfo.id || `${fileInfo.nombre_original}-${index}`;
+
+    try {
+      setDownloadState((current) => ({
+        ...current,
+        [fileKey]: { progress: 0, status: 'loading', eta: 'Preparando descarga...' }
+      }));
+
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(fileInfo.download_url, {
         headers: {
           Authorization: `Bearer ${token}`
         }
       });
 
       if (!response.ok) {
-        throw new Error(`Error ${response.status}: ${response.statusText}`);
+        throw new Error('No se pudo descargar el archivo');
       }
 
-      const streamReader = response.body?.getReader();
-      const totalBytesHeader = Number(response.headers.get('content-length') || 0);
-      const totalBytes = totalBytesHeader > 0 ? totalBytesHeader : Number(fileInfo.tamaño_bytes || 0);
+      if (!response.body) {
+        const fallbackBlob = await response.blob();
+        const fallbackUrl = window.URL.createObjectURL(fallbackBlob);
+        const fallbackLink = window.document.createElement('a');
+        fallbackLink.href = fallbackUrl;
+        fallbackLink.download = fileInfo.nombre_original || 'documento';
+        window.document.body.appendChild(fallbackLink);
+        fallbackLink.click();
+        fallbackLink.remove();
+        window.URL.revokeObjectURL(fallbackUrl);
+        setDownloadState((current) => ({
+          ...current,
+          [fileKey]: { progress: 100, status: 'done', eta: 'Descarga completada' }
+        }));
+        return;
+      }
 
-      if (!streamReader) {
-        const blob = await response.blob();
-        const objectUrl = window.URL.createObjectURL(blob);
-        const link = window.document.createElement('a');
-        link.href = objectUrl;
-        link.download = fileInfo.nombre_original || 'documento.pdf';
-        window.document.body.appendChild(link);
-        link.click();
-        window.document.body.removeChild(link);
-        window.URL.revokeObjectURL(objectUrl);
+      const totalBytes = Number(response.headers.get('content-length') || fileInfo.tamano_bytes || 0);
+      const reader = response.body.getReader();
+      const receivedChunks = [];
+      let receivedBytes = 0;
+      const startedAt = Date.now();
 
-        setDownloadState({
-          isActive: false,
-          fileKey: null,
-          progress: 100,
-          receivedBytes: blob.size,
-          totalBytes: blob.size,
-          etaSeconds: 0
-        });
-      } else {
-        const chunks = [];
-        let receivedBytes = 0;
-        const startTime = performance.now();
-        let lastUiUpdate = startTime;
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
 
-        while (true) {
-          const { done, value } = await streamReader.read();
-          if (done) break;
+        receivedChunks.push(value);
+        receivedBytes += value.length;
 
-          if (value) {
-            chunks.push(value);
-            receivedBytes += value.byteLength;
-          }
-
-          const now = performance.now();
-          if (now - lastUiUpdate >= 150) {
-            const elapsedSeconds = Math.max((now - startTime) / 1000, 0.001);
-            const speedBytesPerSec = receivedBytes / elapsedSeconds;
-            const etaSeconds = totalBytes > 0 && speedBytesPerSec > 0
-              ? Math.max((totalBytes - receivedBytes) / speedBytesPerSec, 0)
-              : null;
-            const progress = totalBytes > 0 ? Math.min((receivedBytes / totalBytes) * 100, 100) : 0;
-
-            setDownloadState({
-              isActive: true,
-              fileKey,
-              progress,
-              receivedBytes,
-              totalBytes,
-              etaSeconds
-            });
-
-            lastUiUpdate = now;
-          }
+        if (totalBytes > 0) {
+          const elapsedSeconds = Math.max((Date.now() - startedAt) / 1000, 0.001);
+          const speed = receivedBytes / elapsedSeconds;
+          const remainingSeconds = Math.max((totalBytes - receivedBytes) / Math.max(speed, 1), 0);
+          setDownloadState((current) => ({
+            ...current,
+            [fileKey]: {
+              progress: Math.min(Math.round((receivedBytes / totalBytes) * 100), 100),
+              status: 'loading',
+              eta: remainingSeconds < 1 ? 'Finalizando...' : `${Math.ceil(remainingSeconds)} s restantes`
+            }
+          }));
         }
-
-        const blob = new Blob(chunks, { type: response.headers.get('content-type') || fileInfo.tipo_mime || 'application/octet-stream' });
-        const objectUrl = window.URL.createObjectURL(blob);
-        const link = window.document.createElement('a');
-        link.href = objectUrl;
-        link.download = fileInfo.nombre_original || 'documento.pdf';
-        window.document.body.appendChild(link);
-        link.click();
-        window.document.body.removeChild(link);
-        window.URL.revokeObjectURL(objectUrl);
-
-        setDownloadState({
-          isActive: false,
-          fileKey: null,
-          progress: 100,
-          receivedBytes,
-          totalBytes,
-          etaSeconds: 0
-        });
       }
 
-      setNotification({
-        type: 'success',
-        title: '✓ Descargado',
-        message: `${fileInfo.nombre_original} descargado exitosamente`
+      const blob = new Blob(receivedChunks, {
+        type: response.headers.get('content-type') || fileInfo.tipo_mime || 'application/octet-stream'
       });
+      const url = window.URL.createObjectURL(blob);
+      const anchor = window.document.createElement('a');
+      anchor.href = url;
+      anchor.download = fileInfo.nombre_original || 'documento';
+      window.document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      window.URL.revokeObjectURL(url);
+
+      setDownloadState((current) => ({
+        ...current,
+        [fileKey]: { progress: 100, status: 'done', eta: 'Descarga completada' }
+      }));
     } catch (error) {
-      console.error('❌ [DOWNLOAD] Error:', error);
-      setDownloadState({
-        isActive: false,
-        fileKey: null,
-        progress: 0,
-        receivedBytes: 0,
-        totalBytes: 0,
-        etaSeconds: null
-      });
-      setNotification({
-        type: 'error',
-        title: '✗ Error',
-        message: 'Error al descargar el archivo: ' + error.message
-      });
+      setDownloadState((current) => ({
+        ...current,
+        [fileKey]: { progress: 0, status: 'error', eta: error.message || 'Error al descargar' }
+      }));
+      throw error;
     }
   };
 
-  const validateForm = () => {
-    console.log('🔍 [DOC_MODAL_VALIDATE] Validando formulario...');
-    const required = [
-      'tipo_documento_id',
-      'ambito',
-      'estado',
-      'dependencia_otorga',
-      'vigencia',
-      'folio_oficio'
-    ];
+  const renderDownloadState = (fileInfo, index) => {
+    const fileKey = fileInfo.id || `${fileInfo.nombre_original}-${index}`;
+    const state = downloadState[fileKey];
+    if (!state) return null;
 
-    const missing = required.filter(field => !formData[field]);
-
-    if (missing.length > 0) {
-      console.warn(`⚠️ [DOC_MODAL_VALIDATE] Faltan campos: ${missing.join(', ')}`);
-      setNotification({
-        type: 'error',
-        title: '⚠️ Campos Incompletos',
-        message: `Por favor completa: ${missing.join(', ')}`
-      });
-      return false;
-    }
-
-    if (isNew && selectedFiles.length === 0) {
-      console.warn('⚠️ [DOC_MODAL_VALIDATE] Es nuevo documento pero sin archivos');
-      setNotification({
-        type: 'error',
-        title: '⚠️ Sin Archivos',
-        message: 'Por favor agrega al menos un archivo'
-      });
-      return false;
-    }
-
-    console.log('✅ [DOC_MODAL_VALIDATE] Validación exitosa');
-    return true;
+    return (
+      <div className='document-download-progress'>
+        <div className='document-download-meta'>
+          <span>{state.status === 'done' ? 'Completado' : state.status === 'error' ? 'Error' : 'Descargando'}</span>
+          <span>{state.progress}%</span>
+        </div>
+        <div className='document-download-track'>
+          <div className='document-download-bar' style={{ width: `${state.progress}%` }} />
+        </div>
+        <div className='document-download-eta'>{state.eta}</div>
+      </div>
+    );
   };
-
-  const handleSave = async () => {
-    console.log('💾 [DOC_MODAL_SAVE] INICIO - guardando documento', { isNew, vehicleId, formData: formData, selectedFiles: selectedFiles.length });
-    
-    if (!validateForm()) {
-      console.log('❌ [DOC_MODAL_SAVE] Validación FALLÓ');
-      return;
-    }
-
-    console.log('✅ [DOC_MODAL_SAVE] Validación PASÓ');
-    setIsLoading(true);
-
-    try {
-      const formDataObj = new FormData();
-
-      // Agregar campos del formulario
-      console.log('📝 [DOC_MODAL_SAVE] Agregando campos a FormData');
-      Object.keys(formData).forEach(key => {
-        if (key !== 'archivo_url') {
-          formDataObj.append(key, formData[key]);
-          console.log(`  - ${key}: ${formData[key]}`);
-        }
-      });
-
-      // Agregar archivos seleccionados para que el backend los suba a Cloudinary
-      console.log(`📄 [DOC_MODAL_SAVE] Agregando ${selectedFiles.length} archivo(s)`);
-      selectedFiles.forEach((file, idx) => {
-        formDataObj.append('documento', file);
-        console.log(`  - Archivo ${idx}: ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)`);
-      });
-
-      const token = localStorage.getItem('authToken');
-      const url = isNew
-        ? `/api/vehicles/${vehicleId}/documents`
-        : `/api/vehicles/${vehicleId}/documents/${document.id}`;
-      const method = isNew ? 'POST' : 'PUT';
-
-      console.log(`🚀 [DOC_MODAL_SAVE] Enviando ${method} a ${url}`);
-      console.log(`   Token: ${token ? 'PRESENTE' : 'FALTA TOKEN'}`);
-
-      const response = await fetch(url, {
-        method,
-        headers: {
-          'Authorization': `Bearer ${token}`
-        },
-        body: formDataObj
-      });
-
-      console.log(`📡 [DOC_MODAL_SAVE] Respuesta ${response.status} ${response.statusText}`);
-
-      if (!response.ok) {
-        const errText = await response.text();
-        console.error(`❌ [DOC_MODAL_SAVE] Error ${response.status}: ${errText}`);
-        throw new Error(`Error ${response.status}: ${errText}`);
-      }
-
-      const result = await response.json();
-      console.log(`✅ [DOC_MODAL_SAVE] Respuesta JSON:`, result);
-
-      setNotification({
-        type: 'success',
-        title: '✓ Éxito',
-        message: `Documento ${isNew ? 'creado' : 'actualizado'} exitosamente (${result.archivosGuardados || 0} archivo(s))`
-      });
-
-      setTimeout(() => {
-        console.log(`📤 [DOC_MODAL_SAVE] Llamando onSave con:`, result.document || result);
-        onSave?.(result.document || result);
-      }, 1500);
-    } catch (error) {
-      console.error('❌ [DOC_MODAL_SAVE] Error FATAL:', error);
-      setNotification({
-        type: 'error',
-        title: '✗ Error',
-        message: error.message || 'Error al guardar el documento'
-      });
-    } finally {
-      setIsLoading(false);
-      console.log('🏁 [DOC_MODAL_SAVE] FIN');
-    }
-  };
-
-  if (!isOpen) return null;
 
   return (
-    <div className="modal-overlay" onClick={onClose}>
-      <div className="modal-content document-modal" onClick={e => e.stopPropagation()}>
-        {/* Header */}
-        <div className="modal-header">
-          <h2>
-            {isNew ? '➕ Nuevo Documento' : '📄 Editar Documento'}
-          </h2>
-          <button className="btn-close" onClick={onClose}>✕</button>
+    <div
+      ref={overlayRef}
+      className='document-modal-overlay'
+      onClick={onClose}
+      onDragOver={(event) => {
+        if (isViewMode) return;
+        event.preventDefault();
+        setIsDragging(true);
+      }}
+      onDragLeave={() => setIsDragging(false)}
+      onDrop={(event) => {
+        if (isViewMode) return;
+        event.preventDefault();
+        setIsDragging(false);
+        addFiles(Array.from(event.dataTransfer.files || []));
+      }}
+    >
+      <div ref={modalRef} className='document-modal-shell' onClick={(event) => event.stopPropagation()}>
+        <div className='document-modal-header'>
+          <div>
+            <h3>{isNew ? 'Nuevo documento' : isViewMode ? 'Detalle del documento' : 'Editar documento'}</h3>
+            <p>Vehiculo {vehicleId}</p>
+          </div>
+          <button type='button' className='document-close-btn' onClick={onClose}>Cerrar</button>
         </div>
 
-        {/* Body */}
-        <div className="modal-body">
-          {/* Sección de Archivos Existentes - PRIMERO */}
-          {existingFiles.length > 0 && (
-            <div className="document-files-section" style={{ marginBottom: '30px', paddingBottom: '20px', borderBottom: '2px solid #e0e0e0' }}>
-              <h3>📎 Archivos Existentes ({existingFiles.length})</h3>
-              <div className="files-existing-list">
-                {existingFiles.map((file, index) => (
-                  <div key={getFileKey(file, index)} className="file-existing-item">
-                    <div className="file-existing-info">
-                      <span className="file-existing-name">{file.nombre_original}</span>
-                      <span className="file-existing-size">({(file.tamaño / 1024 / 1024).toFixed(2)} MB)</span>
-                    </div>
-                    <button
-                      className="btn-download-file"
-                      onClick={() => handleDownloadFile(file)}
-                      disabled={downloadState.isActive}
-                      type="button"
-                    >
-                      {downloadState.isActive && downloadState.fileKey === getFileKey(file, index)
-                        ? `⏳ ${Math.round(downloadState.progress)}%`
-                        : '⬇️ Descargar'}
-                    </button>
-
-                    {downloadState.isActive && downloadState.fileKey === getFileKey(file, index) && (
-                      <div className="download-progress-wrap">
-                        <div className="download-progress-meta">
-                          <span>Descargando archivo...</span>
-                          <span>
-                            {formatBytes(downloadState.receivedBytes)}
-                            {downloadState.totalBytes > 0 ? ` / ${formatBytes(downloadState.totalBytes)}` : ''}
-                          </span>
-                        </div>
-                        <div className="download-progress-track">
-                          <div
-                            className="download-progress-bar"
-                            style={{ width: `${Math.max(2, downloadState.progress)}%` }}
-                          />
-                        </div>
-                        <div className="download-progress-eta">
-                          Tiempo estimado restante: {formatEta(downloadState.etaSeconds)}
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
+        <div className='document-summary-grid'>
+          {summaryCards.map((card) => (
+            <div key={card.label} className='document-summary-card'>
+              <span className='document-summary-label'>{card.label}</span>
+              <strong>{card.value}</strong>
             </div>
-          )}
+          ))}
+        </div>
 
-          <div className="form-grid">
-            {/* Tipo de Documento */}
-            <div className="form-group full-width">
-              <label>Tipo de Documento *</label>
-              <select
-                value={formData.tipo_documento_id}
-                onChange={(e) => handleChange('tipo_documento_id', e.target.value)}
-              >
-                <option value="">Seleccionar tipo...</option>
-                {tiposDocumento.map(tipo => (
-                  <option key={tipo.id} value={tipo.id}>
-                    {tipo.nombre}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Ámbito */}
-            <div className="form-group">
-              <label>Ámbito *</label>
-              <select
-                value={formData.ambito}
-                onChange={(e) => handleChange('ambito', e.target.value)}
-              >
-                <option value="federal">Federal</option>
-                <option value="estatal_jalisco">Estatal Jalisco</option>
-                <option value="estatal_otro">Estatal Otro</option>
-              </select>
-            </div>
-
-            {/* Estado */}
-            <div className="form-group">
-              <label>Estado *</label>
-              <input
-                type="text"
-                placeholder="Ej: Válido, Renovando..."
-                value={formData.estado}
-                onChange={(e) => handleChange('estado', e.target.value)}
-              />
-            </div>
-
-            {/* Vigencia */}
-            <div className="form-group">
-              <label>Vigencia *</label>
-              <input
-                type="date"
-                value={formData.vigencia}
-                onChange={(e) => handleChange('vigencia', e.target.value)}
-              />
-            </div>
-
-            {/* Dependencia que Otorga */}
-            <div className="form-group">
-              <label>Dependencia que Otorga *</label>
-              <input
-                type="text"
-                placeholder="Ej: SEMOVI"
-                value={formData.dependencia_otorga}
-                onChange={(e) => handleChange('dependencia_otorga', e.target.value)}
-              />
-            </div>
-
-            {/* Folio/Oficio */}
-            <div className="form-group">
-              <label>Folio/Oficio *</label>
-              <input
-                type="text"
-                placeholder="Ej: SEMOVI-2024-5001"
-                value={formData.folio_oficio}
-                onChange={(e) => handleChange('folio_oficio', e.target.value)}
-              />
-            </div>
-
-            {/* Estatus */}
-            <div className="form-group">
-              <label>Estatus</label>
-              <select
-                value={formData.estatus}
-                onChange={(e) => handleChange('estatus', e.target.value)}
-              >
-                <option value="vigente">Vigente</option>
-                <option value="vencido">Vencido</option>
-                <option value="por_renovar">Por Renovar</option>
-              </select>
-            </div>
-
-            {/* Observaciones */}
-            <div className="form-group full-width">
-              <label>Observaciones</label>
-              <textarea
-                placeholder="Notas adicionales..."
-                value={formData.observaciones}
-                onChange={(e) => handleChange('observaciones', e.target.value)}
-                rows="3"
-              />
+        {errorMessage && (
+          <div className='document-files-block' style={{ marginTop: '0', paddingTop: '0', borderTop: 'none' }}>
+            <div className='document-file-card' style={{ borderColor: '#fecaca', background: '#fef2f2' }}>
+              <strong style={{ color: '#991b1b' }}>Error</strong>
+              <span style={{ color: '#7f1d1d', marginTop: '6px', display: 'block' }}>{errorMessage}</span>
             </div>
           </div>
+        )}
 
-          {/* Sección para Agregar Nuevos Archivos */}
-          <div className="document-file-section">
-            <h3>➕ {existingFiles.length > 0 ? 'Agregar Más Archivos' : 'Archivos del Documento'}</h3>
-
-            {/* Upload Area con Drag & Drop */}
-            <div
-              className={`file-upload-area ${isDragging ? 'dragging' : ''}`}
-              onDragOver={handleDragOver}
-              onDragLeave={handleDragLeave}
-              onDrop={handleDrop}
+        <div className='document-modal-grid'>
+          <label>
+            <span>Tipo de documento</span>
+            <select
+              value={formData.tipo_documento_id}
+              onChange={(event) => handleChange('tipo_documento_id', event.target.value)}
+              disabled={isViewMode}
             >
-              <label className="file-input-label">
-                <div className="upload-content">
-                  <span className="file-placeholder">📁</span>
-                  <span className="file-text">Arrastra archivos aquí o haz clic para seleccionar</span>
-                  <span className="file-hint">(PDF, DOC, DOCX, XLS, XLSX, JPG, PNG, GIF)</span>
-                </div>
-                <input
-                  type="file"
-                  onChange={handleFileChange}
-                  accept=".pdf,.doc,.docx,.xls,.xlsx,.png,.jpg,.jpeg,.gif"
-                  multiple
-                  style={{ display: 'none' }}
-                />
-              </label>
-            </div>
+              <option value=''>Selecciona un tipo</option>
+              {DOCUMENT_TYPES.map((type) => (
+                <option key={type.id} value={String(type.id)}>{type.nombre}</option>
+              ))}
+            </select>
+          </label>
 
-            {/* Lista de Archivos Seleccionados */}
-            {selectedFiles.length > 0 && (
-              <div className="files-list">
-                <h4>Archivos por subir ({selectedFiles.length})</h4>
-                <ul>
-                  {selectedFiles.map((file, index) => (
-                    <li key={index} className="file-item">
-                      <span className="file-name">{file.name}</span>
-                      <span className="file-size">({(file.size / 1024 / 1024).toFixed(2)} MB)</span>
-                      <button
-                        className="btn-remove-file"
-                        onClick={() => handleRemoveFile(index)}
-                        type="button"
-                      >
-                        ✕
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </div>
+          <label>
+            <span>Ambito</span>
+            <select
+              value={formData.ambito}
+              onChange={(event) => handleChange('ambito', event.target.value)}
+              disabled={isViewMode}
+            >
+              {AMBITO_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
 
-          {/* Notificación */}
-          {notification && (
-            <div className={`notification notification-${notification.type}`}>
-              <div className="notification-title">{notification.title}</div>
-              <div className="notification-message">{notification.message}</div>
-            </div>
-          )}
+          <label>
+            <span>Vigencia</span>
+            <input
+              type='date'
+              value={formData.vigencia}
+              onChange={(event) => handleChange('vigencia', event.target.value)}
+              readOnly={isViewMode}
+            />
+          </label>
+
+          <label>
+            <span>Estatus</span>
+            <select
+              value={formData.estatus}
+              onChange={(event) => handleChange('estatus', event.target.value)}
+              disabled={isViewMode}
+            >
+              {ESTATUS_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>{option.label}</option>
+              ))}
+            </select>
+          </label>
+
+          <label className='full-width'>
+            <span>Estado</span>
+            <input
+              value={formData.estado}
+              onChange={(event) => handleChange('estado', event.target.value)}
+              readOnly={isViewMode}
+              placeholder='Ej. Activo, aprobado, por renovar'
+            />
+          </label>
+
+          <label className='full-width'>
+            <span>Dependencia que otorga</span>
+            <input
+              value={formData.dependencia_otorga}
+              onChange={(event) => handleChange('dependencia_otorga', event.target.value)}
+              readOnly={isViewMode}
+            />
+          </label>
+
+          <label>
+            <span>Folio u oficio</span>
+            <input
+              value={formData.folio_oficio}
+              onChange={(event) => handleChange('folio_oficio', event.target.value)}
+              readOnly={isViewMode}
+            />
+          </label>
+
+          <label className='full-width'>
+            <span>Observaciones</span>
+            <textarea
+              rows={4}
+              value={formData.observaciones}
+              onChange={(event) => handleChange('observaciones', event.target.value)}
+              readOnly={isViewMode}
+            />
+          </label>
         </div>
 
-        {/* Footer */}
-        <div className="modal-footer">
-          <button className="btn btn-secondary" onClick={onClose}>
-            ❌ Cancelar
-          </button>
-          <button
-            className="btn btn-primary"
-            onClick={handleSave}
-            disabled={isLoading}
-          >
-            {isLoading ? '⏳ Guardando...' : '💾 Guardar'}
-          </button>
+        {!isViewMode && (
+          <div className={`document-files-block document-upload-area ${isDragging ? 'dragging' : ''}`}>
+            <label className='document-upload-label'>
+              <input type='file' multiple name='documento' onChange={handleFileInputChange} hidden />
+              <div className='document-upload-copy'>
+                <span className='document-upload-icon'>Adjuntar archivos</span>
+                <strong>Arrastra archivos aqui o haz clic para seleccionarlos</strong>
+                <span>PDF, imagenes o documentos relacionados con este registro</span>
+              </div>
+            </label>
+          </div>
+        )}
+
+        {existingFiles.length > 0 && (
+          <div className='document-files-block'>
+            <h4>Archivos actuales</h4>
+            <div className='document-files-list'>
+              {existingFiles.map((fileInfo, index) => (
+                <div key={fileInfo.id || `${fileInfo.nombre_original}-${index}`} className='document-file-card'>
+                  <div className='document-file-card-head'>
+                    <div>
+                      <strong>{fileInfo.nombre_original || 'Archivo adjunto'}</strong>
+                      <span>{formatFileSize(fileInfo.tamano_bytes || fileInfo.tamano)}</span>
+                    </div>
+                    <div>
+                      <button
+                        type='button'
+                        className='document-file-download-btn'
+                        onClick={async () => {
+                          try {
+                            setErrorMessage('');
+                            await handleDownload(fileInfo, index);
+                          } catch (error) {
+                            setErrorMessage(error.message || 'No se pudo descargar el archivo');
+                          }
+                        }}
+                        disabled={!fileInfo.download_url}
+                      >
+                        Descargar
+                      </button>
+                      {!isViewMode && fileInfo.id && (
+                        <button
+                          type='button'
+                          className='document-secondary-btn'
+                          style={{ marginLeft: '8px' }}
+                          onClick={async () => {
+                            try {
+                              setErrorMessage('');
+                              await handleDeleteExistingFile(fileInfo.id);
+                            } catch (error) {
+                              setErrorMessage(error.message || 'No se pudo eliminar el archivo');
+                            }
+                          }}
+                        >
+                          Quitar
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  {renderDownloadState(fileInfo, index)}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {selectedFiles.length > 0 && (
+          <div className='document-files-block'>
+            <h4>Archivos nuevos</h4>
+            <div className='document-files-list'>
+              {selectedFiles.map((fileInfo, index) => (
+                <div key={`${fileInfo.name}-${index}`} className='document-selected-file-row'>
+                  <div>
+                    <strong>{fileInfo.name}</strong>
+                    <span>{formatFileSize(fileInfo.size)}</span>
+                  </div>
+                  <button type='button' onClick={() => setSelectedFiles((current) => current.filter((_, currentIndex) => currentIndex !== index))}>
+                    Quitar
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <div className='document-modal-actions'>
+          {isViewMode ? (
+            <>
+              <button
+                type='button'
+                className='document-secondary-btn'
+                onClick={async () => {
+                  try {
+                    setErrorMessage('');
+                    await handleDeleteDocument();
+                  } catch (error) {
+                    setErrorMessage(error.message || 'No se pudo eliminar el documento');
+                  }
+                }}
+              >
+                Eliminar
+              </button>
+              <button type='button' className='document-secondary-btn' onClick={onClose}>Cerrar</button>
+              <button type='button' className='document-primary-btn' onClick={() => setInternalMode('edit')}>Editar</button>
+            </>
+          ) : (
+            <>
+              {!isNew && (
+                <button
+                  type='button'
+                  className='document-secondary-btn'
+                  onClick={async () => {
+                    try {
+                      setErrorMessage('');
+                      await handleDeleteDocument();
+                    } catch (error) {
+                      setErrorMessage(error.message || 'No se pudo eliminar el documento');
+                    }
+                  }}
+                >
+                  Eliminar
+                </button>
+              )}
+              <button type='button' className='document-secondary-btn' onClick={onClose}>Cancelar</button>
+              <button
+                type='button'
+                className='document-primary-btn'
+                onClick={async () => {
+                  try {
+                    await handleSubmit();
+                  } catch {
+                    // El error ya se refleja en el modal.
+                  }
+                }}
+                disabled={isSaving}
+              >
+                {isSaving ? 'Guardando...' : 'Guardar'}
+              </button>
+            </>
+          )}
         </div>
       </div>
     </div>

@@ -131,7 +131,12 @@ export const vehicleController = {
       }
 
       // Verificar duplicados
-      const duplicates = await vehicleModel.checkDuplicates(basicInfo.placa, basicInfo.numero_serie);
+      const duplicateResult = await vehicleModel.checkDuplicates(basicInfo.placa, basicInfo.numero_serie);
+      const duplicates = Array.isArray(duplicateResult)
+        ? duplicateResult
+        : duplicateResult
+          ? [duplicateResult]
+          : [];
       if (duplicates.length > 0) {
         return res.status(400).json({
           message: 'Placa o número de serie ya existen',

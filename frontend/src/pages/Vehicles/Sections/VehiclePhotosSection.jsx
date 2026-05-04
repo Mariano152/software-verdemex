@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import usePopupTopScroll from '../../../hooks/usePopupTopScroll';
 import NotificationModal from '../../../components/Notifications/NotificationModal';
 import '../../../components/Notifications/NotificationModal.css';
 import './VehiclePhotosSection.css';
@@ -32,6 +33,8 @@ export default function VehiclePhotosSection({
   const [loading, setLoading] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [selectedPhoto, setSelectedPhoto] = useState(null);
+  const photoViewerOverlayRef = useRef(null);
+  const photoViewerModalRef = useRef(null);
 
   useEffect(() => {
     setEditedPhotos(photos);
@@ -53,6 +56,8 @@ export default function VehiclePhotosSection({
       window.removeEventListener('keydown', handleKeyDown);
     };
   }, [selectedPhoto]);
+
+  usePopupTopScroll(!!selectedPhoto, [photoViewerOverlayRef, photoViewerModalRef], [selectedPhoto?.url]);
 
   const handleEdit = () => {
     setIsEditing(true);
@@ -158,6 +163,7 @@ export default function VehiclePhotosSection({
   const openPhotoViewer = (photo, fallbackName) => {
     if (!photo?.archivo_url) return;
 
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     setSelectedPhoto({
       url: photo.archivo_url,
       nombre: fallbackName,
@@ -319,11 +325,13 @@ export default function VehiclePhotosSection({
 
       {selectedPhoto && (
         <div
+          ref={photoViewerOverlayRef}
           className="photo-viewer-overlay"
           onClick={() => setSelectedPhoto(null)}
           role="presentation"
         >
           <div
+            ref={photoViewerModalRef}
             className="photo-viewer-modal"
             onClick={(event) => event.stopPropagation()}
             role="dialog"

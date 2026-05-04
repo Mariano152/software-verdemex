@@ -1,8 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import NotificationModal from '../../../components/Notifications/NotificationModal';
 import MaintenanceRecordModal from './MaintenanceRecordModal';
 import '../../../components/Notifications/NotificationModal.css';
 import './VehicleMaintenanceSection.css';
+
+const normalizeFilterText = (value) => String(value || '').trim().toLowerCase();
 
 const SAFETY_CATALOG = [
   { id: 1, nombre: 'Rotulacion', descripcion: 'Letras y simbolos de identificacion visible' },
@@ -30,6 +32,12 @@ const normalizeElements = (elements = []) =>
     observaciones: element.observaciones || ''
   }));
 
+const VEHICLE_STATE_OPTIONS = [
+  { value: 'activo', label: 'Activo' },
+  { value: 'inactivo', label: 'Inactivo' },
+  { value: 'en_mantenimiento', label: 'Mantenimiento' }
+];
+
 export default function VehicleMaintenanceSection({
   vehicleId,
   maintenanceRecords = [],
@@ -53,6 +61,9 @@ export default function VehicleMaintenanceSection({
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [isNewRecord, setIsNewRecord] = useState(false);
   const [recordModalMode, setRecordModalMode] = useState('edit');
+  const [recordSearchTerm, setRecordSearchTerm] = useState('');
+  const [selectedMaintenanceType, setSelectedMaintenanceType] = useState('todos');
+  const [selectedProvider, setSelectedProvider] = useState('todos');
 
   useEffect(() => {
     setEditedElements(normalizeElements(safetyElements));
@@ -198,6 +209,7 @@ export default function VehicleMaintenanceSection({
   };
 
   const openNewRecordModal = () => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     setSelectedRecord(null);
     setIsNewRecord(true);
     setRecordModalMode('edit');
@@ -205,6 +217,7 @@ export default function VehicleMaintenanceSection({
   };
 
   const openViewRecordModal = (record) => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     setSelectedRecord(record);
     setIsNewRecord(false);
     setRecordModalMode('view');
@@ -212,6 +225,7 @@ export default function VehicleMaintenanceSection({
   };
 
   const openEditRecordModal = (record) => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     setSelectedRecord(record);
     setIsNewRecord(false);
     setRecordModalMode('edit');
@@ -316,6 +330,50 @@ export default function VehicleMaintenanceSection({
     }
   };
 
+  const availableMaintenanceTypes = useMemo(() => (
+    Array.from(new Set(
+      records
+        .map((record) => normalizeFilterText(record.tipo_mantenimiento))
+        .filter(Boolean)
+    ))
+  ), [records]);
+
+  const availableProviders = useMemo(() => (
+    Array.from(new Set(
+      records
+        .map((record) => normalizeFilterText(record.proveedor))
+        .filter(Boolean)
+    ))
+  ), [records]);
+
+  const filteredRecords = useMemo(() => {
+    const normalizedQuery = normalizeFilterText(recordSearchTerm);
+
+    return records.filter((record) => {
+      const maintenanceType = normalizeFilterText(record.tipo_mantenimiento);
+      const provider = normalizeFilterText(record.proveedor);
+
+      const matchesType = selectedMaintenanceType === 'todos' ? true : maintenanceType === selectedMaintenanceType;
+      const matchesProvider = selectedProvider === 'todos' ? true : provider === selectedProvider;
+
+      const searchableText = [
+        record.titulo,
+        record.tipo_mantenimiento,
+        record.proveedor,
+        record.descripcion,
+        record.observaciones,
+        formatDate(record.fecha_servicio)
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      const matchesSearch = normalizedQuery ? searchableText.includes(normalizedQuery) : true;
+
+      return matchesType && matchesProvider && matchesSearch;
+    });
+  }, [records, recordSearchTerm, selectedMaintenanceType, selectedProvider]);
+
   return (
     <div className='maintenance-section'>
       <div className='section-header'>
@@ -355,19 +413,33 @@ export default function VehicleMaintenanceSection({
           <h3>Estado del vehiculo</h3>
           {isEditing ? (
             <div className='state-buttons-group'>
-              <button className={`state-btn ${vehicleState === 'activo' ? 'active' : ''}`} onClick={() => setVehicleState('activo')}>
-                <span className='state-text'>Activo</span>
-              </button>
-              <button className={`state-btn ${vehicleState === 'inactivo' ? 'active' : ''}`} onClick={() => setVehicleState('inactivo')}>
-                <span className='state-text'>Inactivo</span>
-              </button>
-              <button className={`state-btn ${vehicleState === 'en_mantenimiento' ? 'active' : ''}`} onClick={() => setVehicleState('en_mantenimiento')}>
-                <span className='state-text'>Mantenimiento</span>
-              </button>
+              {VEHICLE_STATE_OPTIONS.map((stateOption) => (
+                <button
+                  key={stateOption.value}
+                  className={`state-btn ${vehicleState === stateOption.value ? 'active' : ''}`}
+                  onClick={() => setVehicleState(stateOption.value)}
+                >
+                  <span className='state-text'>{stateOption.label}</span>
+                </button>
+              ))}
             </div>
           ) : (
-            <div className='state-badge' style={{ backgroundColor: `${getStateColor(vehicleState)}22`, borderColor: getStateColor(vehicleState) }}>
-              {getStateLabel(vehicleState)}
+            <div className='state-buttons-group state-buttons-readonly' aria-label='Estado actual del vehiculo'>
+              {VEHICLE_STATE_OPTIONS.map((stateOption) => (
+                <div
+                  key={stateOption.value}
+                  className={`state-btn state-btn-readonly ${vehicleState === stateOption.value ? `selected state-${stateOption.value}` : ''}`}
+                  style={vehicleState === stateOption.value
+                    ? {
+                        backgroundColor: `${getStateColor(stateOption.value)}22`,
+                        borderColor: getStateColor(stateOption.value),
+                        color: getStateColor(stateOption.value)
+                      }
+                    : undefined}
+                >
+                  <span className='state-text'>{stateOption.label}</span>
+                </div>
+              ))}
             </div>
           )}
         </div>
@@ -384,6 +456,39 @@ export default function VehicleMaintenanceSection({
           </button>
         </div>
 
+        <div className='records-filter-grid'>
+          <div className='records-search-field'>
+            <label htmlFor='maintenance-record-search'>Buscar mantenimiento</label>
+            <input
+              id='maintenance-record-search'
+              type='search'
+              value={recordSearchTerm}
+              onChange={(event) => setRecordSearchTerm(event.target.value)}
+              placeholder='Titulo, tipo, proveedor u observaciones'
+            />
+          </div>
+
+          <label>
+            Tipo
+            <select value={selectedMaintenanceType} onChange={(event) => setSelectedMaintenanceType(event.target.value)}>
+              <option value='todos'>Todos</option>
+              {availableMaintenanceTypes.map((type) => (
+                <option key={type} value={type}>{type}</option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Proveedor
+            <select value={selectedProvider} onChange={(event) => setSelectedProvider(event.target.value)}>
+              <option value='todos'>Todos</option>
+              {availableProviders.map((provider) => (
+                <option key={provider} value={provider}>{provider}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+
         <div className='maintenance-records-list'>
           {records.length === 0 ? (
             <div className='maintenance-empty-state'>
@@ -393,7 +498,7 @@ export default function VehicleMaintenanceSection({
               </button>
             </div>
           ) : (
-            records.map((record) => {
+            filteredRecords.map((record) => {
               const files = extractFiles(record);
 
               return (
@@ -460,6 +565,12 @@ export default function VehicleMaintenanceSection({
             })
           )}
         </div>
+
+        {records.length > 0 && filteredRecords.length === 0 && (
+          <div className='maintenance-empty-state'>
+            <p>No se encontraron mantenimientos con los filtros actuales.</p>
+          </div>
+        )}
       </div>
 
       <div className='elements-section'>

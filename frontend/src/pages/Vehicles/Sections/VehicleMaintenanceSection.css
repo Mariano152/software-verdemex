@@ -215,6 +215,33 @@
   margin-top: 20px;
 }
 
+.records-filter-grid {
+  display: grid;
+  grid-template-columns: minmax(240px, 2fr) repeat(2, minmax(180px, 1fr));
+  gap: 1rem;
+  margin-top: 1.25rem;
+}
+
+.records-filter-grid label,
+.records-search-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  color: #29443b;
+  font-weight: 700;
+}
+
+.records-filter-grid input,
+.records-filter-grid select,
+.gasoline-filter-row input,
+.gasoline-filter-row select {
+  border: 1px solid #cfd8d3;
+  border-radius: 12px;
+  padding: 0.8rem 0.9rem;
+  background: #fff;
+  color: #173229;
+}
+
 .maintenance-add-btn {
   background: var(--color-info);
   color: #ffffff;
@@ -349,17 +376,32 @@
   color: #296632;
 }
 
-.state-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: fit-content;
-  min-width: 160px;
-  padding: 12px 18px;
-  border: 1px solid;
-  border-radius: 999px;
-  font-weight: 700;
-  color: var(--color-primary-dark);
+.state-buttons-readonly {
+  gap: 14px;
+}
+
+.state-btn-readonly {
+  cursor: default;
+  background: #f3f5f4;
+  border-color: #d9dfdb;
+  color: #8a9690;
+  box-shadow: none;
+}
+
+.state-btn-readonly.selected {
+  font-weight: 800;
+}
+
+.state-btn-readonly.state-activo {
+  color: #27ae60;
+}
+
+.state-btn-readonly.state-inactivo {
+  color: #95a5a6;
+}
+
+.state-btn-readonly.state-en_mantenimiento {
+  color: #f39c12;
 }
 
 .element-row {
@@ -506,7 +548,8 @@
   }
 
   .maintenance-record-grid,
-  .maintenance-record-body {
+  .maintenance-record-body,
+  .records-filter-grid {
     grid-template-columns: 1fr;
   }
 }

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import VehicleDetailView from './VehicleDetailView';
 import VehicleDocumentsSection from './Sections/VehicleDocumentsSection';
@@ -23,6 +23,7 @@ export default function VehicleEdit() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [notification, setNotification] = useState(null);
+  const contentRef = useRef(null);
   const requestedSection = searchParams.get('section');
   const requestedDocumentId = searchParams.get('documentId');
   const requestedMaintenanceId = searchParams.get('maintenanceId');
@@ -66,6 +67,18 @@ export default function VehicleEdit() {
     if (!requestedSection) return;
     setActiveSection(requestedSection);
   }, [requestedSection]);
+
+  useEffect(() => {
+    if (!activeSection) return undefined;
+
+    const scrollToSectionContent = () => {
+      contentRef.current?.scrollIntoView({ block: 'start', behavior: 'auto' });
+      window.scrollBy({ top: -8, left: 0, behavior: 'auto' });
+    };
+
+    const frameId = window.requestAnimationFrame(scrollToSectionContent);
+    return () => window.cancelAnimationFrame(frameId);
+  }, [activeSection]);
 
   const handleDocumentsSave = async (documents) => {
     try {
@@ -359,6 +372,14 @@ export default function VehicleEdit() {
       if (!prev) return prev;
 
       const currentDocs = prev.documents || [];
+
+      if (savedDocument.deleted) {
+        return {
+          ...prev,
+          documents: currentDocs.filter((doc) => doc.id !== savedDocument.id)
+        };
+      }
+
       const exists = currentDocs.some((doc) => doc.id === savedDocument.id);
 
       const nextDocs = exists
@@ -434,7 +455,7 @@ export default function VehicleEdit() {
         </div>
       </div>
 
-      <div className="edit-page-content">
+      <div ref={contentRef} className="edit-page-content">
         {activeSection === null ? (
           <VehicleDetailView
             vehicle={vehicle}

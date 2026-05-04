@@ -75,6 +75,9 @@ export default function VehicleGasolineSection({
   const [recordModalMode, setRecordModalMode] = useState('edit');
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedFuelType, setSelectedFuelType] = useState('todos');
+  const [selectedProvider, setSelectedProvider] = useState('todos');
   const openedFromHistoryRef = useRef(null);
 
   useEffect(() => {
@@ -119,13 +122,52 @@ export default function VehicleGasolineSection({
     return Array.from(years).sort((a, b) => b - a);
   }, [currentYear, gasolineRecords]);
 
+  const availableFuelTypes = useMemo(() => (
+    Array.from(new Set(
+      records
+        .map((record) => String(record.tipo_combustible || '').trim().toLowerCase())
+        .filter(Boolean)
+    ))
+  ), [records]);
+
+  const availableProviders = useMemo(() => (
+    Array.from(new Set(
+      records
+        .map((record) => String(record.proveedor || '').trim().toLowerCase())
+        .filter(Boolean)
+    ))
+  ), [records]);
+
   const filteredRecords = useMemo(() => {
+    const normalizedQuery = String(searchTerm || '').trim().toLowerCase();
+
     return records.filter((record) => {
       const date = getRecordDate(record);
       if (!date) return false;
-      return date.getMonth() + 1 === Number(selectedMonth) && date.getFullYear() === Number(selectedYear);
+      const fuelType = String(record.tipo_combustible || '').trim().toLowerCase();
+      const provider = String(record.proveedor || '').trim().toLowerCase();
+
+      const matchesMonth = date.getMonth() + 1 === Number(selectedMonth);
+      const matchesYear = date.getFullYear() === Number(selectedYear);
+      const matchesFuelType = selectedFuelType === 'todos' ? true : fuelType === selectedFuelType;
+      const matchesProvider = selectedProvider === 'todos' ? true : provider === selectedProvider;
+
+      const searchableText = [
+        record.titulo,
+        record.tipo_combustible,
+        record.proveedor,
+        record.descripcion,
+        record.observaciones
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+
+      const matchesSearch = normalizedQuery ? searchableText.includes(normalizedQuery) : true;
+
+      return matchesMonth && matchesYear && matchesFuelType && matchesProvider && matchesSearch;
     });
-  }, [records, selectedMonth, selectedYear]);
+  }, [records, searchTerm, selectedFuelType, selectedMonth, selectedProvider, selectedYear]);
 
   const overallTotals = useMemo(() => {
     return records.reduce((acc, record) => ({
@@ -159,6 +201,7 @@ export default function VehicleGasolineSection({
   };
 
   const openNewRecordModal = () => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     setSelectedRecord(null);
     setIsNewRecord(true);
     setRecordModalMode('edit');
@@ -166,6 +209,7 @@ export default function VehicleGasolineSection({
   };
 
   const openViewRecordModal = (record) => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     setSelectedRecord(record);
     setIsNewRecord(false);
     setRecordModalMode('view');
@@ -173,6 +217,7 @@ export default function VehicleGasolineSection({
   };
 
   const openEditRecordModal = (record) => {
+    window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
     setSelectedRecord(record);
     setIsNewRecord(false);
     setRecordModalMode('edit');
@@ -314,6 +359,17 @@ export default function VehicleGasolineSection({
         </div>
 
         <div className='gasoline-filter-row'>
+          <div className='records-search-field'>
+            <label htmlFor='gasoline-record-search'>Buscar carga</label>
+            <input
+              id='gasoline-record-search'
+              type='search'
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder='Titulo, proveedor, combustible u observaciones'
+            />
+          </div>
+
           <label>
             Mes
             <select value={selectedMonth} onChange={(e) => setSelectedMonth(Number(e.target.value))}>
@@ -327,6 +383,26 @@ export default function VehicleGasolineSection({
             <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))}>
               {availableYears.map((year) => (
                 <option key={year} value={year}>{year}</option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Combustible
+            <select value={selectedFuelType} onChange={(event) => setSelectedFuelType(event.target.value)}>
+              <option value='todos'>Todos</option>
+              {availableFuelTypes.map((fuelType) => (
+                <option key={fuelType} value={fuelType}>{fuelType}</option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Proveedor
+            <select value={selectedProvider} onChange={(event) => setSelectedProvider(event.target.value)}>
+              <option value='todos'>Todos</option>
+              {availableProviders.map((provider) => (
+                <option key={provider} value={provider}>{provider}</option>
               ))}
             </select>
           </label>
@@ -353,7 +429,7 @@ export default function VehicleGasolineSection({
               </button>
             </div>
           ) : (
-            records.map((record) => {
+            filteredRecords.map((record) => {
               const files = extractFiles(record);
               const costPerLiter = Number(record.litros || 0) > 0
                 ? Number(record.costo_total || 0) / Number(record.litros || 1)

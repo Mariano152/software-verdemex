@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useRef } from 'react';
+import usePopupTopScroll from '../../hooks/usePopupTopScroll';
 import './NotificationModal.css';
 
 /**
@@ -23,6 +24,11 @@ export function NotificationModal({
   onClose,
   actionButton
 }) {
+  const overlayRef = useRef(null);
+  const modalRef = useRef(null);
+
+  usePopupTopScroll(isOpen, [overlayRef, modalRef], [type, title, message]);
+
   if (!isOpen) return null;
 
   const icons = {
@@ -33,8 +39,8 @@ export function NotificationModal({
   };
 
   return (
-    <div className="notification-overlay">
-      <div className={`notification-modal notification-${type}`}>
+    <div ref={overlayRef} className="notification-overlay">
+      <div ref={modalRef} className={`notification-modal notification-${type}`}>
         <div className="notification-header">
           <div className={`notification-icon notification-icon-${type}`}>
             {icons[type]}

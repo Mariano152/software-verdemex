@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import usePopupTopScroll from '../../../hooks/usePopupTopScroll';
 import './MaintenanceRecordModal.css';
 
 const EMPTY_FORM = {
@@ -77,18 +78,7 @@ export default function GasolineRecordModal({
     setSelectedFiles([]);
   }, [isOpen, isNew, record]);
 
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const scrollToTop = () => {
-      overlayRef.current?.scrollTo({ top: 0, behavior: 'auto' });
-      modalRef.current?.scrollIntoView({ block: 'start', behavior: 'auto' });
-      window.scrollTo({ top: 0, behavior: 'auto' });
-    };
-
-    const frameId = window.requestAnimationFrame(scrollToTop);
-    return () => window.cancelAnimationFrame(frameId);
-  }, [isOpen, mode, record?.id]);
+  usePopupTopScroll(isOpen, [overlayRef, modalRef], [mode, record?.id]);
 
   if (!isOpen) return null;
 
