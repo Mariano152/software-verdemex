@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import NotificationModal from '../../components/Notifications/NotificationModal';
 import './ExpedientePage.css';
 
 export default function ExpedientePage() {
   const { expedienteId } = useParams();
   const navigate = useNavigate();
-  
+
   const [expediente, setExpediente] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -27,7 +28,7 @@ export default function ExpedientePage() {
       const token = localStorage.getItem('authToken');
       const response = await fetch(`/api/expedientes/${expedienteId}`, {
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
@@ -42,9 +43,10 @@ export default function ExpedientePage() {
         estado: data.estado
       });
     } catch (error) {
-      console.error('❌ Error:', error);
+      console.error('Error:', error);
       setNotification({
         type: 'error',
+        title: 'Error',
         message: 'Error al cargar expediente'
       });
     } finally {
@@ -59,7 +61,7 @@ export default function ExpedientePage() {
       const response = await fetch(`/api/expedientes/${expedienteId}`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(editForm)
@@ -72,13 +74,15 @@ export default function ExpedientePage() {
       setIsEditing(false);
       setNotification({
         type: 'success',
-        message: '✅ Expediente actualizado correctamente'
+        title: 'Exito',
+        message: 'Expediente actualizado correctamente'
       });
       setTimeout(() => setNotification(null), 3000);
     } catch (error) {
-      console.error('❌ Error:', error);
+      console.error('Error:', error);
       setNotification({
         type: 'error',
+        title: 'Error',
         message: 'Error al guardar expediente'
       });
     } finally {
@@ -94,7 +98,7 @@ export default function ExpedientePage() {
       const response = await fetch(`/api/expedientes/${expedienteId}/items`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
@@ -113,13 +117,15 @@ export default function ExpedientePage() {
       setNewItemContent('');
       setNotification({
         type: 'success',
-        message: '✅ Item agregado'
+        title: 'Exito',
+        message: 'Item agregado'
       });
       setTimeout(() => setNotification(null), 2000);
     } catch (error) {
-      console.error('❌ Error:', error);
+      console.error('Error:', error);
       setNotification({
         type: 'error',
+        title: 'Error',
         message: 'Error al agregar item'
       });
     }
@@ -131,7 +137,7 @@ export default function ExpedientePage() {
       const response = await fetch(`/api/expedientes/items/${itemId}/toggle`, {
         method: 'PATCH',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
@@ -141,14 +147,15 @@ export default function ExpedientePage() {
       const updated = await response.json();
       setExpediente({
         ...expediente,
-        items: expediente.items.map(item => 
+        items: expediente.items.map((item) => (
           item.id === itemId ? updated : item
-        )
+        ))
       });
     } catch (error) {
-      console.error('❌ Error:', error);
+      console.error('Error:', error);
       setNotification({
         type: 'error',
+        title: 'Error',
         message: 'Error al actualizar item'
       });
     }
@@ -162,7 +169,7 @@ export default function ExpedientePage() {
       const response = await fetch(`/api/expedientes/items/${itemId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
         }
       });
@@ -171,17 +178,19 @@ export default function ExpedientePage() {
 
       setExpediente({
         ...expediente,
-        items: expediente.items.filter(item => item.id !== itemId)
+        items: expediente.items.filter((item) => item.id !== itemId)
       });
       setNotification({
         type: 'success',
-        message: '✅ Item eliminado'
+        title: 'Exito',
+        message: 'Item eliminado'
       });
       setTimeout(() => setNotification(null), 2000);
     } catch (error) {
-      console.error('❌ Error:', error);
+      console.error('Error:', error);
       setNotification({
         type: 'error',
+        title: 'Error',
         message: 'Error al eliminar item'
       });
     }
@@ -203,7 +212,7 @@ export default function ExpedientePage() {
     );
   }
 
-  const itemsCompletados = (expediente.items || []).filter(i => i.completado).length;
+  const itemsCompletados = (expediente.items || []).filter((i) => i.completado).length;
   const totalItems = expediente.items?.length || 0;
   const progressPercentage = totalItems === 0 ? 0 : Math.round((itemsCompletados / totalItems) * 100);
 
@@ -214,32 +223,32 @@ export default function ExpedientePage() {
           ← Volver
         </button>
         <h1>📋 {expediente.titulo}</h1>
-        <button 
+        <button
           className={`btn-edit ${isEditing ? 'editing' : ''}`}
-          onClick={() => isEditing ? handleSaveExpediente() : setIsEditing(true)}
+          onClick={() => (isEditing ? handleSaveExpediente() : setIsEditing(true))}
         >
-          {isEditing ? '💾 Guardar Cambios' : '✏️ Editar'}
+          {isEditing ? 'Guardar Cambios' : 'Editar'}
         </button>
       </div>
 
       {isEditing ? (
         <div className='edit-form'>
           <div className='form-group'>
-            <label>Título</label>
+            <label>Titulo</label>
             <input
               type='text'
               value={editForm.titulo}
               onChange={(e) => setEditForm({ ...editForm, titulo: e.target.value })}
-              placeholder='Título del expediente'
+              placeholder='Titulo del expediente'
             />
           </div>
 
           <div className='form-group'>
-            <label>Descripción</label>
+            <label>Descripcion</label>
             <textarea
               value={editForm.descripcion}
               onChange={(e) => setEditForm({ ...editForm, descripcion: e.target.value })}
-              placeholder='Descripción del expediente'
+              placeholder='Descripcion del expediente'
               rows={4}
             />
           </div>
@@ -257,11 +266,11 @@ export default function ExpedientePage() {
             </select>
           </div>
 
-          <button 
+          <button
             className='btn-cancel-edit'
             onClick={() => setIsEditing(false)}
           >
-            ❌ Cancelar
+            Cancelar
           </button>
         </div>
       ) : (
@@ -281,8 +290,8 @@ export default function ExpedientePage() {
           <h3>Progreso: {itemsCompletados}/{totalItems} ({progressPercentage}%)</h3>
         </div>
         <div className='progress-bar-main'>
-          <div 
-            className='progress-fill-main' 
+          <div
+            className='progress-fill-main'
             style={{ width: `${progressPercentage}%` }}
           ></div>
         </div>
@@ -300,19 +309,19 @@ export default function ExpedientePage() {
               onChange={(e) => setNewItemContent(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleAddItem()}
             />
-            <button 
+            <button
               className='btn-add-item'
               onClick={handleAddItem}
               disabled={!newItemContent.trim()}
             >
-              ➕ Agregar
+              Agregar
             </button>
           </div>
         )}
 
         <div className='items-list'>
           {expediente.items && expediente.items.length > 0 ? (
-            expediente.items.map(item => (
+            expediente.items.map((item) => (
               <div key={item.id} className={`item ${item.completado ? 'completed' : ''}`}>
                 <div className='item-checkbox'>
                   <input
@@ -332,7 +341,7 @@ export default function ExpedientePage() {
                     onClick={() => handleDeleteItem(item.id)}
                     title='Eliminar'
                   >
-                    🗑️
+                    🗑
                   </button>
                 )}
               </div>
@@ -346,9 +355,12 @@ export default function ExpedientePage() {
       </div>
 
       {notification && (
-        <div className={`notification notification-${notification.type}`}>
-          {notification.message}
-        </div>
+        <NotificationModal
+          type={notification.type}
+          title={notification.title}
+          message={notification.message}
+          onClose={() => setNotification(null)}
+        />
       )}
     </div>
   );

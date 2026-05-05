@@ -1,5 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import usePopupTopScroll from '../../../hooks/usePopupTopScroll';
+import {
+  DOCUMENT_STATUS_TIMEZONE,
+  getDocumentDerivedStatus,
+  getDocumentTimingInput
+} from './documentExpiryUtils';
 import './DocumentModal.css';
 
 const EMPTY_FORM = {
@@ -30,15 +35,13 @@ const AMBITO_OPTIONS = [
   { value: 'municipal', label: 'Municipal' }
 ];
 
-const ESTATUS_OPTIONS = [
-  { value: 'vigente', label: 'Vigente' },
-  { value: 'vencido', label: 'Vencido' },
-  { value: 'en_tramite', label: 'En tramite' }
-];
-
 const formatDateForInput = (dateValue) => {
   if (!dateValue) return '';
   if (typeof dateValue === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(dateValue)) return dateValue;
+  if (typeof dateValue === 'string' && /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.test(dateValue)) {
+    const [, day, month, year] = dateValue.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/) || [];
+    return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+  }
 
   const date = new Date(dateValue);
   if (Number.isNaN(date.getTime())) return '';
@@ -95,6 +98,7 @@ export default function DocumentModal({
   onDelete
 }) {
   const [formData, setFormData] = useState(EMPTY_FORM);
+  const [storedVigencia, setStoredVigencia] = useState('');
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [existingFiles, setExistingFiles] = useState([]);
   const [downloadState, setDownloadState] = useState({});
@@ -102,6 +106,7 @@ export default function DocumentModal({
   const [isSaving, setIsSaving] = useState(false);
   const [internalMode, setInternalMode] = useState(mode);
   const [errorMessage, setErrorMessage] = useState('');
+  const [hasNoExpiry, setHasNoExpiry] = useState(false);
   const overlayRef = useRef(null);
   const modalRef = useRef(null);
 
@@ -114,30 +119,39 @@ export default function DocumentModal({
 
     if (isNew || !document) {
       setFormData(EMPTY_FORM);
+      setStoredVigencia('');
       setSelectedFiles([]);
       setExistingFiles([]);
       setErrorMessage('');
+      setHasNoExpiry(false);
       return;
     }
+
+    const isNoAplica = document.estatus === 'no_aplica';
+    const incomingVigencia = formatDateForInput(document.vigencia);
 
     setFormData({
       tipo_documento_id: String(document.tipo_documento_id || ''),
       ambito: document.ambito || 'federal',
       estado: document.estado || '',
       dependencia_otorga: document.dependencia_otorga || '',
-      vigencia: formatDateForInput(document.vigencia),
+      vigencia: isNoAplica ? '' : incomingVigencia,
       folio_oficio: document.folio_oficio || '',
       observaciones: document.observaciones || '',
-      estatus: document.estatus || 'vigente'
+      estatus: isNoAplica ? 'no_aplica' : getDocumentDerivedStatus(document.vigencia, DOCUMENT_STATUS_TIMEZONE) || 'vigente'
     });
+    setStoredVigencia(incomingVigencia);
     setSelectedFiles([]);
     setExistingFiles(parseFiles(document));
     setErrorMessage('');
+    setHasNoExpiry(isNoAplica);
   }, [document, isNew, isOpen]);
 
   usePopupTopScroll(isOpen, [overlayRef, modalRef], [internalMode, document?.id]);
 
   const isViewMode = !isNew && internalMode === 'view';
+  const timing = getDocumentTimingInput(hasNoExpiry ? '__NO_APLICA__' : formData.vigencia, hasNoExpiry ? 'no_aplica' : formData.estatus, DOCUMENT_STATUS_TIMEZONE);
+  const derivedStatusLabel = timing.label;
 
   const summaryCards = useMemo(() => ([
     { label: 'Tipo', value: getDocumentTypeLabel(document || formData) },
@@ -145,9 +159,14 @@ export default function DocumentModal({
       label: 'Ambito',
       value: AMBITO_OPTIONS.find((option) => option.value === (document?.ambito || formData.ambito))?.label || 'Sin definir'
     },
-    { label: 'Vigencia', value: formatDateForDisplay(document?.vigencia || formData.vigencia) },
+    {
+      label: 'Vigencia',
+      value: hasNoExpiry
+        ? 'No aplica'
+        : formatDateForDisplay(document?.vigencia || formData.vigencia || storedVigencia)
+    },
     { label: 'Archivos', value: String(existingFiles.length + selectedFiles.length) }
-  ]), [document, existingFiles.length, formData, selectedFiles.length]);
+  ]), [document, existingFiles.length, formData, hasNoExpiry, selectedFiles.length, storedVigencia]);
 
   if (!isOpen) return null;
 
@@ -162,6 +181,9 @@ export default function DocumentModal({
       ...current,
       [field]: value
     }));
+    if (field === 'vigencia') {
+      setStoredVigencia(value);
+    }
   };
 
   const handleFileInputChange = (event) => {
@@ -198,6 +220,14 @@ export default function DocumentModal({
 
     try {
       if (!formData.tipo_documento_id || !formData.estado.trim() || !formData.dependencia_otorga.trim() || !formData.vigencia || !formData.folio_oficio.trim()) {
+        if (hasNoExpiry && formData.tipo_documento_id && formData.estado.trim() && formData.dependencia_otorga.trim() && formData.folio_oficio.trim()) {
+          // Permite guardar sin fecha cuando no aplica.
+        } else {
+          throw new Error('Completa tipo, estado, dependencia, vigencia y folio antes de guardar.');
+        }
+      }
+
+      if (!hasNoExpiry && !formData.vigencia) {
         throw new Error('Completa tipo, estado, dependencia, vigencia y folio antes de guardar.');
       }
 
@@ -205,8 +235,18 @@ export default function DocumentModal({
       const payload = new FormData();
 
       Object.entries(formData).forEach(([key, value]) => {
+        if (key === 'estatus') return;
+        if (key === 'vigencia') {
+          payload.append(key, hasNoExpiry ? '' : (value ?? ''));
+          return;
+        }
         payload.append(key, value ?? '');
       });
+
+      payload.append(
+        'estatus',
+        hasNoExpiry ? 'no_aplica' : (getDocumentDerivedStatus(formData.vigencia, DOCUMENT_STATUS_TIMEZONE) || 'vigente')
+      );
 
       selectedFiles.forEach((file) => {
         payload.append('documento', file);
@@ -445,25 +485,63 @@ export default function DocumentModal({
 
           <label>
             <span>Vigencia</span>
-            <input
-              type='date'
-              value={formData.vigencia}
-              onChange={(event) => handleChange('vigencia', event.target.value)}
-              readOnly={isViewMode}
-            />
+            {hasNoExpiry ? (
+              <input value='No aplica' readOnly />
+            ) : (
+              <input
+                type='date'
+                value={formData.vigencia}
+                onChange={(event) => handleChange('vigencia', event.target.value)}
+                readOnly={isViewMode}
+              />
+            )}
           </label>
 
           <label>
             <span>Estatus</span>
-            <select
-              value={formData.estatus}
-              onChange={(event) => handleChange('estatus', event.target.value)}
-              disabled={isViewMode}
-            >
-              {ESTATUS_OPTIONS.map((option) => (
-                <option key={option.value} value={option.value}>{option.label}</option>
-              ))}
-            </select>
+            <input value={derivedStatusLabel} readOnly />
+          </label>
+
+          <label className='full-width'>
+            <span>Vencimiento</span>
+            <div className='document-checkbox-row'>
+              <input
+                type='checkbox'
+                checked={hasNoExpiry}
+                onChange={(event) => {
+                  if (isViewMode) return;
+                  const nextValue = event.target.checked;
+                  if (!nextValue && storedVigencia) {
+                    setFormData((current) => ({
+                      ...current,
+                      vigencia: storedVigencia,
+                      estatus: current.estatus
+                    }));
+                  }
+                  if (nextValue && formData.vigencia) {
+                    setStoredVigencia(formData.vigencia);
+                  }
+                  setHasNoExpiry(nextValue);
+                  setFormData((current) => ({
+                    ...current,
+                    vigencia: nextValue ? '' : (storedVigencia || current.vigencia),
+                    estatus: nextValue ? 'no_aplica' : current.estatus
+                  }));
+                }}
+                disabled={isViewMode}
+              />
+              <span>No aplica: este documento no vence</span>
+            </div>
+            {hasNoExpiry && storedVigencia && (
+              <small className='document-helper-text'>
+                Fecha registrada previamente: {formatDateForDisplay(storedVigencia)}
+              </small>
+            )}
+            {!hasNoExpiry && storedVigencia && formData.vigencia === storedVigencia && (
+              <small className='document-helper-text'>
+                Fecha guardada: {formatDateForDisplay(storedVigencia)}
+              </small>
+            )}
           </label>
 
           <label className='full-width'>

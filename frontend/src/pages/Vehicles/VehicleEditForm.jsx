@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, Link, useParams } from 'react-router-dom';
+import NotificationModal from '../../components/Notifications/NotificationModal';
 import './VehicleCreate.css';
 
 export default function VehicleEditForm() {
@@ -29,22 +30,22 @@ export default function VehicleEditForm() {
       try {
         setLoading(true);
         const token = localStorage.getItem('authToken');
-        
+
         const response = await fetch(`http://localhost:3000/api/vehicles/${id}`, {
           method: 'GET',
           headers: {
-            'Authorization': `Bearer ${token}`,
+            Authorization: `Bearer ${token}`,
             'Content-Type': 'application/json'
           }
         });
 
         if (!response.ok) {
-          throw new Error('Error al obtener vehículo');
+          throw new Error('Error al obtener vehiculo');
         }
 
         const data = await response.json();
         setVehicle(data);
-        
+
         setFormData({
           propietario_nombre: data.propietario_nombre || '',
           placa: data.placa || '',
@@ -59,7 +60,7 @@ export default function VehicleEditForm() {
 
         setError(null);
       } catch (err) {
-        console.error('Error cargando vehículo:', err);
+        console.error('Error cargando vehiculo:', err);
         setError(err.message);
       } finally {
         setLoading(false);
@@ -73,7 +74,7 @@ export default function VehicleEditForm() {
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       [name]: value
     }));
@@ -85,11 +86,11 @@ export default function VehicleEditForm() {
 
     try {
       const token = localStorage.getItem('authToken');
-      
+
       const response = await fetch(`http://localhost:3000/api/vehicles/${id}`, {
         method: 'PUT',
         headers: {
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(formData)
@@ -99,7 +100,7 @@ export default function VehicleEditForm() {
         throw new Error('Error al guardar cambios');
       }
 
-      setSubmitMessage({ type: 'success', text: '✓ Cambios guardados correctamente' });
+      setSubmitMessage({ type: 'success', text: 'Cambios guardados correctamente' });
       setIsEditing(false);
 
       setTimeout(() => {
@@ -107,7 +108,7 @@ export default function VehicleEditForm() {
       }, 1200);
     } catch (err) {
       console.error('Error guardando:', err);
-      setSubmitMessage({ type: 'error', text: `❌ Error: ${err.message}` });
+      setSubmitMessage({ type: 'error', text: `Error: ${err.message}` });
     } finally {
       setIsSaving(false);
     }
@@ -115,20 +116,20 @@ export default function VehicleEditForm() {
 
   if (loading) {
     return (
-      <div className="vehicle-create-container">
-        <p style={{ textAlign: 'center', padding: '3rem' }}>⏳ Cargando vehículo...</p>
+      <div className='vehicle-create-container'>
+        <p style={{ textAlign: 'center', padding: '3rem' }}>Cargando vehiculo...</p>
       </div>
     );
   }
 
   if (error || !vehicle) {
     return (
-      <div className="vehicle-create-container">
+      <div className='vehicle-create-container'>
         <p style={{ color: '#e74c3c', textAlign: 'center', padding: '2rem' }}>
-          ❌ {error || 'Vehículo no encontrado'}
+          {error || 'Vehiculo no encontrado'}
         </p>
         <div style={{ textAlign: 'center' }}>
-          <Link to="/vehicles" className="btn btn-secondary">
+          <Link to='/vehicles' className='btn btn-secondary'>
             ← Volver al listado
           </Link>
         </div>
@@ -137,31 +138,33 @@ export default function VehicleEditForm() {
   }
 
   return (
-    <div className="vehicle-create-container">
-      <div className="vehicle-create-header">
-        <h1 style={{ fontSize: '2.2rem', marginBottom: '0.5rem' }}>Editar Vehículo - <span style={{ color: '#22c55e' }}>{vehicle.placa}</span></h1>
-        <p style={{ color: '#6b7280', margin: 0 }}>Gestiona toda la información de tu vehículo</p>
+    <div className='vehicle-create-container'>
+      <div className='vehicle-create-header'>
+        <h1 style={{ fontSize: '2.2rem', marginBottom: '0.5rem' }}>Editar Vehiculo - <span style={{ color: '#22c55e' }}>{vehicle.placa}</span></h1>
+        <p style={{ color: '#6b7280', margin: 0 }}>Gestiona toda la informacion de tu vehiculo</p>
       </div>
 
       {submitMessage && (
-        <div className={`alert ${submitMessage.type === 'success' ? 'alert-success' : 'alert-error'}`}>
-          {submitMessage.text}
-        </div>
+        <NotificationModal
+          type={submitMessage.type}
+          title={submitMessage.type === 'success' ? 'Exito' : 'Error'}
+          message={submitMessage.text}
+          onClose={() => setSubmitMessage(null)}
+        />
       )}
 
-      <div className="vehicle-create-content" style={{ paddingTop: '2rem' }}>
-        {/* TABLA DE INFORMACIÓN */}
-        <div className="card" style={{ marginBottom: '3rem' }}>
+      <div className='vehicle-create-content' style={{ paddingTop: '2rem' }}>
+        <div className='card' style={{ marginBottom: '3rem' }}>
           <div style={{ padding: '2.5rem' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' }}>
-              <h2 style={{ margin: 0, fontSize: '1.8rem' }}>Información del Vehículo</h2>
+              <h2 style={{ margin: 0, fontSize: '1.8rem' }}>Informacion del Vehiculo</h2>
               {!isEditing && (
                 <button
-                  className="btn btn-primary"
+                  className='btn btn-primary'
                   onClick={() => setIsEditing(true)}
-                  type="button"
+                  type='button'
                 >
-                  ✏️ Editar
+                  Editar
                 </button>
               )}
             </div>
@@ -174,10 +177,10 @@ export default function VehicleEditForm() {
                 </div>
                 <div style={{ padding: '1rem', backgroundColor: '#f9fafb', borderRadius: '6px' }}>
                   <strong style={{ color: '#666', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Placa</strong>
-                  <p style={{ margin: '0.75rem 0 0 0', fontSize: '1.2rem', fontWeight: '600', color: '#22c55e' }} className="plate">{formData.placa}</p>
+                  <p style={{ margin: '0.75rem 0 0 0', fontSize: '1.2rem', fontWeight: '600', color: '#22c55e' }} className='plate'>{formData.placa}</p>
                 </div>
                 <div style={{ padding: '1rem', backgroundColor: '#f9fafb', borderRadius: '6px' }}>
-                  <strong style={{ color: '#666', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Número de Serie</strong>
+                  <strong style={{ color: '#666', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Numero de Serie</strong>
                   <p style={{ margin: '0.75rem 0 0 0', fontSize: '1.2rem', fontWeight: '600', color: '#222' }}>{formData.numero_serie}</p>
                 </div>
                 <div style={{ padding: '1rem', backgroundColor: '#f9fafb', borderRadius: '6px' }}>
@@ -185,13 +188,13 @@ export default function VehicleEditForm() {
                   <p style={{ margin: '0.75rem 0 0 0', fontSize: '1.2rem', fontWeight: '600', color: '#222' }}>{formData.marca}</p>
                 </div>
                 <div style={{ padding: '1rem', backgroundColor: '#f9fafb', borderRadius: '6px' }}>
-                  <strong style={{ color: '#666', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Año</strong>
+                  <strong style={{ color: '#666', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Ano</strong>
                   <p style={{ margin: '0.75rem 0 0 0', fontSize: '1.2rem', fontWeight: '600', color: '#222' }}>{formData.modelo}</p>
                 </div>
                 <div style={{ padding: '1rem', backgroundColor: '#f9fafb', borderRadius: '6px' }}>
                   <strong style={{ color: '#666', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Color</strong>
                   <p style={{ margin: '0.75rem 0 0 0', fontSize: '1.2rem', fontWeight: '600', color: '#222' }}>
-                    <span className="color-badge" style={{backgroundColor: formData.color || '#ccc', marginRight: '0.75rem', display: 'inline-block', width: '24px', height: '24px', borderRadius: '4px', border: '1px solid #ddd'}}>
+                    <span className='color-badge' style={{ backgroundColor: formData.color || '#ccc', marginRight: '0.75rem', display: 'inline-block', width: '24px', height: '24px', borderRadius: '4px', border: '1px solid #ddd' }}>
                     </span>
                     {formData.color || '-'}
                   </p>
@@ -203,92 +206,92 @@ export default function VehicleEditForm() {
                 <div style={{ padding: '1rem', backgroundColor: '#f9fafb', borderRadius: '6px' }}>
                   <strong style={{ color: '#666', fontSize: '0.9rem', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Estado</strong>
                   <p style={{ margin: '0.75rem 0 0 0', fontSize: '1.2rem', fontWeight: '600', color: '#22c55e' }}>
-                    {formData.estado === 'activo' && '✓ Activo'}
-                    {formData.estado === 'inactivo' && '🚫 Inactivo'}
-                    {formData.estado === 'mantenimiento' && '🔧 En Taller'}
+                    {formData.estado === 'activo' && 'Activo'}
+                    {formData.estado === 'inactivo' && 'Inactivo'}
+                    {formData.estado === 'mantenimiento' && 'En Taller'}
                   </p>
                 </div>
               </div>
             ) : (
               <>
-                <div className="form-grid">
-                  <div className="form-group">
+                <div className='form-grid'>
+                  <div className='form-group'>
                     <label>Nombre del Propietario *</label>
                     <input
-                      type="text"
-                      name="propietario_nombre"
+                      type='text'
+                      name='propietario_nombre'
                       value={formData.propietario_nombre}
                       onChange={handleInputChange}
                     />
                   </div>
-                  <div className="form-group">
+                  <div className='form-group'>
                     <label>Placa *</label>
                     <input
-                      type="text"
-                      name="placa"
+                      type='text'
+                      name='placa'
                       value={formData.placa}
                       onChange={handleInputChange}
                     />
                   </div>
-                  <div className="form-group">
-                    <label>Número de Serie *</label>
+                  <div className='form-group'>
+                    <label>Numero de Serie *</label>
                     <input
-                      type="text"
-                      name="numero_serie"
+                      type='text'
+                      name='numero_serie'
                       value={formData.numero_serie}
                       onChange={handleInputChange}
                     />
                   </div>
-                  <div className="form-group">
+                  <div className='form-group'>
                     <label>Marca *</label>
                     <input
-                      type="text"
-                      name="marca"
+                      type='text'
+                      name='marca'
                       value={formData.marca}
                       onChange={handleInputChange}
                     />
                   </div>
-                  <div className="form-group">
-                    <label>Modelo (Año) *</label>
+                  <div className='form-group'>
+                    <label>Modelo (Ano) *</label>
                     <input
-                      type="number"
-                      name="modelo"
+                      type='number'
+                      name='modelo'
                       value={formData.modelo}
                       onChange={handleInputChange}
-                      min="1900"
-                      max="2100"
+                      min='1900'
+                      max='2100'
                     />
                   </div>
-                  <div className="form-group">
+                  <div className='form-group'>
                     <label>Color</label>
                     <input
-                      type="text"
-                      name="color"
+                      type='text'
+                      name='color'
                       value={formData.color}
                       onChange={handleInputChange}
                     />
                   </div>
-                  <div className="form-group">
+                  <div className='form-group'>
                     <label>Capacidad (kg)</label>
                     <input
-                      type="number"
-                      name="capacidad_kg"
+                      type='number'
+                      name='capacidad_kg'
                       value={formData.capacidad_kg}
                       onChange={handleInputChange}
                     />
                   </div>
-                  <div className="form-group">
+                  <div className='form-group'>
                     <label>Estado *</label>
                     <div style={{ display: 'flex', gap: '1rem', marginTop: '0.5rem', flexWrap: 'wrap' }}>
                       {[
-                        { value: 'activo', label: '✓ Activo' },
-                        { value: 'inactivo', label: '🚫 Inactivo' },
-                        { value: 'mantenimiento', label: '🔧 En Taller' }
+                        { value: 'activo', label: 'Activo' },
+                        { value: 'inactivo', label: 'Inactivo' },
+                        { value: 'mantenimiento', label: 'En Taller' }
                       ].map((status) => (
                         <label key={status.value} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer' }}>
                           <input
-                            type="radio"
-                            name="estado"
+                            type='radio'
+                            name='estado'
                             value={status.value}
                             checked={formData.estado === status.value}
                             onChange={handleInputChange}
@@ -300,33 +303,33 @@ export default function VehicleEditForm() {
                   </div>
                 </div>
 
-                <div className="form-group full-width">
-                  <label>Descripción</label>
+                <div className='form-group full-width'>
+                  <label>Descripcion</label>
                   <textarea
-                    name="descripcion"
+                    name='descripcion'
                     value={formData.descripcion}
                     onChange={handleInputChange}
-                    rows="3"
+                    rows='3'
                   />
                 </div>
 
-                <div className="form-actions">
+                <div className='form-actions'>
                   <button
-                    className="btn btn-secondary"
+                    className='btn btn-secondary'
                     onClick={() => setIsEditing(false)}
-                    type="button"
+                    type='button'
                     style={{ padding: '0.75rem 2rem', fontSize: '1rem' }}
                   >
                     Cancelar
                   </button>
                   <button
-                    className="btn btn-success"
+                    className='btn btn-success'
                     onClick={handleSave}
                     disabled={isSaving}
-                    type="button"
+                    type='button'
                     style={{ padding: '0.75rem 2rem', fontSize: '1rem' }}
                   >
-                    {isSaving ? 'Guardando...' : '✓ Guardar Cambios'}
+                    {isSaving ? 'Guardando...' : 'Guardar Cambios'}
                   </button>
                 </div>
               </>
@@ -334,15 +337,14 @@ export default function VehicleEditForm() {
           </div>
         </div>
 
-        {/* ACCIONES RÁPIDAS */}
-        <div className="card" style={{ marginTop: '3rem' }}>
+        <div className='card' style={{ marginTop: '3rem' }}>
           <div style={{ padding: '2rem' }}>
-            <h2 style={{ margin: '0 0 2.5rem 0', fontSize: '1.8rem' }}>Acciones Rápidas</h2>
+            <h2 style={{ margin: '0 0 2.5rem 0', fontSize: '1.8rem' }}>Acciones Rapidas</h2>
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '2rem' }}>
               <button
-                className="action-card"
+                className='action-card'
                 onClick={() => {}}
-                type="button"
+                type='button'
                 style={{
                   border: '2px solid #e5e7eb',
                   borderRadius: '12px',
@@ -372,9 +374,9 @@ export default function VehicleEditForm() {
               </button>
 
               <button
-                className="action-card"
+                className='action-card'
                 onClick={() => {}}
-                type="button"
+                type='button'
                 style={{
                   border: '2px solid #e5e7eb',
                   borderRadius: '12px',
@@ -404,9 +406,9 @@ export default function VehicleEditForm() {
               </button>
 
               <button
-                className="action-card"
+                className='action-card'
                 onClick={() => {}}
-                type="button"
+                type='button'
                 style={{
                   border: '2px solid #e5e7eb',
                   borderRadius: '12px',
@@ -431,7 +433,7 @@ export default function VehicleEditForm() {
                 }}
               >
                 <div style={{ fontSize: '3.5rem', marginBottom: '1.5rem' }}>📸</div>
-                <div style={{ fontWeight: '700', color: '#1f2937', fontSize: '1.1rem' }}>Fotografías</div>
+                <div style={{ fontWeight: '700', color: '#1f2937', fontSize: '1.1rem' }}>Fotografias</div>
                 <div style={{ fontSize: '0.85rem', color: '#6b7280', marginTop: '0.5rem' }}>Gestionar fotos</div>
               </button>
             </div>
@@ -439,9 +441,8 @@ export default function VehicleEditForm() {
         </div>
       </div>
 
-      {/* Botones de navegación */}
-      <div className="form-actions" style={{ marginTop: '3rem' }}>
-        <Link to="/vehicles" className="btn btn-secondary" style={{ padding: '0.75rem 2rem', fontSize: '1rem' }}>
+      <div className='form-actions' style={{ marginTop: '3rem' }}>
+        <Link to='/vehicles' className='btn btn-secondary' style={{ padding: '0.75rem 2rem', fontSize: '1rem' }}>
           ← Volver al listado
         </Link>
       </div>

@@ -1,7 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import NotificationModal from '../../../components/Notifications/NotificationModal';
 import DocumentModal from './DocumentModal';
-import '../../../components/Notifications/NotificationModal.css';
+import {
+  DOCUMENT_STATUS_TIMEZONE,
+  getDayKeyInTimeZone,
+  getDocumentDerivedStatusLabel,
+  getDocumentTimingInput,
+  getMillisecondsUntilNextTimeZoneDay
+} from './documentExpiryUtils';
 import './VehicleDocumentsSection.css';
 
 const normalizeText = (value) => String(value || '').trim().toLowerCase();
@@ -34,10 +40,29 @@ export default function VehicleDocumentsSection({
   const [selectedTipo, setSelectedTipo] = useState('todos');
   const [selectedAmbito, setSelectedAmbito] = useState('todos');
   const [selectedEstatus, setSelectedEstatus] = useState('todos');
+  const [statusDayKey, setStatusDayKey] = useState(() => getDayKeyInTimeZone(DOCUMENT_STATUS_TIMEZONE));
 
   useEffect(() => {
     setEditedDocuments(documents);
   }, [documents]);
+
+  useEffect(() => {
+    const timeoutId = window.setTimeout(() => {
+      setStatusDayKey(getDayKeyInTimeZone(DOCUMENT_STATUS_TIMEZONE));
+    }, getMillisecondsUntilNextTimeZoneDay(DOCUMENT_STATUS_TIMEZONE));
+
+    return () => window.clearTimeout(timeoutId);
+  }, [statusDayKey]);
+
+  useEffect(() => {
+    if (!notification) return undefined;
+
+    const timeoutId = window.setTimeout(() => {
+      setNotification(null);
+    }, 2800);
+
+    return () => window.clearTimeout(timeoutId);
+  }, [notification]);
 
   useEffect(() => {
     if (!initialDocumentId || !documents.length) return;
@@ -161,13 +186,6 @@ export default function VehicleDocumentsSection({
     }
   };
 
-  const getStatusLabel = (status) => {
-    if (status === 'vigente') return 'Vigente';
-    if (status === 'vencido') return 'Vencido';
-    if (status === 'en_tramite') return 'En tramite';
-    return status || 'Sin estatus';
-  };
-
   const formatDateForDisplay = (dateValue) => {
     if (!dateValue) return '-';
 
@@ -189,10 +207,10 @@ export default function VehicleDocumentsSection({
   const availableStatuses = useMemo(() => (
     Array.from(new Set(
       editedDocuments
-        .map((doc) => normalizeText(doc.estatus))
+        .map((doc) => normalizeText(getDocumentTimingInput(doc.vigencia, doc.estatus, DOCUMENT_STATUS_TIMEZONE).label))
         .filter(Boolean)
     ))
-  ), [editedDocuments]);
+  ), [editedDocuments, statusDayKey]);
 
   const filteredDocuments = useMemo(() => {
     const normalizedQuery = normalizeText(searchTerm);
@@ -201,7 +219,7 @@ export default function VehicleDocumentsSection({
       const tipoId = String(doc.tipo_documento_id || '');
       const tipoNombre = documentTypeMap.get(tipoId) || doc.tipo_nombre || '';
       const ambito = normalizeText(doc.ambito);
-      const estatus = normalizeText(doc.estatus);
+      const estatus = normalizeText(getDocumentTimingInput(doc.vigencia, doc.estatus, DOCUMENT_STATUS_TIMEZONE).label);
 
       const matchesTipo = selectedTipo === 'todos' ? true : tipoId === selectedTipo;
       const matchesAmbito = selectedAmbito === 'todos' ? true : ambito === selectedAmbito;
@@ -211,7 +229,7 @@ export default function VehicleDocumentsSection({
         tipoNombre,
         doc.ambito,
         doc.estado,
-        doc.estatus,
+        getDocumentTimingInput(doc.vigencia, doc.estatus, DOCUMENT_STATUS_TIMEZONE).label,
         doc.dependencia_otorga,
         doc.folio_oficio,
         doc.observaciones
@@ -224,7 +242,7 @@ export default function VehicleDocumentsSection({
 
       return matchesTipo && matchesAmbito && matchesEstatus && matchesSearch;
     });
-  }, [documentTypeMap, editedDocuments, searchTerm, selectedTipo, selectedAmbito, selectedEstatus]);
+  }, [documentTypeMap, editedDocuments, searchTerm, selectedTipo, selectedAmbito, selectedEstatus, statusDayKey]);
 
   return (
     <div className='documents-section'>
@@ -297,9 +315,10 @@ export default function VehicleDocumentsSection({
             <div className='documents-records-list'>
               {filteredDocuments.map((doc) => {
                 const files = extractDocumentFiles(doc);
+                const timing = getDocumentTimingInput(doc.vigencia, doc.estatus, DOCUMENT_STATUS_TIMEZONE);
 
                 return (
-                  <div key={doc.id} className='document-record-card'>
+                  <div key={doc.id} className={`document-record-card tone-${timing.tone}`}>
                     <div className='document-record-top'>
                       <div>
                         <h4>{documentTypeMap.get(String(doc.tipo_documento_id || '')) || 'Sin tipo'}</h4>
@@ -332,12 +351,12 @@ export default function VehicleDocumentsSection({
                       </div>
                       <div>
                         <span className='record-label'>Vigencia</span>
-                        <strong>{formatDateForDisplay(doc.vigencia)}</strong>
+                        <strong>{timing.status === 'no_aplica' ? 'No aplica' : formatDateForDisplay(doc.vigencia)}</strong>
                       </div>
                       <div>
                         <span className='record-label'>Estatus</span>
                         <strong>
-                          <span className={`badge-estatus ${doc.estatus}`}>{getStatusLabel(doc.estatus)}</span>
+                          <span className={`badge-estatus ${timing.status || 'neutral'}`}>{timing.label}</span>
                         </strong>
                       </div>
                       <div>

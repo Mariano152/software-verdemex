@@ -1,19 +1,9 @@
-import React, { useRef } from 'react';
-import usePopupTopScroll from '../../hooks/usePopupTopScroll';
+import React from 'react';
+import { createPortal } from 'react-dom';
 import './NotificationModal.css';
 
 /**
- * Modal de Notificaciones Reutilizable
- * Propósito: Mostrar mensajes de éxito, error, advertencia e información
- *
- * Props:
- * - type: 'success' | 'error' | 'warning' | 'info' (default: 'info')
- * - title: string - Título del modal
- * - message: string - Mensaje a mostrar
- * - details?: any - Detalles adicionales (array, objeto)
- * - isOpen: boolean - Mostrar/ocultar modal
- * - onClose: function - Callback al cerrar
- * - actionButton?: {label: string, onClick: function} - Botón de acción adicional
+ * Notificacion reutilizable fija en la parte superior de la vista actual.
  */
 export function NotificationModal({
   type = 'info',
@@ -24,12 +14,9 @@ export function NotificationModal({
   onClose,
   actionButton
 }) {
-  const overlayRef = useRef(null);
-  const modalRef = useRef(null);
+  const visible = typeof isOpen === 'boolean' ? isOpen : true;
 
-  usePopupTopScroll(isOpen, [overlayRef, modalRef], [type, title, message]);
-
-  if (!isOpen) return null;
+  if (!visible || typeof document === 'undefined') return null;
 
   const icons = {
     success: '✓',
@@ -38,27 +25,51 @@ export function NotificationModal({
     info: 'ℹ'
   };
 
-  return (
-    <div ref={overlayRef} className="notification-overlay">
-      <div ref={modalRef} className={`notification-modal notification-${type}`}>
-        <div className="notification-header">
+  const fallbackTitles = {
+    success: 'Exito',
+    error: 'Error',
+    warning: 'Atencion',
+    info: 'Informacion'
+  };
+
+  return createPortal(
+    <div className='notification-toast-wrapper' aria-live='polite' aria-atomic='true'>
+      <div className={`notification-toast notification-${type}`} role='status'>
+        <div className='notification-main'>
           <div className={`notification-icon notification-icon-${type}`}>
-            {icons[type]}
+            {icons[type] || icons.info}
           </div>
-          <h2>{title}</h2>
+
+          <div className='notification-copy'>
+            <div className='notification-header'>
+              <h2>{title || fallbackTitles[type] || fallbackTitles.info}</h2>
+              {onClose && (
+                <button
+                  className='notification-close'
+                  onClick={onClose}
+                  type='button'
+                  aria-label='Cerrar notificacion'
+                >
+                  ×
+                </button>
+              )}
+            </div>
+
+            {message && (
+              <p className='notification-message'>
+                {message.split('\n').map((line, idx) => (
+                  <React.Fragment key={idx}>
+                    {line}
+                    {idx < message.split('\n').length - 1 && <br />}
+                  </React.Fragment>
+                ))}
+              </p>
+            )}
+          </div>
         </div>
 
-        <p className="notification-message">
-          {message && message.split('\n').map((line, idx) => (
-            <React.Fragment key={idx}>
-              {line}
-              {idx < message.split('\n').length - 1 && <br />}
-            </React.Fragment>
-          ))}
-        </p>
-
         {details && (
-          <div className="notification-details">
+          <div className='notification-details'>
             {Array.isArray(details) ? (
               <ul>
                 {details.map((item, idx) => (
@@ -66,40 +77,43 @@ export function NotificationModal({
                 ))}
               </ul>
             ) : typeof details === 'object' ? (
-              <div className="details-object">
+              <div className='details-object'>
                 {Object.entries(details).map(([key, value]) => (
-                  <div key={key} className="detail-row">
-                    <span className="detail-label">{key}:</span>
-                    <span className="detail-value">{String(value)}</span>
+                  <div key={key} className='detail-row'>
+                    <span className='detail-label'>{key}:</span>
+                    <span className='detail-value'>{String(value)}</span>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="details-text">{details}</p>
+              <p className='details-text'>{details}</p>
             )}
           </div>
         )}
 
-        <div className="notification-actions">
-          {actionButton && (
+        {actionButton && (
+          <div className='notification-actions'>
             <button
-              className="btn btn-secondary"
+              className='btn btn-secondary'
               onClick={actionButton.onClick}
-              type="button"
+              type='button'
             >
               {actionButton.label}
             </button>
-          )}
-          <button
-            className={`btn btn-${type}`}
-            onClick={onClose}
-            type="button"
-          >
-            {actionButton ? 'Cerrar' : 'OK'}
-          </button>
-        </div>
+            {onClose && (
+              <button
+                className={`btn btn-${type}`}
+                onClick={onClose}
+                type='button'
+              >
+                Cerrar
+              </button>
+            )}
+          </div>
+        )}
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 

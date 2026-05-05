@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import NotificationModal from '../../components/Notifications/NotificationModal';
 import './DriverCreate.css';
 
 export default function DriverCreate() {
@@ -12,14 +13,14 @@ export default function DriverCreate() {
     licenseExpiry: '',
     birthDate: '',
     address: '',
-    experience: '',
+    experience: ''
   });
 
   const [submitted, setSubmitted] = useState(false);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
       [name]: value
     }));
@@ -28,120 +29,121 @@ export default function DriverCreate() {
   const handleSubmit = (e) => {
     e.preventDefault();
     setSubmitted(true);
-    
+
     setTimeout(() => {
       navigate('/drivers');
     }, 800);
   };
 
   return (
-    <div className="driver-create">
-      <div className="form-header">
-        <Link to="/drivers" className="btn btn-outline">← Volver</Link>
+    <div className='driver-create'>
+      <div className='form-header'>
+        <Link to='/drivers' className='btn btn-outline'>← Volver</Link>
         <div>
           <h1>Registro de Nuevo Conductor</h1>
-          <p className="subtitle">Completa los datos del conductor a registrar</p>
+          <p className='subtitle'>Completa los datos del conductor a registrar</p>
         </div>
       </div>
 
       {submitted && (
-        <div className="alert alert-success">
-          ✓ Conductor registrado correctamente. Redirigiendo...
-        </div>
+        <NotificationModal
+          type='success'
+          title='Exito'
+          message='Conductor registrado correctamente. Redirigiendo...'
+          onClose={() => setSubmitted(false)}
+        />
       )}
 
-      <div className="card">
+      <div className='card'>
         <form onSubmit={handleSubmit}>
-          {/* Sección Información Personal */}
-          <div className="form-section">
-            <h3>Información Personal</h3>
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="name">Nombre Completo *</label>
+          <div className='form-section'>
+            <h3>Informacion Personal</h3>
+            <div className='form-row'>
+              <div className='form-group'>
+                <label htmlFor='name'>Nombre Completo *</label>
                 <input
-                  id="name"
-                  type="text"
-                  name="name"
+                  id='name'
+                  type='text'
+                  name='name'
                   value={formData.name}
                   onChange={handleChange}
-                  placeholder="Juan Rodríguez García"
+                  placeholder='Juan Rodriguez Garcia'
                   required
                 />
               </div>
-              <div className="form-group">
-                <label htmlFor="birthDate">Fecha de Nacimiento</label>
+              <div className='form-group'>
+                <label htmlFor='birthDate'>Fecha de Nacimiento</label>
                 <input
-                  id="birthDate"
-                  type="date"
-                  name="birthDate"
+                  id='birthDate'
+                  type='date'
+                  name='birthDate'
                   value={formData.birthDate}
                   onChange={handleChange}
                 />
               </div>
             </div>
 
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="email">Correo Electrónico *</label>
+            <div className='form-row'>
+              <div className='form-group'>
+                <label htmlFor='email'>Correo Electronico *</label>
                 <input
-                  id="email"
-                  type="email"
-                  name="email"
+                  id='email'
+                  type='email'
+                  name='email'
                   value={formData.email}
                   onChange={handleChange}
-                  placeholder="juan@verdemex.com"
+                  placeholder='juan@verdemex.com'
                   required
                 />
               </div>
-              <div className="form-group">
-                <label htmlFor="phone">Teléfono *</label>
+              <div className='form-group'>
+                <label htmlFor='phone'>Telefono *</label>
                 <input
-                  id="phone"
-                  type="tel"
-                  name="phone"
+                  id='phone'
+                  type='tel'
+                  name='phone'
                   value={formData.phone}
                   onChange={handleChange}
-                  placeholder="+52 55 1234 5678"
+                  placeholder='+52 55 1234 5678'
                   required
                 />
               </div>
             </div>
 
-            <div className="form-group">
-              <label htmlFor="address">Dirección</label>
+            <div className='form-group'>
+              <label htmlFor='address'>Direccion</label>
               <input
-                id="address"
-                type="text"
-                name="address"
+                id='address'
+                type='text'
+                name='address'
                 value={formData.address}
                 onChange={handleChange}
-                placeholder="Calle Principal 123, Apt. 4B"
+                placeholder='Calle Principal 123, Apt. 4B'
               />
             </div>
           </div>
 
-          {/* Sección Documentación */}
-          <div className="form-section">
-            <h3>Documentación de Conducción</h3>
-            <div className="form-row">
-              <div className="form-group">
-                <label htmlFor="license">Licencia de Conducir *</label>
+          <div className='form-section'>
+            <h3>Documentacion de Conduccion</h3>
+            <div className='form-row'>
+              <div className='form-group'>
+                <label htmlFor='license'>Licencia de Conducir *</label>
                 <input
-                  id="license"
-                  type="text"
-                  name="license"
+                  id='license'
+                  type='text'
+                  name='license'
                   value={formData.license}
                   onChange={handleChange}
-                  placeholder="DL-12345"
+                  placeholder='DL-12345'
                   required
                 />
               </div>
-              <div className="form-group">
-                <label htmlFor="licenseExpiry">Vencimiento Licencia *</label>
+              <div className='form-group'>
+                <label htmlFor='licenseExpiry'>Vencimiento Licencia *</label>
                 <input
-                  id="licenseExpiry"
-                  type="date"
-                  name="licenseExpiry"
+                  id='licenseExpiry'
+                  type='date'
+                  name='licenseExpiry'
                   value={formData.licenseExpiry}
                   onChange={handleChange}
                   required
@@ -149,28 +151,27 @@ export default function DriverCreate() {
               </div>
             </div>
 
-            <div className="form-group">
-              <label htmlFor="experience">Años de Experiencia</label>
+            <div className='form-group'>
+              <label htmlFor='experience'>Anos de Experiencia</label>
               <input
-                id="experience"
-                type="number"
-                name="experience"
+                id='experience'
+                type='number'
+                name='experience'
                 value={formData.experience}
                 onChange={handleChange}
-                placeholder="5"
-                min="0"
-                max="50"
+                placeholder='5'
+                min='0'
+                max='50'
               />
             </div>
           </div>
 
-          {/* Botones */}
-          <div className="form-actions">
-            <Link to="/drivers" className="btn btn-outline">
+          <div className='form-actions'>
+            <Link to='/drivers' className='btn btn-outline'>
               Cancelar
             </Link>
-            <button type="submit" className="btn btn-primary btn-lg">
-              ✓ Registrar Conductor
+            <button type='submit' className='btn btn-primary btn-lg'>
+              Registrar Conductor
             </button>
           </div>
         </form>

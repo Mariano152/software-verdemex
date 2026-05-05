@@ -159,6 +159,24 @@
   grid-column: 1 / -1;
 }
 
+.document-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 48px;
+}
+
+.document-checkbox-row input[type='checkbox'] {
+  width: 18px;
+  height: 18px;
+}
+
+.document-helper-text {
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 600;
+}
+
 .document-files-block {
   margin-top: 22px;
   padding-top: 18px;

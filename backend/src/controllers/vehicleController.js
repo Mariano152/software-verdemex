@@ -56,6 +56,15 @@ const normalizeNullableText = (value) => {
   const normalized = normalizeText(value);
   return normalized || null;
 };
+const normalizeDocumentVigencia = (value, estatus = '') => {
+  const normalizedStatus = normalizeText(estatus).toLowerCase();
+  if (normalizedStatus === 'no_aplica') {
+    return null;
+  }
+
+  const normalizedValue = normalizeText(value);
+  return normalizedValue || null;
+};
 const normalizeNumber = (value) => {
   if (value === null || value === undefined || value === '') return null;
   const parsed = Number(value);
@@ -1704,12 +1713,13 @@ export const vehicleController = {
       }
 
       // Crear documento en BD
+      const normalizedVigencia = normalizeDocumentVigencia(vigencia, estatus);
       const documentData = {
         tipo_documento_id: parseInt(tipo_documento_id),
         ambito: ambito || 'federal',
         estado: estado || 'válido',
         dependencia_otorga,
-        vigencia,
+        vigencia: normalizedVigencia,
         folio_oficio,
         observaciones: observaciones || '',
         estatus: estatus || 'vigente',
@@ -1762,6 +1772,11 @@ export const vehicleController = {
         archivosGuardados: archivosGuardados.length
       });
     } catch (error) {
+      if (error.code === '23514' && error.constraint === 'vehiculo_documentos_estatus_check') {
+        return res.status(400).json({
+          message: 'La base de datos aun no permite el estatus "no_aplica" o "por_vencer" para documentos. Ejecuta la migracion 016.'
+        });
+      }
       console.error('❌ [DOC_CREATE] Error FATAL:', error.message, error.stack);
       res.status(500).json({
         message: 'Error al crear documento',
@@ -1826,12 +1841,13 @@ export const vehicleController = {
       }
 
       // Actualizar documento
+      const normalizedVigencia = normalizeDocumentVigencia(vigencia, estatus);
       const documentData = {
         tipo_documento_id: parseInt(tipo_documento_id),
         ambito: ambito || 'federal',
         estado: estado || 'válido',
         dependencia_otorga,
-        vigencia,
+        vigencia: normalizedVigencia,
         folio_oficio,
         observaciones: observaciones || '',
         estatus: estatus || 'vigente',
@@ -1870,7 +1886,7 @@ export const vehicleController = {
           ambito: normalizeNullableText(ambito || 'federal'),
           estado: normalizeNullableText(estado || 'vÃ¡lido'),
           dependencia_otorga: normalizeNullableText(dependencia_otorga),
-          vigencia: normalizeNullableText(vigencia),
+          vigencia: normalizedVigencia,
           folio_oficio: normalizeNullableText(folio_oficio),
           observaciones: normalizeNullableText(observaciones || ''),
           estatus: normalizeNullableText(estatus || 'vigente')
@@ -1911,6 +1927,11 @@ export const vehicleController = {
         archivosGuardados: req.files?.length || 0
       });
     } catch (error) {
+      if (error.code === '23514' && error.constraint === 'vehiculo_documentos_estatus_check') {
+        return res.status(400).json({
+          message: 'La base de datos aun no permite el estatus "no_aplica" o "por_vencer" para documentos. Ejecuta la migracion 016.'
+        });
+      }
       console.error('❌ [DOC_UPDATE] Error FATAL:', error.message, error.stack);
       res.status(500).json({
         message: 'Error al actualizar documento',
