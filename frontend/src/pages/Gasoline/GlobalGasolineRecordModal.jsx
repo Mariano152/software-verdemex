@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import usePopupTopScroll from '../../../hooks/usePopupTopScroll';
-import '../../Gasoline/GlobalGasolineRecordModal.css';
-import './MaintenanceRecordModal.css';
+import usePopupTopScroll from '../../hooks/usePopupTopScroll';
+import '../Vehicles/Sections/MaintenanceRecordModal.css';
+import './GlobalGasolineRecordModal.css';
 
 const buildTodayDate = () => new Date().toISOString().slice(0, 10);
 const buildCurrentTime = () => new Date().toTimeString().slice(0, 5);
@@ -35,58 +35,23 @@ const formatTimeForInput = (value) => {
   return `${hours}:${minutes}`;
 };
 
-const buildEmptyForm = (vehicle) => ({
+const EMPTY_FORM = {
+  vehiculo_id: '',
   titulo: '',
-  tipo_combustible: 'gasolina',
-  fecha_carga: buildTodayDate(),
   factura: '',
+  fecha_carga: buildTodayDate(),
   hora_carga: buildCurrentTime(),
-  costo_total: '',
-  litros: '',
   proveedor: '',
-  descripcion: '',
-  observaciones: '',
-  placa_snapshot: vehicle?.placa || '',
-  descripcion_snapshot: vehicle?.descripcion || vehicle?.propietario_nombre || '',
+  placa_snapshot: '',
+  descripcion_snapshot: '',
   kilometraje_actual: '',
   kilometraje_anterior: '0',
-  kilometros_recorridos: '',
+  litros: '',
+  costo_total: '',
   m3_enviados: '',
   operador: '',
-  primera_carga: false
-});
-
-const buildRecordTimestamp = (record) => {
-  if (!record?.fecha_carga) return 0;
-  const date = new Date(`${formatDateForInput(record.fecha_carga)}T${formatTimeForInput(record.hora_carga) || '00:00:00'}`);
-  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
-};
-
-const sortRecordsByDateTimeDesc = (records = []) => (
-  [...records].sort((left, right) => buildRecordTimestamp(right) - buildRecordTimestamp(left))
-);
-
-const findPreviousMileage = ({ records, date, time, excludeRecordId }) => {
-  const currentTimestamp = date
-    ? new Date(`${date}T${time || '23:59:59'}`).getTime()
-    : Number.POSITIVE_INFINITY;
-
-  const previousRecord = sortRecordsByDateTimeDesc(
-    records.filter((record) => (
-      String(record.id) !== String(excludeRecordId || '')
-      && record.kilometraje_actual !== null
-      && record.kilometraje_actual !== undefined
-      && buildRecordTimestamp(record) <= currentTimestamp
-    ))
-  )[0];
-
-  return Number(previousRecord?.kilometraje_actual || 0);
-};
-
-const parseNumber = (value) => {
-  if (value === '' || value === null || value === undefined) return null;
-  const parsed = Number(value);
-  return Number.isNaN(parsed) ? null : parsed;
+  primera_carga: false,
+  observaciones: ''
 };
 
 const extractFiles = (record) => {
@@ -102,9 +67,44 @@ const extractFiles = (record) => {
   }
 };
 
-export default function GasolineRecordModal({
-  vehicleId,
-  vehicle = null,
+const buildRecordTimestamp = (record) => {
+  if (!record?.fecha_carga) return 0;
+  const date = new Date(`${record.fecha_carga}T${record.hora_carga || '00:00:00'}`);
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+};
+
+const sortRecordsByDateTimeDesc = (records = []) => (
+  [...records].sort((left, right) => buildRecordTimestamp(right) - buildRecordTimestamp(left))
+);
+
+const findPreviousMileage = ({ records, vehicleId, date, time, excludeRecordId }) => {
+  if (!vehicleId) return 0;
+
+  const currentTimestamp = date
+    ? new Date(`${date}T${time || '23:59:59'}`).getTime()
+    : Number.POSITIVE_INFINITY;
+
+  const previousRecord = sortRecordsByDateTimeDesc(
+    records.filter((record) => (
+      String(record.vehiculo_id) === String(vehicleId)
+      && String(record.id) !== String(excludeRecordId || '')
+      && record.kilometraje_actual !== null
+      && record.kilometraje_actual !== undefined
+      && buildRecordTimestamp(record) <= currentTimestamp
+    ))
+  )[0];
+
+  return Number(previousRecord?.kilometraje_actual || 0);
+};
+
+const parseNumber = (value) => {
+  if (value === '' || value === null || value === undefined) return null;
+  const parsed = Number(value);
+  return Number.isNaN(parsed) ? null : parsed;
+};
+
+export default function GlobalGasolineRecordModal({
+  vehicles = [],
   records = [],
   record,
   isOpen,
@@ -115,7 +115,8 @@ export default function GasolineRecordModal({
   onEdit,
   onDelete
 }) {
-  const [formData, setFormData] = useState(buildEmptyForm(vehicle));
+  const [formData, setFormData] = useState(EMPTY_FORM);
+  const [vehicleSearch, setVehicleSearch] = useState('');
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [existingFiles, setExistingFiles] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -127,49 +128,65 @@ export default function GasolineRecordModal({
     if (!isOpen) return;
 
     if (isNew || !record) {
-      setFormData(buildEmptyForm(vehicle));
-      setExistingFiles([]);
+      setFormData(EMPTY_FORM);
+      setVehicleSearch('');
       setSelectedFiles([]);
+      setExistingFiles([]);
       setValidationMessage('');
       return;
     }
 
     setFormData({
+      vehiculo_id: record.vehiculo_id || '',
       titulo: record.titulo || '',
-      tipo_combustible: record.tipo_combustible || 'gasolina',
-      fecha_carga: formatDateForInput(record.fecha_carga) || buildTodayDate(),
       factura: record.factura || '',
+      fecha_carga: formatDateForInput(record.fecha_carga) || buildTodayDate(),
       hora_carga: formatTimeForInput(record.hora_carga) || buildCurrentTime(),
-      costo_total: record.costo_total ?? '',
-      litros: record.litros ?? '',
       proveedor: record.proveedor || '',
-      descripcion: record.descripcion || '',
-      observaciones: record.observaciones || '',
-      placa_snapshot: record.placa_snapshot || vehicle?.placa || '',
-      descripcion_snapshot: record.descripcion_snapshot || vehicle?.descripcion || vehicle?.propietario_nombre || '',
+      placa_snapshot: record.placa_snapshot || record.vehiculo_placa || '',
+      descripcion_snapshot: record.descripcion_snapshot || record.vehiculo_descripcion || '',
       kilometraje_actual: record.kilometraje_actual ?? '',
       kilometraje_anterior: record.kilometraje_anterior ?? '0',
-      kilometros_recorridos: record.kilometros_recorridos ?? '',
+      litros: record.litros ?? '',
+      costo_total: record.costo_total ?? '',
       m3_enviados: record.m3_enviados ?? '',
       operador: record.operador || '',
-      primera_carga: Boolean(record.primera_carga)
+      primera_carga: Boolean(record.primera_carga),
+      observaciones: record.observaciones || ''
     });
 
+    const selectedVehicle = vehicles.find((vehicle) => String(vehicle.id) === String(record.vehiculo_id));
+    setVehicleSearch(
+      selectedVehicle
+        ? `${selectedVehicle.placa} - ${selectedVehicle.descripcion || selectedVehicle.propietario_nombre || 'Sin descripcion'}`
+        : `${record.placa_snapshot || record.vehiculo_placa || ''} - ${record.descripcion_snapshot || record.vehiculo_descripcion || 'Sin descripcion'}`
+    );
     setExistingFiles(extractFiles(record));
     setSelectedFiles([]);
     setValidationMessage('');
-  }, [isOpen, isNew, record, vehicle]);
+  }, [isOpen, isNew, record, vehicles]);
 
   usePopupTopScroll(isOpen, [overlayRef, modalRef], [mode, record?.id]);
 
-  const isViewMode = mode === 'view';
+  const vehicleOptions = useMemo(() => vehicles.map((vehicle) => ({
+    id: vehicle.id,
+    label: `${vehicle.placa} - ${vehicle.descripcion || vehicle.propietario_nombre || 'Sin descripcion'}`,
+    placa: vehicle.placa || '',
+    descripcion: vehicle.descripcion || ''
+  })), [vehicles]);
+
+  const selectedVehicle = useMemo(() => (
+    vehicles.find((vehicle) => String(vehicle.id) === String(formData.vehiculo_id)) || null
+  ), [formData.vehiculo_id, vehicles]);
 
   useEffect(() => {
-    if (!isOpen || isViewMode) return;
+    if (!isOpen || mode === 'view') return;
+    if (!selectedVehicle) return;
 
     if (!formData.primera_carga) {
       const previousMileage = findPreviousMileage({
         records,
+        vehicleId: selectedVehicle.id,
         date: formData.fecha_carga,
         time: formData.hora_carga,
         excludeRecordId: record?.id
@@ -177,8 +194,8 @@ export default function GasolineRecordModal({
 
       setFormData((current) => ({
         ...current,
-        placa_snapshot: vehicle?.placa || current.placa_snapshot,
-        descripcion_snapshot: vehicle?.descripcion || vehicle?.propietario_nombre || current.descripcion_snapshot,
+        placa_snapshot: selectedVehicle.placa || '',
+        descripcion_snapshot: selectedVehicle.descripcion || '',
         kilometraje_anterior: String(previousMileage)
       }));
       return;
@@ -186,20 +203,21 @@ export default function GasolineRecordModal({
 
     setFormData((current) => ({
       ...current,
-      placa_snapshot: vehicle?.placa || current.placa_snapshot,
-      descripcion_snapshot: vehicle?.descripcion || vehicle?.propietario_nombre || current.descripcion_snapshot
+      placa_snapshot: selectedVehicle.placa || '',
+      descripcion_snapshot: selectedVehicle.descripcion || ''
     }));
   }, [
     formData.fecha_carga,
     formData.hora_carga,
     formData.primera_carga,
     isOpen,
-    isViewMode,
+    mode,
     record?.id,
     records,
-    vehicle
+    selectedVehicle
   ]);
 
+  const isViewMode = mode === 'view';
   const currentMileage = parseNumber(formData.kilometraje_actual);
   const previousMileage = parseNumber(formData.kilometraje_anterior) ?? 0;
   const liters = parseNumber(formData.litros);
@@ -211,14 +229,6 @@ export default function GasolineRecordModal({
   const pricePerKm = kilometersTraveled > 0 && totalAmount !== null ? totalAmount / kilometersTraveled : 0;
   const pricePerM3 = m3Sent && m3Sent > 0 && totalAmount !== null ? totalAmount / m3Sent : 0;
 
-  const vehicleLabel = useMemo(() => {
-    if (vehicle?.placa || vehicle?.descripcion || vehicle?.propietario_nombre) {
-      return `${vehicle?.placa || vehicleId} - ${vehicle?.descripcion || vehicle?.propietario_nombre || 'Sin descripcion'}`;
-    }
-
-    return `Vehiculo ${vehicleId}`;
-  }, [vehicle, vehicleId]);
-
   if (!isOpen) return null;
 
   const handleChange = (field, value) => {
@@ -228,6 +238,26 @@ export default function GasolineRecordModal({
     setFormData((current) => ({
       ...current,
       [field]: value
+    }));
+  };
+
+  const handleVehicleSearchChange = (value) => {
+    if (isViewMode) return;
+
+    setVehicleSearch(value);
+    const matchedVehicle = vehicleOptions.find((option) => option.label === value);
+    if (!matchedVehicle) {
+      handleChange('vehiculo_id', '');
+      handleChange('placa_snapshot', '');
+      handleChange('descripcion_snapshot', '');
+      return;
+    }
+
+    setFormData((current) => ({
+      ...current,
+      vehiculo_id: matchedVehicle.id,
+      placa_snapshot: matchedVehicle.placa,
+      descripcion_snapshot: matchedVehicle.descripcion
     }));
   };
 
@@ -269,7 +299,7 @@ export default function GasolineRecordModal({
       anchor.remove();
       window.URL.revokeObjectURL(url);
     } catch {
-      // Evita rechazos no controlados dentro del modal.
+      // El error se ignora dentro del modal para evitar romper la experiencia.
     }
   };
 
@@ -284,6 +314,7 @@ export default function GasolineRecordModal({
         ? current.kilometraje_anterior || '0'
         : String(findPreviousMileage({
             records,
+            vehicleId: current.vehiculo_id,
             date: current.fecha_carga,
             time: current.hora_carga,
             excludeRecordId: record?.id
@@ -292,6 +323,11 @@ export default function GasolineRecordModal({
   };
 
   const handleSubmit = async () => {
+    if (!formData.vehiculo_id) {
+      setValidationMessage('Selecciona un vehiculo valido antes de guardar.');
+      return;
+    }
+
     if (!String(formData.titulo || '').trim()) {
       setValidationMessage('El nombre de la carga es obligatorio.');
       return;
@@ -379,14 +415,30 @@ export default function GasolineRecordModal({
         <div className='maintenance-modal-header'>
           <div>
             <h3>
-              {isNew ? 'Nueva carga de gasolina' : isViewMode ? 'Detalle de la carga' : 'Editar carga de gasolina'}
+              {isNew ? 'Nueva carga global de gasolina' : isViewMode ? 'Detalle de la carga global' : 'Editar carga global'}
             </h3>
-            <p>{vehicleLabel}</p>
+            <p>Selecciona un vehiculo y registra la carga con sus medidores.</p>
           </div>
           <button type='button' className='maintenance-close-btn' onClick={onClose}>Cerrar</button>
         </div>
 
         <div className='maintenance-modal-grid'>
+          <label className='full-width'>
+            <span>Vehiculo</span>
+            <input
+              list='global-gasoline-vehicles'
+              value={vehicleSearch}
+              onChange={(event) => handleVehicleSearchChange(event.target.value)}
+              readOnly={isViewMode}
+              placeholder='Busca por placa o descripcion'
+            />
+            <datalist id='global-gasoline-vehicles'>
+              {vehicleOptions.map((vehicle) => (
+                <option key={vehicle.id} value={vehicle.label} />
+              ))}
+            </datalist>
+          </label>
+
           <label>
             <span>Nombre de la carga</span>
             <input value={formData.titulo} onChange={(event) => handleChange('titulo', event.target.value)} readOnly={isViewMode} />
@@ -486,7 +538,7 @@ export default function GasolineRecordModal({
           {!isViewMode && (
             <label className='full-width'>
               <span>Documentos adjuntos</span>
-              <input type='file' multiple name='documento' onChange={handleFileChange} />
+              <input type='file' multiple onChange={handleFileChange} />
             </label>
           )}
         </div>

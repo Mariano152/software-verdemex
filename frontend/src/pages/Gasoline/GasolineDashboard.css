@@ -1,0 +1,40 @@
+@import '../Vehicles/Sections/VehicleGasolineSection.css';
+@import '../Vehicles/Sections/VehicleMaintenanceSection.css';
+
+.gasoline-dashboard .section-header,
+.gasoline-dashboard .maintenance-history-section {
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.gasoline-dashboard-state {
+  min-height: 420px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  color: #29443b;
+}
+
+.gasoline-dashboard-error {
+  background: #ffffff;
+  border: 1px solid #f3c0ba;
+  border-radius: 20px;
+}
+
+.gasoline-global-card {
+  background: linear-gradient(180deg, #fbfdf9 0%, #f7fbf5 100%);
+}
+
+.gasoline-global-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+
+@media (max-width: 900px) {
+  .gasoline-global-grid {
+    grid-template-columns: 1fr;
+  }
+}

@@ -63,6 +63,16 @@ const mapGasolineFileRow = (fileRow, vehicleId, gasolineId, index) => ({
   download_url: `/api/vehicles/${vehicleId}/gasoline-records/${gasolineId}/download?fileIndex=${index}`
 });
 
+const mapGlobalGasolineFileRow = (fileRow, gasolineId, index) => ({
+  id: fileRow.id,
+  nombre_original: fileRow.nombre_original,
+  tipo_mime: fileRow.tipo_mime,
+  tamano: Number(fileRow.tamano_bytes || 0),
+  tamano_bytes: Number(fileRow.tamano_bytes || 0),
+  orden: fileRow.orden ?? index + 1,
+  download_url: `/api/gasoline-records/${gasolineId}/download?fileIndex=${index}`
+});
+
 export const vehicleModel = {
   async createVehicle(vehicleData) {
     const {
@@ -378,8 +388,19 @@ export const vehicleModel = {
       titulo,
       tipo_combustible,
       fecha_carga,
+      factura,
+      hora_carga,
       costo_total,
       litros,
+      kilometraje_actual,
+      kilometraje_anterior,
+      kilometros_recorridos,
+      m3_enviados,
+      operador,
+      primera_carga,
+      placa_snapshot,
+      descripcion_snapshot,
+      numero_economico_snapshot,
       proveedor,
       descripcion,
       observaciones
@@ -387,10 +408,37 @@ export const vehicleModel = {
 
     const result = await query(
       `INSERT INTO vehiculo_gasolina_registros
-       (vehiculo_id, titulo, tipo_combustible, fecha_carga, costo_total, litros, proveedor, descripcion, observaciones)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       (
+         vehiculo_id, titulo, tipo_combustible, fecha_carga, factura, hora_carga,
+         costo_total, litros, kilometraje_actual, kilometraje_anterior,
+         kilometros_recorridos, m3_enviados, operador, primera_carga,
+         placa_snapshot, descripcion_snapshot, numero_economico_snapshot,
+         proveedor, descripcion, observaciones
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
        RETURNING *`,
-      [vehicleId, titulo, tipo_combustible, fecha_carga, costo_total, litros, proveedor, descripcion, observaciones]
+      [
+        vehicleId,
+        titulo,
+        tipo_combustible,
+        fecha_carga,
+        factura,
+        hora_carga,
+        costo_total,
+        litros,
+        kilometraje_actual,
+        kilometraje_anterior,
+        kilometros_recorridos,
+        m3_enviados,
+        operador,
+        primera_carga ?? false,
+        placa_snapshot,
+        descripcion_snapshot,
+        numero_economico_snapshot,
+        proveedor,
+        descripcion,
+        observaciones
+      ]
     );
 
     return result.rows[0];
@@ -401,8 +449,19 @@ export const vehicleModel = {
       titulo,
       tipo_combustible,
       fecha_carga,
+      factura,
+      hora_carga,
       costo_total,
       litros,
+      kilometraje_actual,
+      kilometraje_anterior,
+      kilometros_recorridos,
+      m3_enviados,
+      operador,
+      primera_carga,
+      placa_snapshot,
+      descripcion_snapshot,
+      numero_economico_snapshot,
       proveedor,
       descripcion,
       observaciones
@@ -413,15 +472,125 @@ export const vehicleModel = {
        SET titulo = $1,
            tipo_combustible = $2,
            fecha_carga = $3,
-           costo_total = $4,
-           litros = $5,
-           proveedor = $6,
-           descripcion = $7,
-           observaciones = $8,
+           factura = $4,
+           hora_carga = $5,
+           costo_total = $6,
+           litros = $7,
+           kilometraje_actual = $8,
+           kilometraje_anterior = $9,
+           kilometros_recorridos = $10,
+           m3_enviados = $11,
+           operador = $12,
+           primera_carga = $13,
+           placa_snapshot = $14,
+           descripcion_snapshot = $15,
+           numero_economico_snapshot = $16,
+           proveedor = $17,
+           descripcion = $18,
+           observaciones = $19,
            updated_at = NOW()
-       WHERE id = $9 AND vehiculo_id = $10 AND deleted_at IS NULL
+       WHERE id = $20 AND vehiculo_id = $21 AND deleted_at IS NULL
        RETURNING *`,
-      [titulo, tipo_combustible, fecha_carga, costo_total, litros, proveedor, descripcion, observaciones, gasolineId, vehicleId]
+      [
+        titulo,
+        tipo_combustible,
+        fecha_carga,
+        factura,
+        hora_carga,
+        costo_total,
+        litros,
+        kilometraje_actual,
+        kilometraje_anterior,
+        kilometros_recorridos,
+        m3_enviados,
+        operador,
+        primera_carga ?? false,
+        placa_snapshot,
+        descripcion_snapshot,
+        numero_economico_snapshot,
+        proveedor,
+        descripcion,
+        observaciones,
+        gasolineId,
+        vehicleId
+      ]
+    );
+
+    return result.rows[0] || null;
+  },
+
+  async updateGlobalGasolineRecord(gasolineId, gasolineData) {
+    const {
+      vehiculo_id,
+      titulo,
+      tipo_combustible,
+      fecha_carga,
+      factura,
+      hora_carga,
+      costo_total,
+      litros,
+      kilometraje_actual,
+      kilometraje_anterior,
+      kilometros_recorridos,
+      m3_enviados,
+      operador,
+      primera_carga,
+      placa_snapshot,
+      descripcion_snapshot,
+      numero_economico_snapshot,
+      proveedor,
+      descripcion,
+      observaciones
+    } = gasolineData;
+
+    const result = await query(
+      `UPDATE vehiculo_gasolina_registros
+       SET vehiculo_id = $1,
+           titulo = $2,
+           tipo_combustible = $3,
+           fecha_carga = $4,
+           factura = $5,
+           hora_carga = $6,
+           costo_total = $7,
+           litros = $8,
+           kilometraje_actual = $9,
+           kilometraje_anterior = $10,
+           kilometros_recorridos = $11,
+           m3_enviados = $12,
+           operador = $13,
+           primera_carga = $14,
+           placa_snapshot = $15,
+           descripcion_snapshot = $16,
+           numero_economico_snapshot = $17,
+           proveedor = $18,
+           descripcion = $19,
+           observaciones = $20,
+           updated_at = NOW()
+       WHERE id = $21 AND deleted_at IS NULL
+       RETURNING *`,
+      [
+        vehiculo_id,
+        titulo,
+        tipo_combustible,
+        fecha_carga,
+        factura,
+        hora_carga,
+        costo_total,
+        litros,
+        kilometraje_actual,
+        kilometraje_anterior,
+        kilometros_recorridos,
+        m3_enviados,
+        operador,
+        primera_carga ?? false,
+        placa_snapshot,
+        descripcion_snapshot,
+        numero_economico_snapshot,
+        proveedor,
+        descripcion,
+        observaciones,
+        gasolineId
+      ]
     );
 
     return result.rows[0] || null;
@@ -433,7 +602,7 @@ export const vehicleModel = {
         `SELECT *
          FROM vehiculo_gasolina_registros
          WHERE vehiculo_id = $1 AND deleted_at IS NULL
-         ORDER BY fecha_carga DESC, created_at DESC`,
+         ORDER BY fecha_carga DESC, hora_carga DESC NULLS LAST, created_at DESC`,
         [vehicleId]
       );
 
@@ -460,6 +629,125 @@ export const vehicleModel = {
     } catch (error) {
       if (error.code === '42P01') {
         return null;
+      }
+      throw error;
+    }
+  },
+
+  async getGlobalGasolineRecordById(gasolineId) {
+    try {
+      const result = await query(
+        `SELECT
+           g.*,
+           v.placa AS vehiculo_placa,
+           v.descripcion AS vehiculo_descripcion,
+           v.propietario_nombre AS vehiculo_nombre
+         FROM vehiculo_gasolina_registros g
+         JOIN vehiculos v ON v.id = g.vehiculo_id
+         WHERE g.id = $1
+           AND g.deleted_at IS NULL
+           AND v.deleted_at IS NULL
+         LIMIT 1`,
+        [gasolineId]
+      );
+
+      return result.rows[0] || null;
+    } catch (error) {
+      if (error.code === '42P01' || error.code === '42703') {
+        return null;
+      }
+      throw error;
+    }
+  },
+
+  async getLatestGasolineMileageByVehicleId(vehicleId, options = {}) {
+    try {
+      const params = [vehicleId];
+      const conditions = [
+        'vehiculo_id = $1',
+        'deleted_at IS NULL',
+        'kilometraje_actual IS NOT NULL'
+      ];
+
+      if (options.excludeGasolineId) {
+        params.push(options.excludeGasolineId);
+        conditions.push(`id <> $${params.length}`);
+      }
+
+      if (options.fecha_carga) {
+        params.push(options.fecha_carga);
+        const dateIndex = params.length;
+
+        if (options.hora_carga) {
+          params.push(options.hora_carga);
+          const timeIndex = params.length;
+          conditions.push(`(
+            fecha_carga < $${dateIndex}
+            OR (fecha_carga = $${dateIndex} AND COALESCE(hora_carga, TIME '00:00:00') <= COALESCE($${timeIndex}::time, TIME '23:59:59'))
+          )`);
+        } else {
+          conditions.push(`fecha_carga <= $${dateIndex}`);
+        }
+      }
+
+      const result = await query(
+        `SELECT kilometraje_actual
+         FROM vehiculo_gasolina_registros
+         WHERE ${conditions.join('\n           AND ')}
+         ORDER BY fecha_carga DESC, hora_carga DESC NULLS LAST, created_at DESC
+         LIMIT 1`,
+        params
+      );
+
+      return result.rows[0]?.kilometraje_actual ?? null;
+    } catch (error) {
+      if (error.code === '42P01' || error.code === '42703') {
+        return null;
+      }
+      throw error;
+    }
+  },
+
+  async getAllGasolineRecords(filters = {}) {
+    try {
+      const params = [];
+      const conditions = [
+        'g.deleted_at IS NULL',
+        'v.deleted_at IS NULL'
+      ];
+
+      if (filters.vehicleId) {
+        params.push(filters.vehicleId);
+        conditions.push(`g.vehiculo_id = $${params.length}`);
+      }
+
+      if (filters.dateFrom) {
+        params.push(filters.dateFrom);
+        conditions.push(`g.fecha_carga >= $${params.length}`);
+      }
+
+      if (filters.dateTo) {
+        params.push(filters.dateTo);
+        conditions.push(`g.fecha_carga <= $${params.length}`);
+      }
+
+      const result = await query(
+        `SELECT
+           g.*,
+           v.placa AS vehiculo_placa,
+           v.descripcion AS vehiculo_descripcion,
+           v.propietario_nombre AS vehiculo_nombre
+         FROM vehiculo_gasolina_registros g
+         JOIN vehiculos v ON v.id = g.vehiculo_id
+         WHERE ${conditions.join(' AND ')}
+         ORDER BY g.fecha_carga DESC, g.hora_carga DESC NULLS LAST, g.created_at DESC`,
+        params
+      );
+
+      return result.rows;
+    } catch (error) {
+      if (error.code === '42P01') {
+        return [];
       }
       throw error;
     }
@@ -547,6 +835,32 @@ export const vehicleModel = {
     return result.rows[0] || null;
   },
 
+  async getGlobalGasolineFileByIndex(gasolineId, fileIndex = 0) {
+    const safeIndex = Number.isInteger(fileIndex) && fileIndex >= 0 ? fileIndex : 0;
+    const result = await query(
+      `SELECT
+         g.id AS gasoline_id,
+         g.vehiculo_id,
+         f.id,
+         f.nombre_original,
+         f.tipo_mime,
+         f.tamano_bytes,
+         f.archivo_data,
+         f.orden
+       FROM vehiculo_gasolina_registros g
+       LEFT JOIN vehiculo_gasolina_archivos f
+         ON f.vehiculo_gasolina_registro_id = g.id
+        AND f.deleted_at IS NULL
+       WHERE g.id = $1
+         AND g.deleted_at IS NULL
+       ORDER BY f.orden ASC NULLS LAST, f.created_at ASC NULLS LAST
+       LIMIT 1 OFFSET $2`,
+      [gasolineId, safeIndex]
+    );
+
+    return result.rows[0] || null;
+  },
+
   async deleteGasolineFile(gasolineId, fileId) {
     const result = await query(
       `UPDATE vehiculo_gasolina_archivos
@@ -566,6 +880,25 @@ export const vehicleModel = {
        WHERE vehiculo_id = $1 AND id = $2 AND deleted_at IS NULL
        RETURNING *`,
       [vehicleId, gasolineId]
+    );
+
+    await query(
+      `UPDATE vehiculo_gasolina_archivos
+       SET deleted_at = NOW(), updated_at = NOW()
+       WHERE vehiculo_gasolina_registro_id = $1 AND deleted_at IS NULL`,
+      [gasolineId]
+    );
+
+    return result.rows[0] || null;
+  },
+
+  async deleteGlobalGasolineRecord(gasolineId) {
+    const result = await query(
+      `UPDATE vehiculo_gasolina_registros
+       SET deleted_at = NOW(), updated_at = NOW()
+       WHERE id = $1 AND deleted_at IS NULL
+       RETURNING *`,
+      [gasolineId]
     );
 
     await query(
@@ -832,6 +1165,20 @@ export const vehicleModel = {
       gasolina_registros: gasolineRecords,
       elementos_seguridad: safetyRows,
       fotografias: photosResult.rows
+    };
+  },
+
+  async getGlobalGasolineRecordPayload(gasolineId) {
+    const gasolineRecord = await vehicleModel.getGlobalGasolineRecordById(gasolineId);
+    if (!gasolineRecord) return null;
+
+    const fileRows = await vehicleModel.getGasolineFilesMetadata(gasolineId);
+
+    return {
+      ...gasolineRecord,
+      archivos_json: JSON.stringify(fileRows.map((fileRow, index) =>
+        mapGlobalGasolineFileRow(fileRow, gasolineId, index)
+      ))
     };
   },
 

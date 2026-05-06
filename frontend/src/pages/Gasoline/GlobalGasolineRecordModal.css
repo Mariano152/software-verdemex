@@ -1,0 +1,86 @@
+.global-gasoline-modal {
+  width: min(1120px, 100%);
+}
+
+.global-gasoline-toggle-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid #dbe4ee;
+  border-radius: 16px;
+  background: #f8fbf6;
+}
+
+.global-gasoline-toggle-row p {
+  margin: 0;
+  color: #54655d;
+}
+
+.global-toggle-btn {
+  border: 1px solid #bfdbfe;
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-radius: 999px;
+  padding: 10px 16px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.global-toggle-btn.active {
+  background: #dbeafe;
+  border-color: #93c5fd;
+}
+
+.global-toggle-btn:disabled {
+  opacity: 0.7;
+  cursor: default;
+}
+
+.global-gasoline-metrics {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 12px;
+}
+
+.global-gasoline-metrics div {
+  border: 1px solid #dbe4ee;
+  border-radius: 16px;
+  background: #f8fbf6;
+  padding: 14px;
+}
+
+.global-gasoline-metrics span {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: #607067;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.global-gasoline-metrics strong {
+  color: #16324f;
+}
+
+.global-gasoline-validation {
+  margin-top: 16px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid #f3c0ba;
+  background: #fff4f2;
+  color: #a4382a;
+  font-weight: 600;
+}
+
+@media (max-width: 720px) {
+  .global-gasoline-toggle-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .global-toggle-btn {
+    width: 100%;
+  }
+}

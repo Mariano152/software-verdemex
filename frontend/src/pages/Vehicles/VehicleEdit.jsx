@@ -492,6 +492,7 @@ export default function VehicleEdit() {
         ) : activeSection === 'gasoline' ? (
           <VehicleGasolineSection
             vehicleId={id}
+            vehicle={vehicle}
             gasolineRecords={vehicle.gasolineRecords || []}
             initialRecordId={requestedGasolineId}
             onCreateGasolineRecord={handleCreateGasolineRecord}

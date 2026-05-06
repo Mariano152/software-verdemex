@@ -70,6 +70,117 @@ const normalizeNumber = (value) => {
   const parsed = Number(value);
   return Number.isNaN(parsed) ? null : parsed;
 };
+const normalizeBoolean = (value) => {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    return ['true', '1', 'si', 'sí', 'yes', 'on'].includes(value.trim().toLowerCase());
+  }
+  return Boolean(value);
+};
+const normalizeTimeValue = (value) => {
+  const normalized = normalizeText(value);
+  return normalized || null;
+};
+const buildGasolineRecordTitle = ({ factura, fecha_carga, placa }) => {
+  if (factura) return `Factura ${factura}`;
+  if (fecha_carga && placa) return `Carga ${placa} ${fecha_carga}`;
+  if (placa) return `Carga ${placa}`;
+  return 'Carga de gasolina';
+};
+const buildGlobalGasolineData = (body, vehicle, previousMileage = null) => {
+  const primeraCarga = normalizeBoolean(body.primera_carga);
+  const kilometrajeAnteriorCapturado = normalizeNumber(body.kilometraje_anterior);
+  const kilometrajeAnterior = primeraCarga
+    ? (kilometrajeAnteriorCapturado ?? 0)
+    : (previousMileage ?? 0);
+  const kilometrajeActual = normalizeNumber(body.kilometraje_actual);
+  const kilometrosRecorridos = kilometrajeActual !== null && kilometrajeAnterior !== null
+    ? kilometrajeActual - kilometrajeAnterior
+    : null;
+  const tituloCapturado = normalizeText(body.titulo);
+
+  return {
+    vehiculo_id: body.vehiculo_id?.trim(),
+    titulo: tituloCapturado || buildGasolineRecordTitle({
+      factura: normalizeText(body.factura),
+      fecha_carga: body.fecha_carga,
+      placa: vehicle?.placa
+    }),
+    tipo_combustible: normalizeText(body.tipo_combustible) || 'gasolina',
+    fecha_carga: body.fecha_carga,
+    factura: normalizeNullableText(body.factura),
+    hora_carga: normalizeTimeValue(body.hora_carga),
+    costo_total: Number(body.costo_total || 0),
+    litros: Number(body.litros || 0),
+    proveedor: normalizeText(body.proveedor),
+    descripcion: normalizeText(body.descripcion),
+    observaciones: normalizeText(body.observaciones),
+    kilometraje_actual: kilometrajeActual,
+    kilometraje_anterior: kilometrajeAnterior,
+    kilometros_recorridos: kilometrosRecorridos,
+    m3_enviados: normalizeNumber(body.m3_enviados),
+    operador: normalizeNullableText(body.operador),
+    primera_carga: primeraCarga,
+    placa_snapshot: normalizeNullableText(vehicle?.placa),
+    descripcion_snapshot: normalizeNullableText(vehicle?.descripcion),
+    numero_economico_snapshot: normalizeNullableText(body.numero_economico_snapshot)
+  };
+};
+const validateGlobalGasolineData = (gasolineData) => {
+  if (!gasolineData.vehiculo_id || !gasolineData.fecha_carga || !gasolineData.titulo) {
+    return 'Vehiculo, nombre y fecha de carga son requeridos';
+  }
+
+  if (!gasolineData.factura) {
+    return 'La factura es requerida';
+  }
+
+  if (!gasolineData.hora_carga) {
+    return 'La hora es requerida';
+  }
+
+  if (!gasolineData.proveedor) {
+    return 'El proveedor es requerido';
+  }
+
+  if (!gasolineData.placa_snapshot) {
+    return 'La placa del vehiculo es requerida';
+  }
+
+  if (!gasolineData.descripcion_snapshot) {
+    return 'La descripcion del vehiculo es requerida';
+  }
+
+  if (!gasolineData.operador) {
+    return 'El operador es requerido';
+  }
+
+  if (gasolineData.costo_total < 0 || gasolineData.litros <= 0) {
+    return 'El monto debe ser mayor o igual a 0 y los litros deben ser mayores a 0';
+  }
+
+  if (gasolineData.kilometraje_actual === null) {
+    return 'El kilometraje actual es requerido';
+  }
+
+  if (gasolineData.kilometraje_actual <= gasolineData.kilometraje_anterior) {
+    return 'El kilometraje actual debe ser mayor al kilometraje anterior';
+  }
+
+  if (gasolineData.kilometros_recorridos !== null && gasolineData.kilometros_recorridos < 0) {
+    return 'Los kilometros recorridos no pueden ser negativos';
+  }
+
+  if (gasolineData.m3_enviados !== null && gasolineData.m3_enviados < 0) {
+    return 'Los m3 enviados no pueden ser negativos';
+  }
+
+  if (gasolineData.m3_enviados === null) {
+    return 'Los m3 enviados son requeridos';
+  }
+
+  return null;
+};
 const valuesAreDifferent = (previous, next) => {
   if (previous === null && next === null) return false;
   return previous !== next;
@@ -765,28 +876,21 @@ export const vehicleController = {
         });
       }
 
-      const gasolineData = {
-        titulo: req.body.titulo?.trim(),
-        tipo_combustible: req.body.tipo_combustible?.trim(),
+      const latestMileage = await vehicleModel.getLatestGasolineMileageByVehicleId(vehicleId, {
         fecha_carga: req.body.fecha_carga,
-        costo_total: Number(req.body.costo_total || 0),
-        litros: Number(req.body.litros || 0),
-        proveedor: req.body.proveedor?.trim() || '',
-        descripcion: req.body.descripcion?.trim() || '',
-        observaciones: req.body.observaciones?.trim() || ''
-      };
+        hora_carga: req.body.hora_carga
+      });
+      const gasolineData = buildGlobalGasolineData(
+        { ...req.body, vehiculo_id: vehicleId },
+        vehicle,
+        latestMileage
+      );
+      const validationError = validateGlobalGasolineData(gasolineData);
 
-      if (!gasolineData.titulo || !gasolineData.tipo_combustible || !gasolineData.fecha_carga) {
-        return res.status(400).json({
-          message: 'TÃ­tulo, tipo de combustible y fecha de carga son requeridos'
-        });
+      if (validationError) {
+        return res.status(400).json({ message: validationError });
       }
 
-      if (gasolineData.costo_total < 0 || gasolineData.litros <= 0) {
-        return res.status(400).json({
-          message: 'El costo total debe ser mayor o igual a 0 y los litros deben ser mayores a 0'
-        });
-      }
 
       const gasolineRecord = await vehicleModel.createGasolineRecord(vehicleId, gasolineData);
 
@@ -803,11 +907,18 @@ export const vehicleController = {
         entityId: gasolineRecord.id,
         description: `Agrego carga de gasolina "${gasolineData.titulo}"`,
         details: {
+          factura: gasolineData.factura,
           fecha_carga: gasolineData.fecha_carga,
+          hora_carga: gasolineData.hora_carga,
           tipo_combustible: gasolineData.tipo_combustible,
           costo_total: gasolineData.costo_total,
           litros: gasolineData.litros,
           proveedor: gasolineData.proveedor || null,
+          kilometraje_actual: gasolineData.kilometraje_actual,
+          kilometraje_anterior: gasolineData.kilometraje_anterior,
+          kilometros_recorridos: gasolineData.kilometros_recorridos,
+          m3_enviados: gasolineData.m3_enviados,
+          operador: gasolineData.operador || null,
           archivos_adjuntos: req.files?.length || 0
         }
       });
@@ -847,68 +958,85 @@ export const vehicleController = {
     try {
       const { vehicleId, gasolineId } = req.params;
       const existingRecord = await vehicleModel.getGasolineRecordById(vehicleId, gasolineId);
+      const vehicle = await vehicleModel.getVehicleById(vehicleId);
 
-      if (!existingRecord) {
+      if (!existingRecord || !vehicle) {
         return res.status(404).json({
-          message: 'Registro de gasolina no encontrado'
+          message: !existingRecord ? 'Registro de gasolina no encontrado' : 'Vehiculo no encontrado'
         });
       }
 
-      const gasolineData = {
-        titulo: req.body.titulo?.trim(),
-        tipo_combustible: req.body.tipo_combustible?.trim(),
+      const latestMileage = await vehicleModel.getLatestGasolineMileageByVehicleId(vehicleId, {
         fecha_carga: req.body.fecha_carga,
-        costo_total: Number(req.body.costo_total || 0),
-        litros: Number(req.body.litros || 0),
-        proveedor: req.body.proveedor?.trim() || '',
-        descripcion: req.body.descripcion?.trim() || '',
-        observaciones: req.body.observaciones?.trim() || ''
-      };
-
-      if (!gasolineData.titulo || !gasolineData.tipo_combustible || !gasolineData.fecha_carga) {
-        return res.status(400).json({
-          message: 'TÃ­tulo, tipo de combustible y fecha de carga son requeridos'
-        });
-      }
-
-      if (gasolineData.costo_total < 0 || gasolineData.litros <= 0) {
-        return res.status(400).json({
-          message: 'El costo total debe ser mayor o igual a 0 y los litros deben ser mayores a 0'
-        });
+        hora_carga: req.body.hora_carga,
+        excludeGasolineId: gasolineId
+      });
+      const gasolineData = buildGlobalGasolineData(
+        { ...req.body, vehiculo_id: vehicleId },
+        vehicle,
+        latestMileage
+      );
+      const validationError = validateGlobalGasolineData(gasolineData);
+      if (validationError) {
+        return res.status(400).json({ message: validationError });
       }
 
       await vehicleModel.updateGasolineRecord(vehicleId, gasolineId, gasolineData);
 
-      if (req.files && req.files.length > 0) {
-        await vehicleModel.addGasolineFiles(gasolineId, req.files);
-      }
 
       const updatedRecord = await vehicleController.getGasolineRecordPayload(vehicleId, gasolineId);
       const changes = buildChanges(
         {
           titulo: 'Titulo',
           tipo_combustible: 'Tipo de combustible',
+          fecha_carga: 'Fecha',
+          factura: 'Factura',
+          hora_carga: 'Hora',
           costo_total: 'Costo total',
           litros: 'Litros',
           proveedor: 'Proveedor',
+          kilometraje_actual: 'Kilometraje actual',
+          kilometraje_anterior: 'Kilometraje anterior',
+          kilometros_recorridos: 'Km recorridos',
+          m3_enviados: 'M3 enviados',
+          operador: 'Operador',
+          primera_carga: 'Primera carga',
           descripcion: 'Descripcion',
           observaciones: 'Observaciones'
         },
         {
           titulo: normalizeNullableText(existingRecord.titulo),
           tipo_combustible: normalizeNullableText(existingRecord.tipo_combustible),
+          fecha_carga: normalizeNullableText(existingRecord.fecha_carga),
+          factura: normalizeNullableText(existingRecord.factura),
+          hora_carga: normalizeNullableText(existingRecord.hora_carga),
           costo_total: normalizeNumber(existingRecord.costo_total),
           litros: normalizeNumber(existingRecord.litros),
           proveedor: normalizeNullableText(existingRecord.proveedor),
+          kilometraje_actual: normalizeNumber(existingRecord.kilometraje_actual),
+          kilometraje_anterior: normalizeNumber(existingRecord.kilometraje_anterior),
+          kilometros_recorridos: normalizeNumber(existingRecord.kilometros_recorridos),
+          m3_enviados: normalizeNumber(existingRecord.m3_enviados),
+          operador: normalizeNullableText(existingRecord.operador),
+          primera_carga: Boolean(existingRecord.primera_carga),
           descripcion: normalizeNullableText(existingRecord.descripcion),
           observaciones: normalizeNullableText(existingRecord.observaciones)
         },
         {
           titulo: normalizeNullableText(gasolineData.titulo),
           tipo_combustible: normalizeNullableText(gasolineData.tipo_combustible),
+          fecha_carga: normalizeNullableText(gasolineData.fecha_carga),
+          factura: normalizeNullableText(gasolineData.factura),
+          hora_carga: normalizeNullableText(gasolineData.hora_carga),
           costo_total: normalizeNumber(gasolineData.costo_total),
           litros: normalizeNumber(gasolineData.litros),
           proveedor: normalizeNullableText(gasolineData.proveedor),
+          kilometraje_actual: normalizeNumber(gasolineData.kilometraje_actual),
+          kilometraje_anterior: normalizeNumber(gasolineData.kilometraje_anterior),
+          kilometros_recorridos: normalizeNumber(gasolineData.kilometros_recorridos),
+          m3_enviados: normalizeNumber(gasolineData.m3_enviados),
+          operador: normalizeNullableText(gasolineData.operador),
+          primera_carga: Boolean(gasolineData.primera_carga),
           descripcion: normalizeNullableText(gasolineData.descripcion),
           observaciones: normalizeNullableText(gasolineData.observaciones)
         }
@@ -1079,6 +1207,367 @@ export const vehicleController = {
       console.error('Error eliminando archivo de gasolina:', error);
       res.status(500).json({
         message: 'Error al eliminar archivo de gasolina',
+        error: error.message
+      });
+    }
+  },
+
+  async listGlobalGasolineRecords(req, res) {
+    try {
+      const records = await vehicleModel.getAllGasolineRecords({
+        vehicleId: req.query.vehicleId || null,
+        dateFrom: req.query.dateFrom || null,
+        dateTo: req.query.dateTo || null
+      });
+
+      const enrichedRecords = await Promise.all(
+        records.map((record) => vehicleModel.getGlobalGasolineRecordPayload(record.id))
+      );
+
+      res.json({
+        message: 'Registros globales de gasolina listados correctamente',
+        count: enrichedRecords.filter(Boolean).length,
+        gasolineRecords: enrichedRecords.filter(Boolean)
+      });
+    } catch (error) {
+      console.error('Error listando registros globales de gasolina:', error);
+      res.status(500).json({
+        message: 'Error al listar registros globales de gasolina',
+        error: error.message
+      });
+    }
+  },
+
+  async getGlobalGasolineRecordById(req, res) {
+    try {
+      const { gasolineId } = req.params;
+      const gasolineRecord = await vehicleModel.getGlobalGasolineRecordPayload(gasolineId);
+
+      if (!gasolineRecord) {
+        return res.status(404).json({
+          message: 'Registro global de gasolina no encontrado'
+        });
+      }
+
+      res.json(gasolineRecord);
+    } catch (error) {
+      console.error('Error obteniendo registro global de gasolina:', error);
+      res.status(500).json({
+        message: 'Error al obtener registro global de gasolina',
+        error: error.message
+      });
+    }
+  },
+
+  async createGlobalGasolineRecord(req, res) {
+    try {
+      const vehicleId = req.body.vehiculo_id?.trim();
+      const vehicle = await vehicleModel.getVehicleById(vehicleId);
+
+      if (!vehicle) {
+        return res.status(404).json({
+          message: 'Vehiculo no encontrado'
+        });
+      }
+
+      const latestMileage = await vehicleModel.getLatestGasolineMileageByVehicleId(vehicleId, {
+        fecha_carga: req.body.fecha_carga,
+        hora_carga: req.body.hora_carga
+      });
+      const gasolineData = buildGlobalGasolineData(req.body, vehicle, latestMileage);
+      const validationError = validateGlobalGasolineData(gasolineData);
+
+      if (validationError) {
+        return res.status(400).json({ message: validationError });
+      }
+
+      const gasolineRecord = await vehicleModel.createGasolineRecord(vehicleId, gasolineData);
+
+      if (req.files && req.files.length > 0) {
+        await vehicleModel.addGasolineFiles(gasolineRecord.id, req.files);
+      }
+
+      const createdRecord = await vehicleModel.getGlobalGasolineRecordPayload(gasolineRecord.id);
+
+      await vehicleController.logHistory(req, vehicleId, {
+        module: 'gasolina',
+        action: 'crear',
+        entityType: 'gasoline_record',
+        entityId: gasolineRecord.id,
+        description: `Agrego carga global de gasolina para ${vehicle.placa}`,
+        details: {
+          titulo: gasolineData.titulo,
+          fecha_carga: gasolineData.fecha_carga,
+          hora_carga: gasolineData.hora_carga,
+          factura: gasolineData.factura,
+          costo_total: gasolineData.costo_total,
+          litros: gasolineData.litros,
+          kilometraje_actual: gasolineData.kilometraje_actual,
+          kilometraje_anterior: gasolineData.kilometraje_anterior,
+          m3_enviados: gasolineData.m3_enviados,
+          archivos_adjuntos: req.files?.length || 0
+        }
+      });
+
+      res.status(201).json({
+        message: 'Registro global de gasolina creado correctamente',
+        gasolineRecord: createdRecord
+      });
+    } catch (error) {
+      if (error.code === '42P01' || error.code === '42703') {
+        return res.status(503).json({
+          message: 'El historial global de gasolina requiere la migracion 017.'
+        });
+      }
+      console.error('Error creando registro global de gasolina:', error);
+      res.status(500).json({
+        message: 'Error al crear registro global de gasolina',
+        error: error.message
+      });
+    }
+  },
+
+  async updateGlobalGasolineRecord(req, res) {
+    try {
+      const { gasolineId } = req.params;
+      const existingRecord = await vehicleModel.getGlobalGasolineRecordById(gasolineId);
+
+      if (!existingRecord) {
+        return res.status(404).json({
+          message: 'Registro global de gasolina no encontrado'
+        });
+      }
+
+      const vehicleId = req.body.vehiculo_id?.trim();
+      const vehicle = await vehicleModel.getVehicleById(vehicleId);
+
+      if (!vehicle) {
+        return res.status(404).json({
+          message: 'Vehiculo no encontrado'
+        });
+      }
+
+      const latestMileage = await vehicleModel.getLatestGasolineMileageByVehicleId(vehicleId, {
+        fecha_carga: req.body.fecha_carga,
+        hora_carga: req.body.hora_carga,
+        excludeGasolineId: gasolineId
+      });
+      const gasolineData = buildGlobalGasolineData(req.body, vehicle, latestMileage);
+      const validationError = validateGlobalGasolineData(gasolineData);
+
+      if (validationError) {
+        return res.status(400).json({ message: validationError });
+      }
+
+      await vehicleModel.updateGlobalGasolineRecord(gasolineId, gasolineData);
+
+      if (req.files && req.files.length > 0) {
+        await vehicleModel.addGasolineFiles(gasolineId, req.files);
+      }
+
+      const updatedRecord = await vehicleModel.getGlobalGasolineRecordPayload(gasolineId);
+      const changes = buildChanges(
+        {
+          vehiculo_id: 'Vehiculo',
+          titulo: 'Nombre',
+          fecha_carga: 'Fecha',
+          hora_carga: 'Hora',
+          factura: 'Factura',
+          costo_total: 'Monto',
+          litros: 'Litros',
+          proveedor: 'Proveedor',
+          kilometraje_actual: 'Kilometraje actual',
+          kilometraje_anterior: 'Kilometraje anterior',
+          kilometros_recorridos: 'Km recorridos',
+          m3_enviados: 'M3 enviados',
+          operador: 'Operador',
+          primera_carga: 'Primera carga'
+        },
+        {
+          vehiculo_id: normalizeNullableText(existingRecord.vehiculo_id),
+          titulo: normalizeNullableText(existingRecord.titulo),
+          fecha_carga: normalizeNullableText(existingRecord.fecha_carga),
+          hora_carga: normalizeNullableText(existingRecord.hora_carga),
+          factura: normalizeNullableText(existingRecord.factura),
+          costo_total: normalizeNumber(existingRecord.costo_total),
+          litros: normalizeNumber(existingRecord.litros),
+          proveedor: normalizeNullableText(existingRecord.proveedor),
+          kilometraje_actual: normalizeNumber(existingRecord.kilometraje_actual),
+          kilometraje_anterior: normalizeNumber(existingRecord.kilometraje_anterior),
+          kilometros_recorridos: normalizeNumber(existingRecord.kilometros_recorridos),
+          m3_enviados: normalizeNumber(existingRecord.m3_enviados),
+          operador: normalizeNullableText(existingRecord.operador),
+          primera_carga: Boolean(existingRecord.primera_carga)
+        },
+        {
+          vehiculo_id: normalizeNullableText(gasolineData.vehiculo_id),
+          titulo: normalizeNullableText(gasolineData.titulo),
+          fecha_carga: normalizeNullableText(gasolineData.fecha_carga),
+          hora_carga: normalizeNullableText(gasolineData.hora_carga),
+          factura: normalizeNullableText(gasolineData.factura),
+          costo_total: normalizeNumber(gasolineData.costo_total),
+          litros: normalizeNumber(gasolineData.litros),
+          proveedor: normalizeNullableText(gasolineData.proveedor),
+          kilometraje_actual: normalizeNumber(gasolineData.kilometraje_actual),
+          kilometraje_anterior: normalizeNumber(gasolineData.kilometraje_anterior),
+          kilometros_recorridos: normalizeNumber(gasolineData.kilometros_recorridos),
+          m3_enviados: normalizeNumber(gasolineData.m3_enviados),
+          operador: normalizeNullableText(gasolineData.operador),
+          primera_carga: Boolean(gasolineData.primera_carga)
+        }
+      );
+
+      await vehicleController.logHistory(req, vehicleId, {
+        module: 'gasolina',
+        action: 'actualizar',
+        entityType: 'gasoline_record',
+        entityId: gasolineId,
+        description: `Actualizo carga global de gasolina para ${vehicle.placa}`,
+        details: {
+          changes,
+          archivos_nuevos: req.files?.length || 0
+        }
+      });
+
+      res.json({
+        message: 'Registro global de gasolina actualizado correctamente',
+        gasolineRecord: updatedRecord
+      });
+    } catch (error) {
+      if (error.code === '42P01' || error.code === '42703') {
+        return res.status(503).json({
+          message: 'El historial global de gasolina requiere la migracion 017.'
+        });
+      }
+      console.error('Error actualizando registro global de gasolina:', error);
+      res.status(500).json({
+        message: 'Error al actualizar registro global de gasolina',
+        error: error.message
+      });
+    }
+  },
+
+  async deleteGlobalGasolineRecord(req, res) {
+    try {
+      const { gasolineId } = req.params;
+      const deletedRecord = await vehicleModel.deleteGlobalGasolineRecord(gasolineId);
+
+      if (!deletedRecord) {
+        return res.status(404).json({
+          message: 'Registro global de gasolina no encontrado'
+        });
+      }
+
+      res.json({
+        message: 'Registro global de gasolina eliminado correctamente'
+      });
+
+      await vehicleController.logHistory(req, deletedRecord.vehiculo_id, {
+        module: 'gasolina',
+        action: 'eliminar',
+        entityType: 'gasoline_record',
+        entityId: gasolineId,
+        description: `Elimino carga global de gasolina ${deletedRecord.factura || deletedRecord.titulo || gasolineId}`,
+        details: {
+          fecha_carga: deletedRecord.fecha_carga || null
+        }
+      });
+    } catch (error) {
+      if (error.code === '42P01' || error.code === '42703') {
+        return res.status(503).json({
+          message: 'El historial global de gasolina requiere la migracion 017.'
+        });
+      }
+      console.error('Error eliminando registro global de gasolina:', error);
+      res.status(500).json({
+        message: 'Error al eliminar registro global de gasolina',
+        error: error.message
+      });
+    }
+  },
+
+  async downloadGlobalGasolineFile(req, res) {
+    try {
+      const { gasolineId } = req.params;
+      const parsedIndex = Number.parseInt(req.query.fileIndex ?? '0', 10);
+      const fileIndex = Number.isNaN(parsedIndex) || parsedIndex < 0 ? 0 : parsedIndex;
+
+      const selectedFile = await vehicleModel.getGlobalGasolineFileByIndex(gasolineId, fileIndex);
+      if (!selectedFile?.archivo_data) {
+        return res.status(404).json({
+          message: 'Archivo de gasolina no encontrado'
+        });
+      }
+
+      const fileName = selectedFile.nombre_original || 'gasolina.bin';
+      const fileSize = Buffer.isBuffer(selectedFile.archivo_data)
+        ? selectedFile.archivo_data.length
+        : selectedFile.tamano_bytes || 0;
+
+      res.setHeader('Content-Type', selectedFile.tipo_mime || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.setHeader('Content-Length', fileSize);
+      return res.send(selectedFile.archivo_data);
+    } catch (error) {
+      if (error.code === '42P01' || error.code === '42703') {
+        return res.status(503).json({
+          message: 'El historial global de gasolina requiere la migracion 017.'
+        });
+      }
+      console.error('Error descargando archivo global de gasolina:', error);
+      res.status(500).json({
+        message: 'Error al descargar archivo global de gasolina',
+        error: error.message
+      });
+    }
+  },
+
+  async deleteGlobalGasolineFile(req, res) {
+    try {
+      const { gasolineId, fileId } = req.params;
+      const gasolineRecord = await vehicleModel.getGlobalGasolineRecordById(gasolineId);
+
+      if (!gasolineRecord) {
+        return res.status(404).json({
+          message: 'Registro global de gasolina no encontrado'
+        });
+      }
+
+      const deletedFile = await vehicleModel.deleteGasolineFile(gasolineId, fileId);
+
+      if (!deletedFile) {
+        return res.status(404).json({
+          message: 'Archivo no encontrado'
+        });
+      }
+
+      const updatedRecord = await vehicleModel.getGlobalGasolineRecordPayload(gasolineId);
+
+      await vehicleController.logHistory(req, gasolineRecord.vehiculo_id, {
+        module: 'gasolina',
+        action: 'eliminar_archivo',
+        entityType: 'gasoline_file',
+        entityId: fileId,
+        description: `Elimino un archivo adjunto de la carga global ${gasolineRecord.factura || gasolineRecord.titulo || gasolineId}`,
+        details: {
+          gasoline_id: gasolineId,
+          archivo_id: fileId
+        }
+      });
+
+      res.json({
+        message: 'Archivo eliminado correctamente',
+        gasolineRecord: updatedRecord
+      });
+    } catch (error) {
+      if (error.code === '42P01' || error.code === '42703') {
+        return res.status(503).json({
+          message: 'El historial global de gasolina requiere la migracion 017.'
+        });
+      }
+      console.error('Error eliminando archivo global de gasolina:', error);
+      res.status(500).json({
+        message: 'Error al eliminar archivo global de gasolina',
         error: error.message
       });
     }

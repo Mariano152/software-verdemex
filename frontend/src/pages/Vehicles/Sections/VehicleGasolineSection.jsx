@@ -32,31 +32,72 @@ const extractFiles = (record) => {
   }
 };
 
-const getRecordDate = (record) => {
-  const date = new Date(record?.fecha_carga);
-  return Number.isNaN(date.getTime()) ? null : date;
+const parseDateParts = (value) => {
+  if (!value) return null;
+
+  const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (match) {
+    return {
+      year: Number(match[1]),
+      month: Number(match[2]),
+      day: Number(match[3])
+    };
+  }
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return null;
+
+  return {
+    year: date.getFullYear(),
+    month: date.getMonth() + 1,
+    day: date.getDate()
+  };
 };
 
-const sortRecordsByDateDesc = (records = []) => {
-  return [...records].sort((left, right) => {
-    const leftDate = getRecordDate(left);
-    const rightDate = getRecordDate(right);
+const formatTimeForInput = (value) => {
+  if (!value) return '';
 
-    if (!leftDate && !rightDate) return 0;
-    if (!leftDate) return 1;
-    if (!rightDate) return -1;
+  const match = String(value).match(/^(\d{2}:\d{2})/);
+  if (match) return match[1];
 
-    const dateDiff = rightDate.getTime() - leftDate.getTime();
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+
+  const hours = String(date.getHours()).padStart(2, '0');
+  const minutes = String(date.getMinutes()).padStart(2, '0');
+  return `${hours}:${minutes}`;
+};
+
+const buildRecordTimestamp = (record) => {
+  const parts = parseDateParts(record?.fecha_carga);
+  if (!parts) return 0;
+
+  const time = formatTimeForInput(record?.hora_carga) || '00:00';
+  const stamp = new Date(`${parts.year}-${String(parts.month).padStart(2, '0')}-${String(parts.day).padStart(2, '0')}T${time}:00`);
+  return Number.isNaN(stamp.getTime()) ? 0 : stamp.getTime();
+};
+
+const getRecordDate = (record) => {
+  const parts = parseDateParts(record?.fecha_carga);
+  if (!parts) return null;
+
+  return new Date(parts.year, parts.month - 1, parts.day);
+};
+
+const sortRecordsByDateDesc = (records = []) => (
+  [...records].sort((left, right) => {
+    const dateDiff = buildRecordTimestamp(right) - buildRecordTimestamp(left);
     if (dateDiff !== 0) return dateDiff;
 
     const leftCreated = new Date(left?.created_at || 0).getTime();
     const rightCreated = new Date(right?.created_at || 0).getTime();
     return rightCreated - leftCreated;
-  });
-};
+  })
+);
 
 export default function VehicleGasolineSection({
   vehicleId,
+  vehicle = null,
   gasolineRecords = [],
   initialRecordId = null,
   onCreateGasolineRecord,
@@ -64,17 +105,14 @@ export default function VehicleGasolineSection({
   onDeleteGasolineRecord,
   onBack
 }) {
-  const today = new Date();
-  const currentMonth = today.getMonth() + 1;
-  const currentYear = today.getFullYear();
   const [records, setRecords] = useState(gasolineRecords);
   const [notification, setNotification] = useState(null);
   const [recordModalOpen, setRecordModalOpen] = useState(false);
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [isNewRecord, setIsNewRecord] = useState(false);
   const [recordModalMode, setRecordModalMode] = useState('edit');
-  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
-  const [selectedYear, setSelectedYear] = useState(currentYear);
+  const [selectedMonth, setSelectedMonth] = useState('todos');
+  const [selectedYear, setSelectedYear] = useState('todos');
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFuelType, setSelectedFuelType] = useState('todos');
   const [selectedProvider, setSelectedProvider] = useState('todos');
@@ -97,12 +135,6 @@ export default function VehicleGasolineSection({
 
     if (!targetRecord) return;
 
-    const targetDate = getRecordDate(targetRecord);
-    if (targetDate) {
-      setSelectedMonth(targetDate.getMonth() + 1);
-      setSelectedYear(targetDate.getFullYear());
-    }
-
     openViewRecordModal(targetRecord);
     openedFromHistoryRef.current = String(initialRecordId);
   }, [gasolineRecords, initialRecordId, records]);
@@ -110,17 +142,13 @@ export default function VehicleGasolineSection({
   const availableYears = useMemo(() => {
     const years = new Set();
 
-    for (let year = currentYear - 10; year <= currentYear + 10; year += 1) {
-      years.add(year);
-    }
-
     gasolineRecords.forEach((record) => {
       const date = getRecordDate(record);
       if (date) years.add(date.getFullYear());
     });
 
     return Array.from(years).sort((a, b) => b - a);
-  }, [currentYear, gasolineRecords]);
+  }, [gasolineRecords]);
 
   const availableFuelTypes = useMemo(() => (
     Array.from(new Set(
@@ -144,19 +172,21 @@ export default function VehicleGasolineSection({
     return records.filter((record) => {
       const date = getRecordDate(record);
       if (!date) return false;
+
       const fuelType = String(record.tipo_combustible || '').trim().toLowerCase();
       const provider = String(record.proveedor || '').trim().toLowerCase();
 
-      const matchesMonth = date.getMonth() + 1 === Number(selectedMonth);
-      const matchesYear = date.getFullYear() === Number(selectedYear);
+      const matchesMonth = selectedMonth === 'todos' ? true : date.getMonth() + 1 === Number(selectedMonth);
+      const matchesYear = selectedYear === 'todos' ? true : date.getFullYear() === Number(selectedYear);
       const matchesFuelType = selectedFuelType === 'todos' ? true : fuelType === selectedFuelType;
       const matchesProvider = selectedProvider === 'todos' ? true : provider === selectedProvider;
 
       const searchableText = [
         record.titulo,
+        record.factura,
         record.tipo_combustible,
         record.proveedor,
-        record.descripcion,
+        record.operador,
         record.observaciones
       ]
         .filter(Boolean)
@@ -169,19 +199,19 @@ export default function VehicleGasolineSection({
     });
   }, [records, searchTerm, selectedFuelType, selectedMonth, selectedProvider, selectedYear]);
 
-  const overallTotals = useMemo(() => {
-    return records.reduce((acc, record) => ({
+  const overallTotals = useMemo(() => (
+    records.reduce((acc, record) => ({
       totalCost: acc.totalCost + Number(record.costo_total || 0),
       totalLiters: acc.totalLiters + Number(record.litros || 0)
-    }), { totalCost: 0, totalLiters: 0 });
-  }, [records]);
+    }), { totalCost: 0, totalLiters: 0 })
+  ), [records]);
 
-  const monthlyTotals = useMemo(() => {
-    return filteredRecords.reduce((acc, record) => ({
+  const monthlyTotals = useMemo(() => (
+    filteredRecords.reduce((acc, record) => ({
       totalCost: acc.totalCost + Number(record.costo_total || 0),
       totalLiters: acc.totalLiters + Number(record.litros || 0)
-    }), { totalCost: 0, totalLiters: 0 });
-  }, [filteredRecords]);
+    }), { totalCost: 0, totalLiters: 0 })
+  ), [filteredRecords]);
 
   const formatCurrency = (value) => new Intl.NumberFormat('es-MX', {
     style: 'currency',
@@ -193,11 +223,17 @@ export default function VehicleGasolineSection({
     maximumFractionDigits: 2
   })} L`;
 
+  const formatNumber = (value, maximumFractionDigits = 2) => Number(value || 0).toLocaleString('es-MX', {
+    minimumFractionDigits: 0,
+    maximumFractionDigits
+  });
+
   const formatDate = (value) => {
     if (!value) return '-';
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return value;
-    return date.toLocaleDateString('es-MX');
+    const parts = parseDateParts(value);
+    if (!parts) return value;
+
+    return `${String(parts.day).padStart(2, '0')}-${String(parts.month).padStart(2, '0')}-${parts.year}`;
   };
 
   const openNewRecordModal = () => {
@@ -244,7 +280,7 @@ export default function VehicleGasolineSection({
 
       setNotification({
         type: 'success',
-        title: 'Éxito',
+        title: 'Exito',
         message: recordId ? 'Carga actualizada correctamente' : 'Carga registrada correctamente'
       });
       setTimeout(() => setNotification(null), 2500);
@@ -260,7 +296,7 @@ export default function VehicleGasolineSection({
 
   const handleDeleteRecord = async (recordId) => {
     try {
-      if (!window.confirm('¿Seguro que deseas eliminar este registro de gasolina?')) {
+      if (!window.confirm('Seguro que deseas eliminar este registro de gasolina?')) {
         return;
       }
 
@@ -270,7 +306,7 @@ export default function VehicleGasolineSection({
       setSelectedRecord(null);
       setNotification({
         type: 'success',
-        title: 'Éxito',
+        title: 'Exito',
         message: 'Registro eliminado correctamente'
       });
       setTimeout(() => setNotification(null), 2500);
@@ -314,7 +350,9 @@ export default function VehicleGasolineSection({
     }
   };
 
-  const selectedMonthLabel = MONTHS.find((month) => month.value === Number(selectedMonth))?.label || '';
+  const summaryLabel = selectedMonth === 'todos' && selectedYear === 'todos'
+    ? 'filtros actuales'
+    : `${selectedMonth === 'todos' ? 'Todos los meses' : MONTHS.find((month) => month.value === Number(selectedMonth))?.label || ''} ${selectedYear === 'todos' ? '' : selectedYear}`.trim();
 
   return (
     <div className='maintenance-section'>
@@ -323,7 +361,7 @@ export default function VehicleGasolineSection({
           <button className='btn-back' onClick={onBack}>Volver</button>
           <div className='header-info'>
             <h2>Gasolina</h2>
-            <p className='header-caption'>Registro de cargas, litros comprados y gasto del vehículo</p>
+            <p className='header-caption'>Registro de cargas, litros comprados y gasto del vehiculo</p>
           </div>
         </div>
         <div className='header-right'>
@@ -335,25 +373,25 @@ export default function VehicleGasolineSection({
         <div className='maintenance-history-header'>
           <div>
             <h3>Resumen de gasolina</h3>
-            <p>Consulta el gasto acumulado y el consumo comprado por mes y año.</p>
+            <p>Consulta el gasto acumulado y el consumo comprado usando los filtros actuales.</p>
           </div>
         </div>
 
         <div className='gasoline-summary-grid'>
           <div className='gasoline-summary-card'>
-            <span>Gasto total histórico</span>
+            <span>Gasto total historico</span>
             <strong>{formatCurrency(overallTotals.totalCost)}</strong>
           </div>
           <div className='gasoline-summary-card'>
-            <span>Litros históricos</span>
+            <span>Litros historicos</span>
             <strong>{formatLiters(overallTotals.totalLiters)}</strong>
           </div>
           <div className='gasoline-summary-card'>
-            <span>Gasto en {selectedMonthLabel} {selectedYear}</span>
+            <span>Gasto en {summaryLabel}</span>
             <strong>{formatCurrency(monthlyTotals.totalCost)}</strong>
           </div>
           <div className='gasoline-summary-card'>
-            <span>Litros en {selectedMonthLabel} {selectedYear}</span>
+            <span>Litros en {summaryLabel}</span>
             <strong>{formatLiters(monthlyTotals.totalLiters)}</strong>
           </div>
         </div>
@@ -366,21 +404,24 @@ export default function VehicleGasolineSection({
               type='search'
               value={searchTerm}
               onChange={(event) => setSearchTerm(event.target.value)}
-              placeholder='Titulo, proveedor, combustible u observaciones'
+              placeholder='Nombre, factura, proveedor, operador u observaciones'
             />
           </div>
 
           <label>
             Mes
-            <select value={selectedMonth} onChange={(e) => setSelectedMonth(Number(e.target.value))}>
+            <select value={selectedMonth} onChange={(event) => setSelectedMonth(event.target.value)}>
+              <option value='todos'>Todos</option>
               {MONTHS.map((month) => (
                 <option key={month.value} value={month.value}>{month.label}</option>
               ))}
             </select>
           </label>
+
           <label>
-            Año
-            <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))}>
+            Ano
+            <select value={selectedYear} onChange={(event) => setSelectedYear(event.target.value)}>
+              <option value='todos'>Todos</option>
               {availableYears.map((year) => (
                 <option key={year} value={year}>{year}</option>
               ))}
@@ -413,7 +454,7 @@ export default function VehicleGasolineSection({
         <div className='maintenance-history-header'>
           <div>
             <h3>Historial de cargas</h3>
-            <p>Guarda cada compra de gasolina con su costo, litros y documentos.</p>
+            <p>Se muestran del mas reciente al mas antiguo considerando fecha y hora.</p>
           </div>
           <button type='button' className='maintenance-add-btn' onClick={openNewRecordModal}>
             Agregar carga
@@ -423,7 +464,7 @@ export default function VehicleGasolineSection({
         <div className='maintenance-records-list'>
           {records.length === 0 ? (
             <div className='maintenance-empty-state'>
-              <p>Aún no hay cargas de gasolina registradas para este vehículo.</p>
+              <p>Aun no hay cargas de gasolina registradas para este vehiculo.</p>
               <button type='button' className='maintenance-add-btn maintenance-add-btn-inline' onClick={openNewRecordModal}>
                 Agregar primera carga
               </button>
@@ -431,16 +472,25 @@ export default function VehicleGasolineSection({
           ) : (
             filteredRecords.map((record) => {
               const files = extractFiles(record);
-              const costPerLiter = Number(record.litros || 0) > 0
+              const pricePerLiter = Number(record.litros || 0) > 0
                 ? Number(record.costo_total || 0) / Number(record.litros || 1)
+                : 0;
+              const performance = Number(record.litros || 0) > 0
+                ? Number(record.kilometros_recorridos || 0) / Number(record.litros || 1)
+                : 0;
+              const pricePerKm = Number(record.kilometros_recorridos || 0) > 0
+                ? Number(record.costo_total || 0) / Number(record.kilometros_recorridos || 1)
+                : 0;
+              const pricePerM3 = Number(record.m3_enviados || 0) > 0
+                ? Number(record.costo_total || 0) / Number(record.m3_enviados || 1)
                 : 0;
 
               return (
                 <div key={record.id} className='maintenance-record-card'>
                   <div className='maintenance-record-top'>
                     <div>
-                      <h4>{record.titulo}</h4>
-                      <p className='maintenance-record-type'>{record.tipo_combustible}</p>
+                      <h4>{record.titulo || 'Sin nombre de carga'}</h4>
+                      <p className='maintenance-record-type'>{record.factura || record.tipo_combustible || 'gasolina'}</p>
                     </div>
                     <div className='maintenance-record-actions'>
                       <button type='button' className='ghost-btn' onClick={() => openViewRecordModal(record)}>Ver</button>
@@ -450,33 +500,25 @@ export default function VehicleGasolineSection({
                   </div>
 
                   <div className='gasoline-record-grid'>
-                    <div>
-                      <span className='record-label'>Fecha</span>
-                      <strong>{formatDate(record.fecha_carga)}</strong>
-                    </div>
-                    <div>
-                      <span className='record-label'>Costo</span>
-                      <strong>{formatCurrency(record.costo_total)}</strong>
-                    </div>
-                    <div>
-                      <span className='record-label'>Litros</span>
-                      <strong>{formatLiters(record.litros)}</strong>
-                    </div>
-                    <div>
-                      <span className='record-label'>Costo por litro</span>
-                      <strong>{formatCurrency(costPerLiter)}</strong>
-                    </div>
-                    <div>
-                      <span className='record-label'>Proveedor</span>
-                      <strong>{record.proveedor || '-'}</strong>
-                    </div>
+                    <div><span className='record-label'>Factura</span><strong>{record.factura || '-'}</strong></div>
+                    <div><span className='record-label'>Fecha</span><strong>{formatDate(record.fecha_carga)}</strong></div>
+                    <div><span className='record-label'>Hora</span><strong>{formatTimeForInput(record.hora_carga) || '-'}</strong></div>
+                    <div><span className='record-label'>Proveedor</span><strong>{record.proveedor || '-'}</strong></div>
+                    <div><span className='record-label'>Operador</span><strong>{record.operador || '-'}</strong></div>
+                    <div><span className='record-label'>Km actual</span><strong>{formatNumber(record.kilometraje_actual)}</strong></div>
+                    <div><span className='record-label'>Km anterior</span><strong>{formatNumber(record.kilometraje_anterior)}</strong></div>
+                    <div><span className='record-label'>Km recorridos</span><strong>{formatNumber(record.kilometros_recorridos)}</strong></div>
+                    <div><span className='record-label'>Litros</span><strong>{formatLiters(record.litros)}</strong></div>
+                    <div><span className='record-label'>Monto</span><strong>{formatCurrency(record.costo_total)}</strong></div>
+                    <div><span className='record-label'>Precio por litro</span><strong>{formatCurrency(pricePerLiter)}</strong></div>
+                    <div><span className='record-label'>M3 enviados</span><strong>{formatNumber(record.m3_enviados)}</strong></div>
+                    <div><span className='record-label'>Rendimiento</span><strong>{formatNumber(performance)} km/L</strong></div>
+                    <div><span className='record-label'>Precio por km</span><strong>{formatCurrency(pricePerKm)}</strong></div>
+                    <div><span className='record-label'>Precio por m3</span><strong>{formatCurrency(pricePerM3)}</strong></div>
+                    <div><span className='record-label'>Primera carga</span><strong>{record.primera_carga ? 'Si' : 'No'}</strong></div>
                   </div>
 
                   <div className='maintenance-record-body'>
-                    <div>
-                      <span className='record-label'>Descripción</span>
-                      <p>{record.descripcion || 'Sin descripción'}</p>
-                    </div>
                     <div>
                       <span className='record-label'>Observaciones</span>
                       <p>{record.observaciones || 'Sin observaciones'}</p>
@@ -510,7 +552,7 @@ export default function VehicleGasolineSection({
 
         {records.length > 0 && filteredRecords.length === 0 && (
           <p className='gasoline-empty-note'>
-            No hay cargas registradas para {selectedMonthLabel} {selectedYear}.
+            No hay cargas registradas con los filtros actuales.
           </p>
         )}
       </div>
@@ -525,13 +567,15 @@ export default function VehicleGasolineSection({
 
       <GasolineRecordModal
         vehicleId={vehicleId}
+        vehicle={vehicle}
+        records={records}
         record={selectedRecord}
         isOpen={recordModalOpen}
         isNew={isNewRecord}
         mode={recordModalMode}
         onClose={() => setRecordModalOpen(false)}
         onSave={handleSaveRecord}
-        onEdit={(record) => openEditRecordModal(record)}
+        onEdit={(currentRecord) => openEditRecordModal(currentRecord)}
         onDelete={(recordId) => handleDeleteRecord(recordId)}
       />
     </div>

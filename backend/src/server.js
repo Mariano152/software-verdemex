@@ -5,6 +5,7 @@ import { logRequest } from './middleware/requestLogger.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import authRoutes from './routes/authRoutes.js';
 import vehicleRoutes from './routes/vehicleRoutes.js';
+import gasolineRoutes from './routes/gasolineRoutes.js';
 import expedienteRoutes from './routes/expedienteRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
 
@@ -55,6 +56,7 @@ app.get('/health', (req, res) => {
 // Rutas
 app.use('/api/auth', authRoutes);
 app.use('/api/vehicles', vehicleRoutes);
+app.use('/api/gasoline-records', gasolineRoutes);
 app.use('/api/expedientes', expedienteRoutes);
 app.use('/api/uploads', uploadRoutes);
 

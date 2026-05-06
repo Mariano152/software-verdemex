@@ -3,25 +3,15 @@ import multer from 'multer';
 // Usar memory storage en lugar de disk storage
 const storage = multer.memoryStorage();
 
-// Filtro para validar tipos de documentos permitidos
 const fileFilter = (req, file, cb) => {
-  // Tipos MIME permitidos para documentos
-  const allowedMimes = [
-    'application/pdf',
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'application/vnd.ms-excel',
-    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    'image/jpeg',
-    'image/png',
-    'image/gif'
-  ];
-  
-  if (allowedMimes.includes(file.mimetype)) {
-    cb(null, true);
-  } else {
-    cb(new Error(`Tipo de archivo no permitido: ${file.mimetype}. Permitidos: PDF, DOC, DOCX, XLS, XLSX, JPG, PNG, GIF`), false);
+  // El nuevo modulo global de gasolina necesita aceptar cualquier documento
+  // o evidencia adjunta que el proveedor entregue.
+  if (!file) {
+    cb(new Error('Archivo invalido'), false);
+    return;
   }
+
+  cb(null, true);
 };
 
 // Crear instancia de multer para documentos (memory storage)
