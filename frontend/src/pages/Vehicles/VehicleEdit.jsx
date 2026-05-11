@@ -9,6 +9,9 @@ import NotificationModal from '../../components/Notifications/NotificationModal'
 import '../../components/Notifications/NotificationModal.css';
 import './VehicleEdit.css';
 
+const GASOLINE_RECORDS_UPDATED_EVENT = 'gasoline-records-updated';
+const GASOLINE_RECORDS_UPDATED_STORAGE_KEY = 'gasoline-records-updated-at';
+
 /**
  * VehicleEdit - Pagina principal de edicion de vehiculos
  * Muestra VehicleDetailView por defecto
@@ -268,6 +271,8 @@ export default function VehicleEdit() {
       ...prev,
       gasolineRecords: [savedRecord, ...(prev?.gasolineRecords || [])]
     }));
+    window.dispatchEvent(new CustomEvent(GASOLINE_RECORDS_UPDATED_EVENT));
+    localStorage.setItem(GASOLINE_RECORDS_UPDATED_STORAGE_KEY, String(Date.now()));
 
     return savedRecord;
   };
@@ -304,6 +309,8 @@ export default function VehicleEdit() {
         record.id === savedRecord.id ? savedRecord : record
       )
     }));
+    window.dispatchEvent(new CustomEvent(GASOLINE_RECORDS_UPDATED_EVENT));
+    localStorage.setItem(GASOLINE_RECORDS_UPDATED_STORAGE_KEY, String(Date.now()));
 
     return savedRecord;
   };
@@ -326,6 +333,8 @@ export default function VehicleEdit() {
       ...prev,
       gasolineRecords: (prev?.gasolineRecords || []).filter((record) => record.id !== recordId)
     }));
+    window.dispatchEvent(new CustomEvent(GASOLINE_RECORDS_UPDATED_EVENT));
+    localStorage.setItem(GASOLINE_RECORDS_UPDATED_STORAGE_KEY, String(Date.now()));
   };
 
   const handlePhotosSave = async (photos, deletedPhotoTypes = []) => {

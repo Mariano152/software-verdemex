@@ -4,6 +4,9 @@ import '../../components/Notifications/NotificationModal.css';
 import GlobalGasolineRecordModal from './GlobalGasolineRecordModal';
 import './GasolineDashboard.css';
 
+const GASOLINE_RECORDS_UPDATED_EVENT = 'gasoline-records-updated';
+const GASOLINE_RECORDS_UPDATED_STORAGE_KEY = 'gasoline-records-updated-at';
+
 const formatCurrency = (value) => new Intl.NumberFormat('es-MX', {
   style: 'currency',
   currency: 'MXN'
@@ -234,6 +237,8 @@ export default function GasolineDashboard() {
       title: 'Exito',
       message: recordId ? 'Carga actualizada correctamente' : 'Carga registrada correctamente'
     });
+    window.dispatchEvent(new CustomEvent(GASOLINE_RECORDS_UPDATED_EVENT));
+    localStorage.setItem(GASOLINE_RECORDS_UPDATED_STORAGE_KEY, String(Date.now()));
 
     return savedRecord;
   };
@@ -263,6 +268,8 @@ export default function GasolineDashboard() {
       title: 'Exito',
       message: 'Registro eliminado correctamente'
     });
+    window.dispatchEvent(new CustomEvent(GASOLINE_RECORDS_UPDATED_EVENT));
+    localStorage.setItem(GASOLINE_RECORDS_UPDATED_STORAGE_KEY, String(Date.now()));
   };
 
   const handleDownloadFile = async (fileInfo) => {
