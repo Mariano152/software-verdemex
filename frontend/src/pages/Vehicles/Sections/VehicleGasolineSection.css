@@ -56,6 +56,53 @@
   gap: 1rem;
 }
 
+.gasoline-performance-card {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+.gasoline-performance-badge {
+  margin-top: 0.7rem;
+  display: inline-flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.6rem 0.8rem;
+  border-radius: 12px;
+  border: 1px solid transparent;
+}
+
+.gasoline-performance-badge strong {
+  font-size: 0.85rem;
+}
+
+.gasoline-performance-badge span {
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
+.gasoline-performance-green {
+  background: #e9f7ef;
+  border-color: #b7e4c7;
+  color: #166534;
+}
+
+.gasoline-performance-yellow {
+  background: #fff7e0;
+  border-color: #f2cf78;
+  color: #9a6700;
+}
+
+.gasoline-performance-red {
+  background: #fdecec;
+  border-color: #f1b3b0;
+  color: #b42318;
+}
+
+.gasoline-performance-neutral {
+  background: #eef3f1;
+  border-color: #d3ddd8;
+  color: #52635c;
+}
+
 .gasoline-empty-note {
   margin-top: 0.5rem;
   color: #6c757d;

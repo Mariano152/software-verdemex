@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getFuelTypeLabel, normalizeFuelType } from '../../../constants/fuelTypes';
+import { getGasolinePerformanceStatus } from '../../../utils/gasolinePerformance';
 import NotificationModal from '../../../components/Notifications/NotificationModal';
 import GasolineRecordModal from './GasolineRecordModal';
 import '../../../components/Notifications/NotificationModal.css';
@@ -485,15 +486,23 @@ export default function VehicleGasolineSection({
               const pricePerM3 = Number(record.m3_enviados || 0) > 0
                 ? Number(record.costo_total || 0) / Number(record.m3_enviados || 1)
                 : 0;
+              const performanceStatus = getGasolinePerformanceStatus({
+                record,
+                parameters: vehicle?.operationParameters || null
+              });
 
               return (
-                <div key={record.id} className='maintenance-record-card'>
+                <div key={record.id} className={`maintenance-record-card gasoline-performance-card ${performanceStatus.className}`}>
                   <div className='maintenance-record-top'>
                     <div>
                       <h4>{record.titulo || 'Sin nombre de carga'}</h4>
                       <p className='maintenance-record-type'>
                         {record.factura || 'Sin factura'} · {getFuelTypeLabel(record.tipo_combustible)}
                       </p>
+                      <div className={`gasoline-performance-badge ${performanceStatus.className}`}>
+                        <strong>{performanceStatus.label}</strong>
+                        <span>{performanceStatus.detail}</span>
+                      </div>
                     </div>
                     <div className='maintenance-record-actions'>
                       <button type='button' className='ghost-btn' onClick={() => openViewRecordModal(record)}>Ver</button>

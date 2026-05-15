@@ -1,0 +1,215 @@
+.vehicle-parameters-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.vehicle-parameters-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.vehicle-parameters-header-left {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.vehicle-parameters-header-left h2 {
+  margin: 0 0 0.35rem;
+  color: var(--color-primary-dark);
+}
+
+.vehicle-parameters-header-left p {
+  margin: 0;
+  color: var(--color-text-light);
+}
+
+.vehicle-parameters-summary {
+  min-width: 130px;
+  padding: 1rem 1.15rem;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #edf7ee 0%, #f8fcf5 100%);
+  border: 1px solid #d7ead7;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.25rem;
+}
+
+.vehicle-parameters-summary span {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-light);
+  font-weight: 800;
+}
+
+.vehicle-parameters-summary strong {
+  font-size: 1.45rem;
+  color: var(--color-primary-dark);
+}
+
+.vehicle-parameters-highlight {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  padding: 1.25rem;
+  border-radius: 18px;
+  background: white;
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+}
+
+.vehicle-parameters-highlight div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.vehicle-parameters-highlight span {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-light);
+  font-weight: 800;
+}
+
+.vehicle-parameters-highlight strong {
+  color: var(--color-primary-dark);
+  font-size: 1.05rem;
+}
+
+.vehicle-parameters-groups {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+}
+
+.vehicle-parameters-card {
+  background: white;
+  border-radius: 20px;
+  border: 1px solid var(--color-border);
+  box-shadow: var(--shadow-sm);
+  padding: 1.4rem;
+}
+
+.vehicle-parameters-card-head h3 {
+  margin: 0 0 0.5rem;
+  color: var(--color-primary-dark);
+}
+
+.vehicle-parameters-card-head p {
+  margin: 0 0 1.25rem;
+  color: var(--color-text-light);
+  line-height: 1.55;
+}
+
+.vehicle-parameters-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+
+.vehicle-parameters-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  color: var(--color-primary-dark);
+  font-weight: 700;
+}
+
+.vehicle-parameters-field span {
+  font-size: 0.95rem;
+}
+
+.vehicle-parameters-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  padding: 0.2rem 0.2rem 0.2rem 0;
+}
+
+.vehicle-parameters-input-wrap input {
+  width: 100%;
+  padding: 0.9rem 1rem;
+  border-radius: 14px;
+  border: 1px solid #d8e5d6;
+  background: #fbfdf9;
+  font-size: 0.98rem;
+  color: var(--color-text-dark);
+}
+
+.vehicle-parameters-input-wrap small {
+  min-width: 46px;
+  text-align: right;
+  font-size: 0.82rem;
+  color: var(--color-text-light);
+  font-weight: 700;
+}
+
+.vehicle-parameters-notes {
+  background: linear-gradient(135deg, #fffdf5 0%, #ffffff 100%);
+  border: 1px solid #efe2b0;
+  border-radius: 18px;
+  padding: 1.25rem;
+}
+
+.vehicle-parameters-notes h3 {
+  margin: 0 0 0.5rem;
+  color: #8a5a00;
+}
+
+.vehicle-parameters-notes p {
+  margin: 0;
+  color: #745720;
+  line-height: 1.6;
+}
+
+.vehicle-parameters-message {
+  padding: 1rem 1.15rem;
+  border-radius: 14px;
+  font-weight: 700;
+}
+
+.vehicle-parameters-message.error {
+  background: #fdeaea;
+  color: #b42318;
+  border: 1px solid #f3b1ac;
+}
+
+.vehicle-parameters-message.success {
+  background: #e7f7ee;
+  color: #166534;
+  border: 1px solid #b7e4c7;
+}
+
+.vehicle-parameters-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.8rem;
+}
+
+@media (max-width: 1100px) {
+  .vehicle-parameters-groups {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 840px) {
+  .vehicle-parameters-header,
+  .vehicle-parameters-header-left {
+    flex-direction: column;
+  }
+
+  .vehicle-parameters-highlight,
+  .vehicle-parameters-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .vehicle-parameters-summary {
+    align-items: flex-start;
+  }
+}

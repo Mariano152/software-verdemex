@@ -23,6 +23,7 @@ const getModuleLabel = (moduleName) => {
     case 'documentos': return 'Documentos';
     case 'mantenimiento': return 'Mantenimiento';
     case 'gasolina': return 'Gasolina';
+    case 'parametros': return 'Parámetros';
     case 'fotos': return 'Fotografías';
     default: return moduleName || 'General';
   }
@@ -33,6 +34,7 @@ const getModuleColor = (moduleName) => {
     case 'documentos': return '#2d7a3e';
     case 'mantenimiento': return '#d97706';
     case 'gasolina': return '#2563eb';
+    case 'parametros': return '#0f766e';
     case 'fotos': return '#7aa53e';
     default: return '#34495e';
   }

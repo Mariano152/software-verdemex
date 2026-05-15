@@ -5,6 +5,7 @@ import VehicleDocumentsSection from './Sections/VehicleDocumentsSection';
 import VehicleMaintenanceSection from './Sections/VehicleMaintenanceSection';
 import VehicleGasolineSection from './Sections/VehicleGasolineSection';
 import VehiclePhotosSection from './Sections/VehiclePhotosSection';
+import VehicleParametersSection from './Sections/VehicleParametersSection';
 import NotificationModal from '../../components/Notifications/NotificationModal';
 import '../../components/Notifications/NotificationModal.css';
 import './VehicleEdit.css';
@@ -31,6 +32,7 @@ export default function VehicleEdit() {
   const requestedDocumentId = searchParams.get('documentId');
   const requestedMaintenanceId = searchParams.get('maintenanceId');
   const requestedGasolineId = searchParams.get('gasolineId');
+
 
   useEffect(() => {
     const fetchVehicle = async () => {
@@ -374,6 +376,36 @@ export default function VehicleEdit() {
     }
   };
 
+  const handleSaveParameters = async (formData) => {
+    const token = localStorage.getItem('authToken');
+    const response = await fetch(`/api/vehicles/${id}/parameters`, {
+      method: 'PUT',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(formData)
+    });
+
+    const responseData = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(responseData.message || 'Error al guardar parametros operativos');
+    }
+
+    setVehicle((prev) => ({
+      ...prev,
+      operationParameters: responseData.parameters || null
+    }));
+
+    setNotification({
+      type: 'success',
+      title: 'Éxito',
+      message: responseData.message || 'Parametros operativos guardados correctamente'
+    });
+
+    return responseData.parameters || null;
+  };
+
   const handleDocumentSaved = (savedDocument) => {
     if (!savedDocument?.id) return;
 
@@ -472,6 +504,7 @@ export default function VehicleEdit() {
             onDocumentsClick={() => setActiveSection('documents')}
             onMaintenanceClick={() => setActiveSection('maintenance')}
             onGasolineClick={() => setActiveSection('gasoline')}
+            onParametersClick={() => setActiveSection('parameters')}
             onPhotosClick={() => setActiveSection('photos')}
           />
         ) : activeSection === 'documents' ? (
@@ -507,6 +540,13 @@ export default function VehicleEdit() {
             onCreateGasolineRecord={handleCreateGasolineRecord}
             onUpdateGasolineRecord={handleUpdateGasolineRecord}
             onDeleteGasolineRecord={handleDeleteGasolineRecord}
+            onBack={() => setActiveSection(null)}
+          />
+        ) : activeSection === 'parameters' ? (
+          <VehicleParametersSection
+            vehicle={vehicle}
+            parameters={vehicle.operationParameters || null}
+            onSave={handleSaveParameters}
             onBack={() => setActiveSection(null)}
           />
         ) : activeSection === 'photos' ? (

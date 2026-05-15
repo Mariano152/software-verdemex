@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
+import * as XLSX from 'xlsx';
 import NotificationModal from '../../components/Notifications/NotificationModal';
 import { getFuelTypeLabel } from '../../constants/fuelTypes';
+import { getGasolinePerformanceStatus } from '../../utils/gasolinePerformance';
 import '../../components/Notifications/NotificationModal.css';
 import GlobalGasolineRecordModal from './GlobalGasolineRecordModal';
 import './GasolineDashboard.css';
@@ -47,6 +49,11 @@ const formatDate = (value) => {
   if (!parts) return value;
 
   return `${String(parts.day).padStart(2, '0')}-${String(parts.month).padStart(2, '0')}-${parts.year}`;
+};
+
+const formatDateForFileName = (value) => {
+  if (!value) return 'sin-fecha';
+  return String(value).replaceAll('/', '-');
 };
 
 const buildRecordTimestamp = (record) => {
@@ -179,6 +186,18 @@ export default function GasolineDashboard() {
     totalM3: 0
   }), [filteredRecords]);
 
+  const vehicleParametersMap = useMemo(() => (
+    new Map(
+      vehicles.map((vehicle) => [String(vehicle.id), vehicle.operationParameters || null])
+    )
+  ), [vehicles]);
+
+  const vehiclesMap = useMemo(() => (
+    new Map(
+      vehicles.map((vehicle) => [String(vehicle.id), vehicle])
+    )
+  ), [vehicles]);
+
   const openNewRecordModal = () => {
     setSelectedRecord(null);
     setIsNewRecord(true);
@@ -305,6 +324,91 @@ export default function GasolineDashboard() {
     }
   };
 
+  const handleDownloadReport = () => {
+    if (filteredRecords.length === 0) {
+      setNotification({
+        type: 'error',
+        title: 'Sin datos',
+        message: 'No hay cargas dentro de los filtros actuales para exportar.'
+      });
+      return;
+    }
+
+    const rows = filteredRecords.map((record) => {
+      const vehicle = vehiclesMap.get(String(record.vehiculo_id)) || null;
+      const files = extractFiles(record);
+      const liters = Number(record.litros || 0);
+      const amount = Number(record.costo_total || 0);
+      const kilometers = Number(record.kilometros_recorridos || 0);
+      const m3Sent = Number(record.m3_enviados || 0);
+      const pricePerLiter = liters > 0 ? amount / liters : 0;
+      const performance = liters > 0 ? kilometers / liters : 0;
+      const pricePerKm = kilometers > 0 ? amount / kilometers : 0;
+      const pricePerM3 = m3Sent > 0 ? amount / m3Sent : 0;
+      const performanceStatus = getGasolinePerformanceStatus({
+        record,
+        parameters: vehicleParametersMap.get(String(record.vehiculo_id)) || null
+      });
+
+      return {
+        Fecha: formatDate(record.fecha_carga),
+        PROVEEDOR: record.proveedor || '',
+        Factura: record.factura || '',
+        'Num Economico': record.numero_economico_snapshot || vehicle?.numero_economico || '',
+        Placas: record.placa_snapshot || record.vehiculo_placa || '',
+        Descripcion: record.descripcion_snapshot || record.vehiculo_descripcion || '',
+        'Titulo de carga': record.titulo || '',
+        Combustible: getFuelTypeLabel(record.tipo_combustible),
+        'Kilometraje actual': Number(record.kilometraje_actual || 0),
+        'Kilometraje anterior': Number(record.kilometraje_anterior || 0),
+        'Km recorrido': kilometers,
+        Litros: liters,
+        'PRECIO X LITRO': Number(pricePerLiter.toFixed(2)),
+        Monto: amount,
+        Hora: record.hora_carga?.slice(0, 5) || '',
+        'M3 Enviados': m3Sent,
+        Operador: record.operador || '',
+        'rend km x lt': Number(performance.toFixed(4)),
+        'precio x km reco': Number(pricePerKm.toFixed(4)),
+        'precio x m3': Number(pricePerM3.toFixed(4)),
+        Observaciones: record.observaciones || '',
+        DescripcionRegistro: record.descripcion || '',
+        'Primera carga': record.primera_carga ? 'Si' : 'No',
+        'Estatus rendimiento': performanceStatus.label,
+        'Documentos adjuntos': files.map((file) => file.nombre_original).join(', ')
+      };
+    });
+
+    const title = 'Registro General';
+    const headerOrder = Object.keys(rows[0]);
+    const sheetData = [
+      ['', '', title],
+      [],
+      headerOrder,
+      ...rows.map((row) => headerOrder.map((header) => row[header]))
+    ];
+
+    const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
+    worksheet['!cols'] = headerOrder.map((header) => ({
+      wch: Math.max(header.length + 2, 14)
+    }));
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Registro General');
+
+    const selectedVehicle = filters.vehicleId !== 'todos'
+      ? vehiclesMap.get(String(filters.vehicleId))
+      : null;
+    const fileName = [
+      'reporte-gasolina',
+      selectedVehicle?.placa || 'todos',
+      filters.dateFrom ? formatDateForFileName(filters.dateFrom) : 'inicio-abierto',
+      filters.dateTo ? formatDateForFileName(filters.dateTo) : 'fin-abierto'
+    ].join('_');
+
+    XLSX.writeFile(workbook, `${fileName}.xlsx`);
+  };
+
   if (loading) {
     return (
       <div className='gasoline-dashboard-state'>
@@ -335,10 +439,8 @@ export default function GasolineDashboard() {
               Historial global de cargas para todos los vehiculos con kilometraje, montos, litros y adjuntos.
             </p>
           </div>
-        </div>
-        <div className='header-right'>
-          <button type='button' className='maintenance-add-btn' onClick={openNewRecordModal}>
-            Agregar carga
+          <button type='button' className='maintenance-add-btn' onClick={handleDownloadReport}>
+            Descargar reporte
           </button>
         </div>
       </div>
@@ -455,9 +557,13 @@ export default function GasolineDashboard() {
               const pricePerM3 = Number(record.m3_enviados || 0) > 0
                 ? Number(record.costo_total || 0) / Number(record.m3_enviados || 1)
                 : 0;
+              const performanceStatus = getGasolinePerformanceStatus({
+                record,
+                parameters: vehicleParametersMap.get(String(record.vehiculo_id)) || null
+              });
 
               return (
-                <div key={record.id} className='maintenance-record-card gasoline-global-card'>
+                <div key={record.id} className={`maintenance-record-card gasoline-global-card gasoline-performance-card ${performanceStatus.className}`}>
                   <div className='maintenance-record-top'>
                     <div>
                       <h4>{record.titulo || 'Sin nombre de carga'}</h4>
@@ -465,6 +571,10 @@ export default function GasolineDashboard() {
                         {record.placa_snapshot || record.vehiculo_placa || '-'} · {record.descripcion_snapshot || record.vehiculo_descripcion || 'Sin descripcion'}
                       </p>
                       <p className='maintenance-record-type'>{getFuelTypeLabel(record.tipo_combustible)}</p>
+                      <div className={`gasoline-performance-badge ${performanceStatus.className}`}>
+                        <strong>{performanceStatus.label}</strong>
+                        <span>{performanceStatus.detail}</span>
+                      </div>
                     </div>
                     <div className='maintenance-record-actions'>
                       <button type='button' className='ghost-btn' onClick={() => openViewRecordModal(record)}>Ver</button>

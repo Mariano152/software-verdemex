@@ -186,6 +186,15 @@ export default function GlobalGasolineRecordModal({
     if (!isOpen || mode === 'view') return;
     if (!selectedVehicle) return;
 
+    if (!isNew && record) {
+      setFormData((current) => ({
+        ...current,
+        placa_snapshot: selectedVehicle.placa || '',
+        descripcion_snapshot: selectedVehicle.descripcion || ''
+      }));
+      return;
+    }
+
     if (!formData.primera_carga) {
       const previousMileage = findPreviousMileage({
         records,
@@ -226,6 +235,7 @@ export default function GlobalGasolineRecordModal({
   const liters = parseNumber(formData.litros);
   const totalAmount = parseNumber(formData.costo_total);
   const m3Sent = parseNumber(formData.m3_enviados);
+  const tankCapacity = parseNumber(selectedVehicle?.operationParameters?.capacidad_tanque_litros);
   const kilometersTraveled = currentMileage !== null ? currentMileage - previousMileage : 0;
   const pricePerLiter = liters && liters > 0 && totalAmount !== null ? totalAmount / liters : 0;
   const efficiency = liters && liters > 0 ? kilometersTraveled / liters : 0;
@@ -310,6 +320,14 @@ export default function GlobalGasolineRecordModal({
     if (isViewMode) return;
 
     const nextValue = !formData.primera_carga;
+    if (!isNew && record) {
+      setFormData((current) => ({
+        ...current,
+        primera_carga: nextValue
+      }));
+      return;
+    }
+
     setFormData((current) => ({
       ...current,
       primera_carga: nextValue,
@@ -383,6 +401,11 @@ export default function GlobalGasolineRecordModal({
 
     if (!liters || liters <= 0) {
       setValidationMessage('Los litros deben ser mayores a 0.');
+      return;
+    }
+
+    if (tankCapacity && liters > tankCapacity) {
+      setValidationMessage(`Los litros no pueden superar la capacidad del tanque (${tankCapacity.toLocaleString('es-MX')} L).`);
       return;
     }
 
@@ -515,7 +538,8 @@ export default function GlobalGasolineRecordModal({
 
           <label>
             <span>Litros</span>
-            <input type='number' min='0.01' step='0.01' value={formData.litros} onChange={(event) => handleChange('litros', event.target.value)} readOnly={isViewMode} />
+            <input type='number' min='0.01' max={tankCapacity || undefined} step='0.01' value={formData.litros} onChange={(event) => handleChange('litros', event.target.value)} readOnly={isViewMode} />
+            {tankCapacity ? <small>Capacidad maxima configurada: {tankCapacity.toLocaleString('es-MX')} L</small> : null}
           </label>
 
           <label>

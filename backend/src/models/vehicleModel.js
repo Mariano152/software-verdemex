@@ -74,6 +74,80 @@ const mapGlobalGasolineFileRow = (fileRow, gasolineId, index) => ({
 });
 
 export const vehicleModel = {
+  async getVehicleParametersByVehicleId(vehicleId) {
+    try {
+      const result = await query(
+        `SELECT *
+         FROM vehiculo_parametros_operativos
+         WHERE vehiculo_id = $1 AND deleted_at IS NULL
+         LIMIT 1`,
+        [vehicleId]
+      );
+
+      return result.rows[0] || null;
+    } catch (error) {
+      if (error.code === '42P01') {
+        return null;
+      }
+      throw error;
+    }
+  },
+
+  async upsertVehicleParameters(vehicleId, parametersData) {
+    const {
+      capacidad_tanque_litros,
+      rendimiento_objetivo_km_l,
+      porcentaje_precaucion_menor,
+      porcentaje_precaucion_mayor,
+      tiempo_cambio_aceite_meses,
+      aviso_previo_tiempo_aceite_meses,
+      distancia_cambio_aceite_km,
+      aviso_previo_cambio_aceite_km
+    } = parametersData;
+
+    const result = await query(
+      `INSERT INTO vehiculo_parametros_operativos
+       (
+         vehiculo_id,
+         capacidad_tanque_litros,
+         rendimiento_objetivo_km_l,
+         porcentaje_precaucion_menor,
+         porcentaje_precaucion_mayor,
+         tiempo_cambio_aceite_meses,
+         aviso_previo_tiempo_aceite_meses,
+         distancia_cambio_aceite_km,
+         aviso_previo_cambio_aceite_km
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       ON CONFLICT (vehiculo_id)
+       DO UPDATE SET
+         capacidad_tanque_litros = EXCLUDED.capacidad_tanque_litros,
+         rendimiento_objetivo_km_l = EXCLUDED.rendimiento_objetivo_km_l,
+         porcentaje_precaucion_menor = EXCLUDED.porcentaje_precaucion_menor,
+         porcentaje_precaucion_mayor = EXCLUDED.porcentaje_precaucion_mayor,
+         tiempo_cambio_aceite_meses = EXCLUDED.tiempo_cambio_aceite_meses,
+         aviso_previo_tiempo_aceite_meses = EXCLUDED.aviso_previo_tiempo_aceite_meses,
+         distancia_cambio_aceite_km = EXCLUDED.distancia_cambio_aceite_km,
+         aviso_previo_cambio_aceite_km = EXCLUDED.aviso_previo_cambio_aceite_km,
+         deleted_at = NULL,
+         updated_at = NOW()
+       RETURNING *`,
+      [
+        vehicleId,
+        capacidad_tanque_litros,
+        rendimiento_objetivo_km_l,
+        porcentaje_precaucion_menor,
+        porcentaje_precaucion_mayor,
+        tiempo_cambio_aceite_meses,
+        aviso_previo_tiempo_aceite_meses,
+        distancia_cambio_aceite_km,
+        aviso_previo_cambio_aceite_km
+      ]
+    );
+
+    return result.rows[0] || null;
+  },
+
   async createVehicle(vehicleData) {
     const {
       propietario_nombre,
@@ -1108,6 +1182,7 @@ export const vehicleModel = {
     const safetyRows = await vehicleModel.getSafetyElementsByVehicleId(vehicleId);
     const maintenanceRows = await vehicleModel.getMaintenanceRecordsByVehicleId(vehicleId);
     const gasolineRows = await vehicleModel.getGasolineRecordsByVehicleId(vehicleId);
+    const operationParameters = await vehicleModel.getVehicleParametersByVehicleId(vehicleId);
 
     const photosResult = await query(
       `SELECT * FROM vehiculo_fotografias
@@ -1163,6 +1238,7 @@ export const vehicleModel = {
       documentos: documents,
       mantenimientos: maintenanceRecords,
       gasolina_registros: gasolineRecords,
+      parametros_operativos: operationParameters,
       elementos_seguridad: safetyRows,
       fotografias: photosResult.rows
     };

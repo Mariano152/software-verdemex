@@ -49,15 +49,30 @@ export default function VehicleDetailView({
   onDocumentsClick,
   onMaintenanceClick,
   onGasolineClick,
+  onParametersClick,
   onPhotosClick
 }) {
   const [activeSection, setActiveSection] = useState(null);
+  const operationParameters = vehicle.operationParameters || null;
+  const configuredParametersCount = operationParameters
+    ? [
+        operationParameters.capacidad_tanque_litros,
+        operationParameters.rendimiento_objetivo_km_l,
+        operationParameters.porcentaje_precaucion_menor,
+        operationParameters.porcentaje_precaucion_mayor,
+        operationParameters.tiempo_cambio_aceite_meses,
+        operationParameters.aviso_previo_tiempo_aceite_meses,
+        operationParameters.distancia_cambio_aceite_km,
+        operationParameters.aviso_previo_cambio_aceite_km
+      ].filter((value) => value !== null && value !== undefined && value !== '').length
+    : 0;
 
   const handleModuleClick = (module) => {
     setActiveSection(module);
     if (module === 'documents') onDocumentsClick?.();
     else if (module === 'maintenance') onMaintenanceClick?.();
     else if (module === 'gasoline') onGasolineClick?.();
+    else if (module === 'parameters') onParametersClick?.();
     else if (module === 'photos') onPhotosClick?.();
   };
 
@@ -221,6 +236,26 @@ export default function VehicleDetailView({
             </div>
             <div className="module-stats">
               {vehicle.gasolineRecords?.length || 0} cargas registradas
+            </div>
+            <button className="module-button">
+              Ver detalles
+            </button>
+          </div>
+
+          <div
+            className="module-card parameters"
+            onClick={() => handleModuleClick('parameters')}
+            data-active={activeSection === 'parameters'}
+          >
+            <div className="module-header">
+              <span className="module-icon">⚙️</span>
+              <span>Parámetros</span>
+            </div>
+            <div className="module-info">
+              Limites de tanque, rendimiento esperado y alertas preventivas de cambio de aceite
+            </div>
+            <div className="module-stats">
+              {configuredParametersCount}/8 parametros configurados
             </div>
             <button className="module-button">
               Ver detalles

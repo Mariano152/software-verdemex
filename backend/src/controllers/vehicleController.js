@@ -82,18 +82,26 @@ const normalizeTimeValue = (value) => {
   const normalized = normalizeText(value);
   return normalized || null;
 };
+const normalizeInteger = (value) => {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = Number.parseInt(value, 10);
+  return Number.isNaN(parsed) ? null : parsed;
+};
 const buildGasolineRecordTitle = ({ factura, fecha_carga, placa }) => {
   if (factura) return `Factura ${factura}`;
   if (fecha_carga && placa) return `Carga ${placa} ${fecha_carga}`;
   if (placa) return `Carga ${placa}`;
   return 'Carga de gasolina';
 };
-const buildGlobalGasolineData = (body, vehicle, previousMileage = null) => {
+const buildGlobalGasolineData = (body, vehicle, previousMileage = null, options = {}) => {
+  const { preserveCapturedPreviousMileage = false } = options;
   const primeraCarga = normalizeBoolean(body.primera_carga);
   const kilometrajeAnteriorCapturado = normalizeNumber(body.kilometraje_anterior);
   const kilometrajeAnterior = primeraCarga
     ? (kilometrajeAnteriorCapturado ?? 0)
-    : (previousMileage ?? 0);
+    : preserveCapturedPreviousMileage
+      ? (kilometrajeAnteriorCapturado ?? previousMileage ?? 0)
+      : (previousMileage ?? 0);
   const kilometrajeActual = normalizeNumber(body.kilometraje_actual);
   const kilometrosRecorridos = kilometrajeActual !== null && kilometrajeAnterior !== null
     ? kilometrajeActual - kilometrajeAnterior
@@ -127,7 +135,7 @@ const buildGlobalGasolineData = (body, vehicle, previousMileage = null) => {
     numero_economico_snapshot: normalizeNullableText(body.numero_economico_snapshot)
   };
 };
-const validateGlobalGasolineData = (gasolineData) => {
+const validateGlobalGasolineData = (gasolineData, operationParameters = null) => {
   if (!gasolineData.vehiculo_id || !gasolineData.fecha_carga || !gasolineData.titulo) {
     return 'Vehiculo, nombre y fecha de carga son requeridos';
   }
@@ -164,6 +172,13 @@ const validateGlobalGasolineData = (gasolineData) => {
     return 'El monto debe ser mayor o igual a 0 y los litros deben ser mayores a 0';
   }
 
+  if (operationParameters?.capacidad_tanque_litros !== null && operationParameters?.capacidad_tanque_litros !== undefined) {
+    const tankCapacity = Number(operationParameters.capacidad_tanque_litros || 0);
+    if (tankCapacity > 0 && gasolineData.litros > tankCapacity) {
+      return `Los litros no pueden superar la capacidad del tanque (${tankCapacity.toLocaleString('es-MX')} L)`;
+    }
+  }
+
   if (gasolineData.kilometraje_actual === null) {
     return 'El kilometraje actual es requerido';
   }
@@ -182,6 +197,79 @@ const validateGlobalGasolineData = (gasolineData) => {
 
   if (gasolineData.m3_enviados === null) {
     return 'Los m3 enviados son requeridos';
+  }
+
+  return null;
+};
+const buildVehicleParametersData = (body = {}) => ({
+  capacidad_tanque_litros: normalizeNumber(body.capacidad_tanque_litros),
+  rendimiento_objetivo_km_l: normalizeNumber(body.rendimiento_objetivo_km_l),
+  porcentaje_precaucion_menor: normalizeNumber(body.porcentaje_precaucion_menor),
+  porcentaje_precaucion_mayor: normalizeNumber(body.porcentaje_precaucion_mayor),
+  tiempo_cambio_aceite_meses: normalizeInteger(body.tiempo_cambio_aceite_meses),
+  aviso_previo_tiempo_aceite_meses: normalizeInteger(body.aviso_previo_tiempo_aceite_meses),
+  distancia_cambio_aceite_km: normalizeNumber(body.distancia_cambio_aceite_km),
+  aviso_previo_cambio_aceite_km: normalizeNumber(body.aviso_previo_cambio_aceite_km)
+});
+const validateVehicleParametersData = (parametersData) => {
+  const requiredFields = [
+    'capacidad_tanque_litros',
+    'rendimiento_objetivo_km_l',
+    'porcentaje_precaucion_menor',
+    'porcentaje_precaucion_mayor',
+    'tiempo_cambio_aceite_meses',
+    'aviso_previo_tiempo_aceite_meses',
+    'distancia_cambio_aceite_km',
+    'aviso_previo_cambio_aceite_km'
+  ];
+
+  const missingField = requiredFields.find((field) => parametersData[field] === null);
+  if (missingField) {
+    return 'Todos los parametros operativos son requeridos';
+  }
+
+  if (parametersData.capacidad_tanque_litros <= 0) {
+    return 'La capacidad del tanque debe ser mayor a 0';
+  }
+
+  if (parametersData.rendimiento_objetivo_km_l <= 0) {
+    return 'El rendimiento objetivo debe ser mayor a 0';
+  }
+
+  if (parametersData.porcentaje_precaucion_menor < 0 || parametersData.porcentaje_precaucion_menor > 100) {
+    return 'El porcentaje de precaucion menor debe estar entre 0 y 100';
+  }
+
+  if (parametersData.porcentaje_precaucion_mayor < 0 || parametersData.porcentaje_precaucion_mayor > 100) {
+    return 'El porcentaje de precaucion mayor debe estar entre 0 y 100';
+  }
+
+  if (parametersData.porcentaje_precaucion_mayor < parametersData.porcentaje_precaucion_menor) {
+    return 'El porcentaje de precaucion mayor no puede ser menor al porcentaje de precaucion menor';
+  }
+
+  if (parametersData.tiempo_cambio_aceite_meses <= 0) {
+    return 'El tiempo para cambio de aceite debe ser mayor a 0';
+  }
+
+  if (parametersData.aviso_previo_tiempo_aceite_meses < 0) {
+    return 'El aviso previo por tiempo no puede ser negativo';
+  }
+
+  if (parametersData.aviso_previo_tiempo_aceite_meses > parametersData.tiempo_cambio_aceite_meses) {
+    return 'El aviso previo por tiempo no puede ser mayor al tiempo de cambio de aceite';
+  }
+
+  if (parametersData.distancia_cambio_aceite_km <= 0) {
+    return 'La distancia para cambio de aceite debe ser mayor a 0';
+  }
+
+  if (parametersData.aviso_previo_cambio_aceite_km < 0) {
+    return 'El aviso previo por kilometraje no puede ser negativo';
+  }
+
+  if (parametersData.aviso_previo_cambio_aceite_km > parametersData.distancia_cambio_aceite_km) {
+    return 'El aviso previo por kilometraje no puede ser mayor a la distancia de cambio de aceite';
   }
 
   return null;
@@ -382,6 +470,7 @@ export const vehicleController = {
           documents: completeVehicle.documentos || [],
           maintenanceRecords: completeVehicle.mantenimientos || [],
           gasolineRecords: completeVehicle.gasolina_registros || [],
+          operationParameters: completeVehicle.parametros_operativos || null,
           safetyElements: completeVehicle.elementos_seguridad || [],
           photos: completeVehicle.fotografias || []
         },
@@ -420,6 +509,7 @@ export const vehicleController = {
         documents: vehicle.documentos || [],
         maintenanceRecords: vehicle.mantenimientos || [],
         gasolineRecords: vehicle.gasolina_registros || [],
+        operationParameters: vehicle.parametros_operativos || null,
         safetyElements: vehicle.elementos_seguridad || [],
         photos: vehicle.fotografias || []
       });
@@ -454,6 +544,109 @@ export const vehicleController = {
       console.error('Error obteniendo elementos de seguridad:', error);
       res.status(500).json({
         message: 'Error al obtener elementos de seguridad',
+        error: error.message
+      });
+    }
+  },
+
+  async getVehicleParameters(req, res) {
+    try {
+      const { vehicleId } = req.params;
+      const vehicle = await vehicleModel.getVehicleById(vehicleId);
+
+      if (!vehicle) {
+        return res.status(404).json({
+          message: 'Vehiculo no encontrado'
+        });
+      }
+
+      res.json({
+        vehicleId,
+        parameters: vehicle.parametros_operativos || null
+      });
+    } catch (error) {
+      console.error('Error obteniendo parametros del vehiculo:', error);
+      res.status(500).json({
+        message: 'Error al obtener parametros del vehiculo',
+        error: error.message
+      });
+    }
+  },
+
+  async upsertVehicleParameters(req, res) {
+    try {
+      const { vehicleId } = req.params;
+      const vehicle = await vehicleModel.getVehicleById(vehicleId);
+
+      if (!vehicle) {
+        return res.status(404).json({
+          message: 'Vehiculo no encontrado'
+        });
+      }
+
+      const previousParameters = vehicle.parametros_operativos || null;
+      const parametersData = buildVehicleParametersData(req.body);
+      const validationError = validateVehicleParametersData(parametersData);
+
+      if (validationError) {
+        return res.status(400).json({ message: validationError });
+      }
+
+      const savedParameters = await vehicleModel.upsertVehicleParameters(vehicleId, parametersData);
+
+      const changes = buildChanges(
+        {
+          capacidad_tanque_litros: 'Capacidad de tanque',
+          rendimiento_objetivo_km_l: 'Rendimiento objetivo',
+          porcentaje_precaucion_menor: 'Porcentaje de precaucion menor',
+          porcentaje_precaucion_mayor: 'Porcentaje de precaucion mayor',
+          tiempo_cambio_aceite_meses: 'Tiempo de cambio de aceite',
+          aviso_previo_tiempo_aceite_meses: 'Aviso previo por tiempo',
+          distancia_cambio_aceite_km: 'Distancia de cambio de aceite',
+          aviso_previo_cambio_aceite_km: 'Aviso previo por kilometraje'
+        },
+        {
+          capacidad_tanque_litros: normalizeNumber(previousParameters?.capacidad_tanque_litros),
+          rendimiento_objetivo_km_l: normalizeNumber(previousParameters?.rendimiento_objetivo_km_l),
+          porcentaje_precaucion_menor: normalizeNumber(previousParameters?.porcentaje_precaucion_menor),
+          porcentaje_precaucion_mayor: normalizeNumber(previousParameters?.porcentaje_precaucion_mayor),
+          tiempo_cambio_aceite_meses: normalizeInteger(previousParameters?.tiempo_cambio_aceite_meses),
+          aviso_previo_tiempo_aceite_meses: normalizeInteger(previousParameters?.aviso_previo_tiempo_aceite_meses),
+          distancia_cambio_aceite_km: normalizeNumber(previousParameters?.distancia_cambio_aceite_km),
+          aviso_previo_cambio_aceite_km: normalizeNumber(previousParameters?.aviso_previo_cambio_aceite_km)
+        },
+        parametersData
+      );
+
+      await vehicleController.logHistory(req, vehicleId, {
+        module: 'parametros',
+        action: previousParameters ? 'actualizar' : 'crear',
+        entityType: 'vehicle_parameters',
+        entityId: savedParameters?.id || vehicleId,
+        description: previousParameters
+          ? 'Actualizo los parametros operativos del vehiculo'
+          : 'Configuro los parametros operativos del vehiculo',
+        details: {
+          changes
+        }
+      });
+
+      res.json({
+        message: previousParameters
+          ? 'Parametros operativos actualizados correctamente'
+          : 'Parametros operativos configurados correctamente',
+        parameters: savedParameters
+      });
+    } catch (error) {
+      if (error.code === '42P01') {
+        return res.status(503).json({
+          message: 'Los parametros operativos aun no estan disponibles en la base de datos. Ejecuta la migracion 019.'
+        });
+      }
+
+      console.error('Error guardando parametros del vehiculo:', error);
+      res.status(500).json({
+        message: 'Error al guardar parametros del vehiculo',
         error: error.message
       });
     }
@@ -890,7 +1083,7 @@ export const vehicleController = {
         vehicle,
         latestMileage
       );
-      const validationError = validateGlobalGasolineData(gasolineData);
+      const validationError = validateGlobalGasolineData(gasolineData, vehicle.parametros_operativos);
 
       if (validationError) {
         return res.status(400).json({ message: validationError });
@@ -979,9 +1172,10 @@ export const vehicleController = {
       const gasolineData = buildGlobalGasolineData(
         { ...req.body, vehiculo_id: vehicleId },
         vehicle,
-        latestMileage
+        latestMileage,
+        { preserveCapturedPreviousMileage: true }
       );
-      const validationError = validateGlobalGasolineData(gasolineData);
+      const validationError = validateGlobalGasolineData(gasolineData, vehicle.parametros_operativos);
       if (validationError) {
         return res.status(400).json({ message: validationError });
       }
@@ -1280,7 +1474,7 @@ export const vehicleController = {
         hora_carga: req.body.hora_carga
       });
       const gasolineData = buildGlobalGasolineData(req.body, vehicle, latestMileage);
-      const validationError = validateGlobalGasolineData(gasolineData);
+      const validationError = validateGlobalGasolineData(gasolineData, vehicle.parametros_operativos);
 
       if (validationError) {
         return res.status(400).json({ message: validationError });
@@ -1358,8 +1552,10 @@ export const vehicleController = {
         hora_carga: req.body.hora_carga,
         excludeGasolineId: gasolineId
       });
-      const gasolineData = buildGlobalGasolineData(req.body, vehicle, latestMileage);
-      const validationError = validateGlobalGasolineData(gasolineData);
+      const gasolineData = buildGlobalGasolineData(req.body, vehicle, latestMileage, {
+        preserveCapturedPreviousMileage: true
+      });
+      const validationError = validateGlobalGasolineData(gasolineData, vehicle.parametros_operativos);
 
       if (validationError) {
         return res.status(400).json({ message: validationError });
@@ -1850,10 +2046,16 @@ export const vehicleController = {
   async listVehicles(req, res) {
     try {
       const vehicles = await vehicleModel.getActiveVehicles();
+      const enrichedVehicles = await Promise.all(
+        vehicles.map(async (vehicle) => ({
+          ...vehicle,
+          operationParameters: await vehicleModel.getVehicleParametersByVehicleId(vehicle.id)
+        }))
+      );
       res.json({
         message: 'Vehículos listados correctamente',
-        count: vehicles.length,
-        vehicles
+        count: enrichedVehicles.length,
+        vehicles: enrichedVehicles
       });
     } catch (error) {
       console.error('Error listando vehículos:', error);
@@ -2111,6 +2313,7 @@ export const vehicleController = {
         documents: updatedVehicle.documentos || [],
         maintenanceRecords: updatedVehicle.mantenimientos || [],
         gasolineRecords: updatedVehicle.gasolina_registros || [],
+        operationParameters: updatedVehicle.parametros_operativos || null,
         safetyElements: updatedVehicle.elementos_seguridad || [],
         photos: updatedVehicle.fotografias || []
       });

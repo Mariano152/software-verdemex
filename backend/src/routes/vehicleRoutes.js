@@ -15,6 +15,8 @@ router.get('/', vehicleController.listVehicles);
 router.get('/:id', vehicleController.getVehicleById);
 
 router.get('/:vehicleId/safety-elements', vehicleController.getSafetyElements);
+router.get('/:vehicleId/parameters', vehicleController.getVehicleParameters);
+router.put('/:vehicleId/parameters', vehicleController.upsertVehicleParameters);
 router.get('/:vehicleId/history', vehicleController.getVehicleHistory);
 router.post('/:vehicleId/safety-elements', vehicleController.createSafetyElements);
 router.put('/:vehicleId/safety-elements/:elementId', vehicleController.updateSafetyElement);
