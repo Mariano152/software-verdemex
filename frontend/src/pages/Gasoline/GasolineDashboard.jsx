@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import NotificationModal from '../../components/Notifications/NotificationModal';
+import { getFuelTypeLabel } from '../../constants/fuelTypes';
 import '../../components/Notifications/NotificationModal.css';
 import GlobalGasolineRecordModal from './GlobalGasolineRecordModal';
 import './GasolineDashboard.css';
@@ -150,6 +151,7 @@ export default function GasolineDashboard() {
         record.factura,
         record.proveedor,
         record.operador,
+        record.tipo_combustible,
         record.vehiculo_placa,
         record.placa_snapshot,
         record.descripcion_snapshot,
@@ -462,6 +464,7 @@ export default function GasolineDashboard() {
                       <p className='maintenance-record-type'>
                         {record.placa_snapshot || record.vehiculo_placa || '-'} · {record.descripcion_snapshot || record.vehiculo_descripcion || 'Sin descripcion'}
                       </p>
+                      <p className='maintenance-record-type'>{getFuelTypeLabel(record.tipo_combustible)}</p>
                     </div>
                     <div className='maintenance-record-actions'>
                       <button type='button' className='ghost-btn' onClick={() => openViewRecordModal(record)}>Ver</button>
@@ -475,6 +478,7 @@ export default function GasolineDashboard() {
                     <div><span className='record-label'>Fecha</span><strong>{formatDate(record.fecha_carga)}</strong></div>
                     <div><span className='record-label'>Hora</span><strong>{record.hora_carga?.slice(0, 5) || '-'}</strong></div>
                     <div><span className='record-label'>Proveedor</span><strong>{record.proveedor || '-'}</strong></div>
+                    <div><span className='record-label'>Combustible</span><strong>{getFuelTypeLabel(record.tipo_combustible)}</strong></div>
                     <div><span className='record-label'>Operador</span><strong>{record.operador || '-'}</strong></div>
                     <div><span className='record-label'>Km actual</span><strong>{formatNumber(record.kilometraje_actual)}</strong></div>
                     <div><span className='record-label'>Km anterior</span><strong>{formatNumber(record.kilometraje_anterior)}</strong></div>

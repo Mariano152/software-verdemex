@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import usePopupTopScroll from '../../../hooks/usePopupTopScroll';
+import { FUEL_TYPE_OPTIONS, getFuelTypeLabel, normalizeFuelType } from '../../../constants/fuelTypes';
 import '../../Gasoline/GlobalGasolineRecordModal.css';
 import './MaintenanceRecordModal.css';
 
@@ -37,7 +38,7 @@ const formatTimeForInput = (value) => {
 
 const buildEmptyForm = (vehicle) => ({
   titulo: '',
-  tipo_combustible: 'gasolina',
+  tipo_combustible: '',
   fecha_carga: buildTodayDate(),
   factura: '',
   hora_carga: buildCurrentTime(),
@@ -136,7 +137,7 @@ export default function GasolineRecordModal({
 
     setFormData({
       titulo: record.titulo || '',
-      tipo_combustible: record.tipo_combustible || 'gasolina',
+      tipo_combustible: normalizeFuelType(record.tipo_combustible),
       fecha_carga: formatDateForInput(record.fecha_carga) || buildTodayDate(),
       factura: record.factura || '',
       hora_carga: formatTimeForInput(record.hora_carga) || buildCurrentTime(),
@@ -302,6 +303,11 @@ export default function GasolineRecordModal({
       return;
     }
 
+    if (!formData.tipo_combustible) {
+      setValidationMessage('Selecciona el tipo de combustible.');
+      return;
+    }
+
     if (!String(formData.proveedor || '').trim()) {
       setValidationMessage('El proveedor es obligatorio.');
       return;
@@ -361,7 +367,7 @@ export default function GasolineRecordModal({
     try {
       await onSave({
         ...formData,
-        tipo_combustible: 'gasolina',
+        tipo_combustible: formData.tipo_combustible,
         kilometraje_anterior: String(previousMileage),
         kilometros_recorridos: String(kilometersTraveled)
       }, selectedFiles, record?.id || null);
@@ -395,6 +401,20 @@ export default function GasolineRecordModal({
           <label>
             <span>Factura</span>
             <input value={formData.factura} onChange={(event) => handleChange('factura', event.target.value)} readOnly={isViewMode} />
+          </label>
+
+          <label>
+            <span>Tipo de combustible</span>
+            {isViewMode ? (
+              <input value={getFuelTypeLabel(formData.tipo_combustible)} readOnly />
+            ) : (
+              <select value={formData.tipo_combustible} onChange={(event) => handleChange('tipo_combustible', event.target.value)}>
+                <option value=''>Selecciona un tipo</option>
+                {FUEL_TYPE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>{option.label}</option>
+                ))}
+              </select>
+            )}
           </label>
 
           <label>

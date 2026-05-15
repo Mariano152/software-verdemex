@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { FUEL_TYPE_OPTIONS, getFuelTypeLabel, normalizeFuelType } from '../../constants/fuelTypes';
 import './AnalyticsDashboard.css';
 
 const MONTH_LABELS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
@@ -14,6 +15,11 @@ const formatCurrency = (value) => new Intl.NumberFormat('es-MX', {
 const formatNumber = (value, maximumFractionDigits = 2) => Number(value || 0).toLocaleString('es-MX', {
   minimumFractionDigits: 0,
   maximumFractionDigits
+});
+
+const normalizeAnalyticsRecord = (record) => ({
+  ...record,
+  tipo_combustible: normalizeFuelType(record?.tipo_combustible)
 });
 
 const parseDateParts = (value) => {
@@ -272,15 +278,21 @@ const aggregateByKey = (records, getKey, getLabel) => {
   }));
 };
 
-const buildOptions = (records, field) => (
-  Array.from(
+const buildOptions = (records, field) => {
+  if (field === 'tipo_combustible') {
+    return FUEL_TYPE_OPTIONS
+      .map((option) => option.value)
+      .filter((value) => records.some((record) => normalizeFuelType(record[field]) === value));
+  }
+
+  return Array.from(
     new Set(
       records
         .map((record) => String(record[field] || '').trim())
         .filter(Boolean)
     )
-  ).sort((left, right) => left.localeCompare(right, 'es'))
-);
+  ).sort((left, right) => left.localeCompare(right, 'es'));
+};
 
 const filterRecords = ({
   records,
@@ -304,7 +316,7 @@ const filterRecords = ({
     const matchesVehicle = vehicleId === 'todos' ? true : String(record.vehiculo_id) === String(vehicleId);
     const matchesProvider = provider === 'todos' ? true : String(record.proveedor || '') === provider;
     const matchesOperator = operator === 'todos' ? true : String(record.operador || '') === operator;
-    const matchesFuelType = fuelType === 'todos' ? true : String(record.tipo_combustible || '') === fuelType;
+    const matchesFuelType = fuelType === 'todos' ? true : normalizeFuelType(record.tipo_combustible) === fuelType;
     const matchesComplete = onlyComplete
       ? Number(record.litros || 0) > 0 && Number(record.kilometros_recorridos || 0) > 0
       : true;
@@ -605,6 +617,28 @@ const buildVehicleDistribution = (records) => (
     .slice(0, 6)
 );
 
+const buildFuelTypeDistribution = (records) => (
+  aggregateByKey(
+    records,
+    (record) => normalizeFuelType(record.tipo_combustible),
+    (record) => getFuelTypeLabel(record.tipo_combustible)
+  )
+    .sort((left, right) => right.totalAmount - left.totalAmount)
+);
+
+const buildFuelTypeKpis = (records) => (
+  FUEL_TYPE_OPTIONS.map((option) => {
+    const filteredRecords = records.filter((record) => normalizeFuelType(record.tipo_combustible) === option.value);
+    const metrics = calculateMetrics(filteredRecords);
+
+    return {
+      id: option.value,
+      label: option.label,
+      metrics
+    };
+  }).filter((item) => item.metrics.recordsCount > 0)
+);
+
 const describeProjection = (trendSeries) => {
   if (trendSeries.length < 3) {
     return 'Aún no hay suficiente histórico para una proyección confiable.';
@@ -896,7 +930,16 @@ const describeArc = (centerX, centerY, radius, startAngle, endAngle) => {
   return `M ${start.x} ${start.y} A ${radius} ${radius} 0 ${largeArcFlag} 1 ${end.x} ${end.y}`;
 };
 
-const DonutChart = ({ data, metricKey = 'totalAmount', centerValueFormatter = formatCurrency, detailValueFormatter = formatCurrency, ariaLabel = 'Distribución', totalSuffix = '' }) => {
+const DonutChart = ({
+  data,
+  metricKey = 'totalAmount',
+  centerValueFormatter = formatCurrency,
+  detailValueFormatter = formatCurrency,
+  ariaLabel = 'Distribución',
+  totalSuffix = '',
+  selectionLabel = 'Proveedor activo',
+  selectionDescription = 'cargas asociadas a este proveedor'
+}) => {
   const [selectedKey, setSelectedKey] = useState(data[0]?.key || null);
   const [hoveredKey, setHoveredKey] = useState(null);
   const [tooltip, setTooltip] = useState(null);
@@ -1050,9 +1093,9 @@ const DonutChart = ({ data, metricKey = 'totalAmount', centerValueFormatter = fo
 
       <div className='analytics-selection-card analytics-selection-card-compact'>
         <div>
-          <span className='analytics-selection-tag'>Proveedor activo</span>
+          <span className='analytics-selection-tag'>{selectionLabel}</span>
           <h4>{activeItem.label}</h4>
-          <p>{activeItem.recordsCount} cargas asociadas a este proveedor.</p>
+          <p>{activeItem.recordsCount} {selectionDescription}.</p>
         </div>
         <div className='analytics-selection-metrics'>
           <div>
@@ -1138,7 +1181,7 @@ export default function AnalyticsDashboard() {
       }
 
       setVehicles(vehiclesData.vehicles || []);
-      setRecords(sortRecordsByDateTimeDesc(recordsData.gasolineRecords || []));
+      setRecords(sortRecordsByDateTimeDesc((recordsData.gasolineRecords || []).map(normalizeAnalyticsRecord)));
       setError(null);
     } catch (fetchError) {
       console.error('Error loading analytics dashboard:', fetchError);
@@ -1317,6 +1360,8 @@ export default function AnalyticsDashboard() {
   const providerDistribution = useMemo(() => buildDistributionByProvider(detailRecords), [detailRecords]);
   const vehicleLitersSeries = useMemo(() => buildVehicleLitersSeries(detailRecords), [detailRecords]);
   const vehicleDistribution = useMemo(() => buildVehicleDistribution(detailRecords), [detailRecords]);
+  const fuelTypeDistribution = useMemo(() => buildFuelTypeDistribution(detailRecords), [detailRecords]);
+  const fuelTypeKpis = useMemo(() => buildFuelTypeKpis(detailRecords), [detailRecords]);
   const recentRecords = useMemo(() => detailRecords.slice(0, 8), [detailRecords]);
 
   if (loading) {
@@ -1474,7 +1519,7 @@ export default function AnalyticsDashboard() {
                 >
                   <option value='todos'>Todos</option>
                   {fuelTypeOptions.map((fuelType) => (
-                    <option key={fuelType} value={fuelType}>{fuelType}</option>
+                    <option key={fuelType} value={fuelType}>{getFuelTypeLabel(fuelType)}</option>
                   ))}
                 </select>
               </label>
@@ -1537,6 +1582,33 @@ export default function AnalyticsDashboard() {
             ))}
           </div>
 
+          <div className='analytics-panel'>
+            <div className='analytics-panel-header'>
+              <div>
+                <h3>KPIs por tipo de combustible</h3>
+                <p>Comparativo directo entre diesel, magma y premium dentro del filtro actual.</p>
+              </div>
+            </div>
+
+            {fuelTypeKpis.length === 0 ? (
+              <div className='analytics-empty-panel'>
+                <p>No hay registros con tipo de combustible para calcular KPIs.</p>
+              </div>
+            ) : (
+              <div className='analytics-kpi-grid analytics-kpi-grid-detail'>
+                {fuelTypeKpis.map((item) => (
+                  <div key={item.id} className='analytics-kpi-card'>
+                    <span>{item.label}</span>
+                    <strong>{formatCurrency(item.metrics.averagePricePerLiter)}</strong>
+                    <small>
+                      {formatNumber(item.metrics.totalLiters)} L · {formatNumber(item.metrics.averageEfficiency)} km/L · {item.metrics.recordsCount} cargas
+                    </small>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
           <div className='analytics-chart-grid'>
             <div className='analytics-panel analytics-chart-panel analytics-chart-panel-wide'>
               <div className='analytics-panel-header'>
@@ -1548,6 +1620,26 @@ export default function AnalyticsDashboard() {
               <TrendChart data={trendSeries} granularityLabel={trendGranularityLabel} />
             </div>
 
+            <div className='analytics-panel analytics-chart-panel'>
+              <div className='analytics-panel-header'>
+                <div>
+                  <h3>Distribucion por tipo de combustible</h3>
+                  <p>Participacion del gasto por diesel, magma y premium.</p>
+                </div>
+              </div>
+              <DonutChart
+                data={fuelTypeDistribution}
+                metricKey='totalAmount'
+                centerValueFormatter={formatCurrency}
+                detailValueFormatter={formatCurrency}
+                ariaLabel='Distribucion de gasto por tipo de combustible'
+                selectionLabel='Combustible activo'
+                selectionDescription='cargas asociadas a este tipo de combustible'
+              />
+            </div>
+          </div>
+
+          <div className='analytics-chart-grid'>
             <div className='analytics-panel analytics-chart-panel'>
               <div className='analytics-panel-header'>
                 <div>
@@ -1605,6 +1697,14 @@ export default function AnalyticsDashboard() {
 
           <div className='analytics-detail-grid'>
             <DetailTable
+              title='Tipos con mayor gasto'
+              subtitle='Comparativo por mezcla de combustible en el rango actual.'
+              rows={fuelTypeDistribution}
+              emptyMessage='No hay tipos de combustible suficientes para comparar.'
+              metricKey='totalAmount'
+              valueFormatter={(value) => formatCurrency(value)}
+            />
+            <DetailTable
               title='Vehículos con mayor gasto'
               subtitle='Top unidades por monto invertido en el rango actual.'
               rows={topVehiclesByAmount}
@@ -1651,6 +1751,7 @@ export default function AnalyticsDashboard() {
                     <tr>
                       <th>Vehículo</th>
                       <th>Fecha</th>
+                      <th>Combustible</th>
                       <th>Proveedor</th>
                       <th>Operador</th>
                       <th>Litros</th>
@@ -1671,6 +1772,7 @@ export default function AnalyticsDashboard() {
                         <tr key={record.id}>
                           <td>{record.placa_snapshot || record.vehiculo_placa || '-'}</td>
                           <td>{formatDate(record.fecha_carga)}</td>
+                          <td>{getFuelTypeLabel(record.tipo_combustible)}</td>
                           <td>{record.proveedor || '-'}</td>
                           <td>{record.operador || '-'}</td>
                           <td>{formatNumber(liters)}</td>

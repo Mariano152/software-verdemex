@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { getFuelTypeLabel, normalizeFuelType } from '../../../constants/fuelTypes';
 import NotificationModal from '../../../components/Notifications/NotificationModal';
 import GasolineRecordModal from './GasolineRecordModal';
 import '../../../components/Notifications/NotificationModal.css';
@@ -153,7 +154,7 @@ export default function VehicleGasolineSection({
   const availableFuelTypes = useMemo(() => (
     Array.from(new Set(
       records
-        .map((record) => String(record.tipo_combustible || '').trim().toLowerCase())
+        .map((record) => normalizeFuelType(record.tipo_combustible))
         .filter(Boolean)
     ))
   ), [records]);
@@ -173,7 +174,7 @@ export default function VehicleGasolineSection({
       const date = getRecordDate(record);
       if (!date) return false;
 
-      const fuelType = String(record.tipo_combustible || '').trim().toLowerCase();
+      const fuelType = normalizeFuelType(record.tipo_combustible);
       const provider = String(record.proveedor || '').trim().toLowerCase();
 
       const matchesMonth = selectedMonth === 'todos' ? true : date.getMonth() + 1 === Number(selectedMonth);
@@ -433,7 +434,7 @@ export default function VehicleGasolineSection({
             <select value={selectedFuelType} onChange={(event) => setSelectedFuelType(event.target.value)}>
               <option value='todos'>Todos</option>
               {availableFuelTypes.map((fuelType) => (
-                <option key={fuelType} value={fuelType}>{fuelType}</option>
+                <option key={fuelType} value={fuelType}>{getFuelTypeLabel(fuelType)}</option>
               ))}
             </select>
           </label>
@@ -490,7 +491,9 @@ export default function VehicleGasolineSection({
                   <div className='maintenance-record-top'>
                     <div>
                       <h4>{record.titulo || 'Sin nombre de carga'}</h4>
-                      <p className='maintenance-record-type'>{record.factura || record.tipo_combustible || 'gasolina'}</p>
+                      <p className='maintenance-record-type'>
+                        {record.factura || 'Sin factura'} · {getFuelTypeLabel(record.tipo_combustible)}
+                      </p>
                     </div>
                     <div className='maintenance-record-actions'>
                       <button type='button' className='ghost-btn' onClick={() => openViewRecordModal(record)}>Ver</button>
@@ -504,6 +507,7 @@ export default function VehicleGasolineSection({
                     <div><span className='record-label'>Fecha</span><strong>{formatDate(record.fecha_carga)}</strong></div>
                     <div><span className='record-label'>Hora</span><strong>{formatTimeForInput(record.hora_carga) || '-'}</strong></div>
                     <div><span className='record-label'>Proveedor</span><strong>{record.proveedor || '-'}</strong></div>
+                    <div><span className='record-label'>Combustible</span><strong>{getFuelTypeLabel(record.tipo_combustible)}</strong></div>
                     <div><span className='record-label'>Operador</span><strong>{record.operador || '-'}</strong></div>
                     <div><span className='record-label'>Km actual</span><strong>{formatNumber(record.kilometraje_actual)}</strong></div>
                     <div><span className='record-label'>Km anterior</span><strong>{formatNumber(record.kilometraje_anterior)}</strong></div>

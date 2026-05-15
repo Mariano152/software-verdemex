@@ -1,6 +1,7 @@
 import { vehicleModel } from '../models/vehicleModel.js';
 import { vehicleHistoryModel } from '../models/vehicleHistoryModel.js';
 import { cloudinaryService } from '../services/cloudinaryService.js';
+import { VALID_FUEL_TYPES, normalizeFuelType } from '../constants/fuelTypes.js';
 
 const extractFileList = (document) => {
   if (!document?.archivos_json) {
@@ -106,7 +107,7 @@ const buildGlobalGasolineData = (body, vehicle, previousMileage = null) => {
       fecha_carga: body.fecha_carga,
       placa: vehicle?.placa
     }),
-    tipo_combustible: normalizeText(body.tipo_combustible) || 'gasolina',
+    tipo_combustible: normalizeFuelType(body.tipo_combustible),
     fecha_carga: body.fecha_carga,
     factura: normalizeNullableText(body.factura),
     hora_carga: normalizeTimeValue(body.hora_carga),
@@ -133,6 +134,10 @@ const validateGlobalGasolineData = (gasolineData) => {
 
   if (!gasolineData.factura) {
     return 'La factura es requerida';
+  }
+
+  if (!gasolineData.tipo_combustible) {
+    return `Selecciona un tipo de combustible valido: ${VALID_FUEL_TYPES.join(', ')}`;
   }
 
   if (!gasolineData.hora_carga) {
@@ -1297,6 +1302,7 @@ export const vehicleController = {
         description: `Agrego carga global de gasolina para ${vehicle.placa}`,
         details: {
           titulo: gasolineData.titulo,
+          tipo_combustible: gasolineData.tipo_combustible,
           fecha_carga: gasolineData.fecha_carga,
           hora_carga: gasolineData.hora_carga,
           factura: gasolineData.factura,
@@ -1370,6 +1376,7 @@ export const vehicleController = {
         {
           vehiculo_id: 'Vehiculo',
           titulo: 'Nombre',
+          tipo_combustible: 'Tipo de combustible',
           fecha_carga: 'Fecha',
           hora_carga: 'Hora',
           factura: 'Factura',
@@ -1386,6 +1393,7 @@ export const vehicleController = {
         {
           vehiculo_id: normalizeNullableText(existingRecord.vehiculo_id),
           titulo: normalizeNullableText(existingRecord.titulo),
+          tipo_combustible: normalizeNullableText(existingRecord.tipo_combustible),
           fecha_carga: normalizeNullableText(existingRecord.fecha_carga),
           hora_carga: normalizeNullableText(existingRecord.hora_carga),
           factura: normalizeNullableText(existingRecord.factura),
@@ -1402,6 +1410,7 @@ export const vehicleController = {
         {
           vehiculo_id: normalizeNullableText(gasolineData.vehiculo_id),
           titulo: normalizeNullableText(gasolineData.titulo),
+          tipo_combustible: normalizeNullableText(gasolineData.tipo_combustible),
           fecha_carga: normalizeNullableText(gasolineData.fecha_carga),
           hora_carga: normalizeNullableText(gasolineData.hora_carga),
           factura: normalizeNullableText(gasolineData.factura),
