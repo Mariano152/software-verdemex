@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import ExpedienteSection from './Sections/ExpedienteSection';
+import { getVehicleIdentifier, getVehicleSecondaryLabel } from '../../utils/vehicleLabels';
 import './VehicleDetailView.css';
 
 const normalizeStatus = (status) => {
   const normalizedStatus = String(status || '').trim().toLowerCase();
-
   if (normalizedStatus === 'en_mantenimiento') {
     return 'mantenimiento';
   }
@@ -37,12 +37,6 @@ const formatStatus = (status) => {
   return statusMap[normalizedStatus] || status || 'Sin estado';
 };
 
-/**
- * VehicleDetailView - Vista profesional de detalles del vehículo
- * Muestra:
- * 1. Información básica (izquierda) + Historial (derecha)
- * 2. Módulos de documentos, mantenimiento, gasolina y fotografías
- */
 export default function VehicleDetailView({
   vehicle,
   vehicleId,
@@ -67,6 +61,54 @@ export default function VehicleDetailView({
       ].filter((value) => value !== null && value !== undefined && value !== '').length
     : 0;
 
+  const modules = [
+    {
+      key: 'documents',
+      cardClass: 'documents',
+      icon: '📄',
+      eyebrow: 'Control documental',
+      title: 'Documentos',
+      description: 'Permisos, licencias y documentos del vehiculo',
+      stats: `${vehicle.documents?.length || 0} documentos registrados`
+    },
+    {
+      key: 'maintenance',
+      cardClass: 'maintenance',
+      icon: '🛠',
+      eyebrow: 'Revision operativa',
+      title: 'Mantenimiento',
+      description: 'Elementos de seguridad, checklist y servicios realizados',
+      stats: `${vehicle.safetyElements?.length || 0}/11 elementos completados`
+    },
+    {
+      key: 'gasoline',
+      cardClass: 'gasoline',
+      icon: '⛽',
+      eyebrow: 'Consumo y cargas',
+      title: 'Gasolina',
+      description: 'Historial de cargas, litros comprados y gasto mensual',
+      stats: `${vehicle.gasolineRecords?.length || 0} cargas registradas`
+    },
+    {
+      key: 'parameters',
+      cardClass: 'parameters',
+      icon: '⚙',
+      eyebrow: 'Ajustes de unidad',
+      title: 'Parametros',
+      description: 'Limites de tanque, rendimiento esperado y alertas preventivas de cambio de aceite',
+      stats: `${configuredParametersCount}/8 parametros configurados`
+    },
+    {
+      key: 'photos',
+      cardClass: 'photos',
+      icon: '📷',
+      eyebrow: 'Memoria visual',
+      title: 'Fotografias',
+      description: 'Registro fotografico del vehiculo',
+      stats: `${vehicle.photos?.length || 0}/13 fotos capturadas`
+    }
+  ];
+
   const handleModuleClick = (module) => {
     setActiveSection(module);
     if (module === 'documents') onDocumentsClick?.();
@@ -82,18 +124,18 @@ export default function VehicleDetailView({
         <div className="detail-left-column">
           <div className="info-section">
             <h2 className="info-title">
-              <span className="icon">ℹ️</span>
-              Información Básica del Vehículo
+              <span className="icon">i</span>
+              Informacion Basica del Vehiculo
             </h2>
 
             <div className="vehicle-summary-strip">
               <div className="summary-card">
-                <span className="summary-label">Placa</span>
-                <strong className="summary-value">{vehicle.placa}</strong>
+                <span className="summary-label">Numero Economico</span>
+                <strong className="summary-value">{getVehicleIdentifier(vehicle)}</strong>
               </div>
               <div className="summary-card">
-                <span className="summary-label">Propietario</span>
-                <strong className="summary-value">{vehicle.propietario_nombre || '-'}</strong>
+                <span className="summary-label">Unidad</span>
+                <strong className="summary-value">{getVehicleSecondaryLabel(vehicle)}</strong>
               </div>
               <div className="summary-card">
                 <span className="summary-label">Estado</span>
@@ -113,28 +155,36 @@ export default function VehicleDetailView({
               <table className="info-table">
                 <tbody>
                   <tr>
+                    <td className="label">Numero Economico</td>
+                    <td className="value">{vehicle.numero_economico || '-'}</td>
+                  </tr>
+                  <tr>
+                    <td className="label">Tipo de Carro</td>
+                    <td className="value">{vehicle.tipo_carro || '-'}</td>
+                  </tr>
+                  <tr>
                     <td className="label">Propietario</td>
-                    <td className="value">{vehicle.propietario_nombre}</td>
+                    <td className="value">{vehicle.propietario_nombre || '-'}</td>
                   </tr>
                   <tr>
                     <td className="label">Placa</td>
                     <td className="value">
-                      <span className="detail-value-text">{vehicle.placa}</span>
+                      <span className="detail-value-text">{vehicle.placa || '-'}</span>
                     </td>
                   </tr>
                   <tr>
-                    <td className="label">Número de Serie</td>
+                    <td className="label">Numero de Serie</td>
                     <td className="value">
-                      <span className="detail-value-text">{vehicle.numero_serie}</span>
+                      <span className="detail-value-text">{vehicle.numero_serie || '-'}</span>
                     </td>
                   </tr>
                   <tr>
                     <td className="label">Marca</td>
-                    <td className="value">{vehicle.marca}</td>
+                    <td className="value">{vehicle.marca || '-'}</td>
                   </tr>
                   <tr>
-                    <td className="label">Modelo (Año)</td>
-                    <td className="value">{vehicle.modelo}</td>
+                    <td className="label">Modelo (Ano)</td>
+                    <td className="value">{vehicle.modelo || '-'}</td>
                   </tr>
                   <tr>
                     <td className="label">Color</td>
@@ -158,7 +208,7 @@ export default function VehicleDetailView({
                   </tr>
                   {vehicle.descripcion && (
                     <tr>
-                      <td className="label">Descripción</td>
+                      <td className="label">Descripcion</td>
                       <td className="value description">{vehicle.descripcion}</td>
                     </tr>
                   )}
@@ -177,110 +227,41 @@ export default function VehicleDetailView({
 
       <div className="modules-section">
         <h2 className="modules-title">
-          <span className="icon">📋</span>
-          Módulos de Información
+          <span className="icon">+</span>
+          Modulos de Informacion
         </h2>
 
         <div className="modules-grid">
-          <div
-            className="module-card documents"
-            onClick={() => handleModuleClick('documents')}
-            data-active={activeSection === 'documents'}
-          >
-            <div className="module-header">
-              <span className="module-icon">📄</span>
-              <span>Documentos</span>
-            </div>
-            <div className="module-info">
-              Permisos, licencias y documentos del vehículo
-            </div>
-            <div className="module-stats">
-              {vehicle.documents?.length || 0} documentos registrados
-            </div>
-            <button className="module-button">
-              Ver detalles
-            </button>
-          </div>
+          {modules.map((module) => (
+            <div
+              key={module.key}
+              className={`module-card ${module.cardClass}`}
+              onClick={() => handleModuleClick(module.key)}
+              data-active={activeSection === module.key}
+            >
+              <div className="module-topbar">
+                <div className="module-art" aria-hidden="true">
+                  <span className="module-art-icon">{module.icon}</span>
+                </div>
+                <div className="module-copy">
+                  <span className="module-eyebrow">{module.eyebrow}</span>
+                  <div className="module-header">
+                    <span>{module.title}</span>
+                  </div>
+                </div>
+              </div>
 
-          <div
-            className="module-card maintenance"
-            onClick={() => handleModuleClick('maintenance')}
-            data-active={activeSection === 'maintenance'}
-          >
-            <div className="module-header">
-              <span className="module-icon">🛠️</span>
-              <span>Mantenimiento</span>
+              <div className="module-info">
+                {module.description}
+              </div>
+              <div className="module-stats">
+                {module.stats}
+              </div>
+              <button className="module-button">
+                Ver detalles
+              </button>
             </div>
-            <div className="module-info">
-              Elementos de seguridad, checklist y servicios realizados
-            </div>
-            <div className="module-stats">
-              {vehicle.safetyElements?.length || 0}/11 elementos completados
-            </div>
-            <button className="module-button">
-              Ver detalles
-            </button>
-          </div>
-
-          <div
-            className="module-card gasoline"
-            onClick={() => handleModuleClick('gasoline')}
-            data-active={activeSection === 'gasoline'}
-          >
-            <div className="module-header">
-              <span className="module-icon">⛽</span>
-              <span>Gasolina</span>
-            </div>
-            <div className="module-info">
-              Historial de cargas, litros comprados y gasto mensual
-            </div>
-            <div className="module-stats">
-              {vehicle.gasolineRecords?.length || 0} cargas registradas
-            </div>
-            <button className="module-button">
-              Ver detalles
-            </button>
-          </div>
-
-          <div
-            className="module-card parameters"
-            onClick={() => handleModuleClick('parameters')}
-            data-active={activeSection === 'parameters'}
-          >
-            <div className="module-header">
-              <span className="module-icon">⚙️</span>
-              <span>Parámetros</span>
-            </div>
-            <div className="module-info">
-              Limites de tanque, rendimiento esperado y alertas preventivas de cambio de aceite
-            </div>
-            <div className="module-stats">
-              {configuredParametersCount}/8 parametros configurados
-            </div>
-            <button className="module-button">
-              Ver detalles
-            </button>
-          </div>
-
-          <div
-            className="module-card photos"
-            onClick={() => handleModuleClick('photos')}
-            data-active={activeSection === 'photos'}
-          >
-            <div className="module-header">
-              <span className="module-icon">📸</span>
-              <span>Fotografías</span>
-            </div>
-            <div className="module-info">
-              Registro fotográfico del vehículo
-            </div>
-            <div className="module-stats">
-              {vehicle.photos?.length || 0}/13 fotos capturadas
-            </div>
-            <button className="module-button">
-              Ver detalles
-            </button>
-          </div>
+          ))}
         </div>
       </div>
     </div>

@@ -206,7 +206,7 @@ export default function VehicleParametersSection({
         </div>
         <div>
           <span>Descripcion</span>
-          <strong>{vehicle?.descripcion || vehicle?.propietario_nombre || 'Sin descripcion'}</strong>
+          <strong>{vehicle?.numero_economico || vehicle?.placa || 'Sin numero economico'}</strong>
         </div>
         <div>
           <span>Estado actual</span>

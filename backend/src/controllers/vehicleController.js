@@ -22,6 +22,7 @@ const extractFileList = (document) => {
 
 const isRemoteUrl = (value = '') => /^https?:\/\//i.test(value);
 const VALID_VEHICLE_STATES = ['activo', 'inactivo', 'en_mantenimiento'];
+const VALID_VEHICLE_TYPES = ['Torton', 'Tracto', 'Remolque', 'Rabon', 'Pipa', 'Gondola', 'Plataforma'];
 const VEHICLE_PHOTO_TYPES = [
   'frente', 'parte_trasera', 'lado_piloto', 'lado_copiloto',
   'senales_y_luces', 'estrobos', 'extintor', 'rotulacion',
@@ -131,8 +132,8 @@ const buildGlobalGasolineData = (body, vehicle, previousMileage = null, options 
     operador: normalizeNullableText(body.operador),
     primera_carga: primeraCarga,
     placa_snapshot: normalizeNullableText(vehicle?.placa),
-    descripcion_snapshot: normalizeNullableText(vehicle?.descripcion),
-    numero_economico_snapshot: normalizeNullableText(body.numero_economico_snapshot)
+    descripcion_snapshot: normalizeNullableText(vehicle?.descripcion || vehicle?.propietario_nombre),
+    numero_economico_snapshot: normalizeNullableText(vehicle?.numero_economico || body.numero_economico_snapshot)
   };
 };
 const validateGlobalGasolineData = (gasolineData, operationParameters = null) => {
@@ -158,6 +159,10 @@ const validateGlobalGasolineData = (gasolineData, operationParameters = null) =>
 
   if (!gasolineData.placa_snapshot) {
     return 'La placa del vehiculo es requerida';
+  }
+
+  if (!gasolineData.numero_economico_snapshot) {
+    return 'El numero economico del vehiculo es requerido';
   }
 
   if (!gasolineData.descripcion_snapshot) {
@@ -308,6 +313,8 @@ export const vehicleController = {
 
       // Los campos del RF1 vienen directamente en req.body
       basicInfo = {
+        numero_economico: req.body.numero_economico,
+        tipo_carro: req.body.tipo_carro,
         propietario_nombre: req.body.propietario_nombre,
         placa: req.body.placa,
         numero_serie: req.body.numero_serie,
@@ -323,6 +330,8 @@ export const vehicleController = {
       // ✅ VALIDACIONES - Solo PASO 1 es requerido
       const missingFields = [];
       
+      if (!basicInfo.numero_economico?.trim()) missingFields.push('Numero Economico');
+      if (!basicInfo.tipo_carro?.trim()) missingFields.push('Tipo de Carro');
       if (!basicInfo.propietario_nombre?.trim()) missingFields.push('Nombre del Propietario');
       if (!basicInfo.placa?.trim()) missingFields.push('Placa');
       if (!basicInfo.numero_serie?.trim()) missingFields.push('Número de Serie');
@@ -343,8 +352,18 @@ export const vehicleController = {
         });
       }
 
+      if (!VALID_VEHICLE_TYPES.includes(basicInfo.tipo_carro)) {
+        return res.status(400).json({
+          message: `Tipo de carro invalido. Opciones: ${VALID_VEHICLE_TYPES.join(', ')}`
+        });
+      }
+
       // Verificar duplicados
-      const duplicateResult = await vehicleModel.checkDuplicates(basicInfo.placa, basicInfo.numero_serie);
+      const duplicateResult = await vehicleModel.checkDuplicates(
+        basicInfo.placa,
+        basicInfo.numero_serie,
+        basicInfo.numero_economico
+      );
       const duplicates = Array.isArray(duplicateResult)
         ? duplicateResult
         : duplicateResult
@@ -2090,6 +2109,27 @@ export const vehicleController = {
         basicInfo = typeof req.body.basicInfo === 'string' 
           ? JSON.parse(req.body.basicInfo) 
           : req.body.basicInfo;
+      } else if (
+        req.body.numero_economico
+        || req.body.tipo_carro
+        || req.body.propietario_nombre
+        || req.body.placa
+        || req.body.numero_serie
+        || req.body.marca
+        || req.body.modelo
+      ) {
+        basicInfo = {
+          numero_economico: req.body.numero_economico,
+          tipo_carro: req.body.tipo_carro,
+          propietario_nombre: req.body.propietario_nombre,
+          placa: req.body.placa,
+          numero_serie: req.body.numero_serie,
+          marca: req.body.marca,
+          modelo: req.body.modelo,
+          color: req.body.color,
+          capacidad_kg: req.body.capacidad_kg,
+          descripcion: req.body.descripcion
+        };
       }
 
       if (req.body.documents) {
@@ -2115,6 +2155,8 @@ export const vehicleController = {
       if (Object.keys(basicInfo).length > 0) {
         const missingFields = [];
         
+        if (!basicInfo.numero_economico?.trim()) missingFields.push('Numero Economico');
+        if (!basicInfo.tipo_carro?.trim()) missingFields.push('Tipo de Carro');
         if (!basicInfo.propietario_nombre?.trim()) missingFields.push('Nombre del Propietario');
         if (!basicInfo.placa?.trim()) missingFields.push('Placa');
         if (!basicInfo.numero_serie?.trim()) missingFields.push('Número de Serie');
@@ -2136,6 +2178,25 @@ export const vehicleController = {
         }
 
         // 1. Actualizar vehículo
+        if (!VALID_VEHICLE_TYPES.includes(basicInfo.tipo_carro)) {
+          return res.status(400).json({
+            message: `Tipo de carro invalido. Opciones: ${VALID_VEHICLE_TYPES.join(', ')}`
+          });
+        }
+
+        const duplicateResult = await vehicleModel.checkDuplicates(
+          basicInfo.placa,
+          basicInfo.numero_serie,
+          basicInfo.numero_economico,
+          id
+        );
+        if (duplicateResult) {
+          return res.status(400).json({
+            message: 'Placa, numero de serie o numero economico ya existen',
+            duplicate: duplicateResult
+          });
+        }
+
         await vehicleModel.updateVehicle(id, basicInfo);
         console.log('✅ Vehículo actualizado');
       }

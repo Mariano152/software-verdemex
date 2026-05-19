@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import usePopupTopScroll from '../../../hooks/usePopupTopScroll';
 import { FUEL_TYPE_OPTIONS, getFuelTypeLabel, normalizeFuelType } from '../../../constants/fuelTypes';
+import { getVehicleSelectorLabel } from '../../../utils/vehicleLabels';
 import '../../Gasoline/GlobalGasolineRecordModal.css';
 import './MaintenanceRecordModal.css';
 
@@ -47,6 +48,7 @@ const buildEmptyForm = (vehicle) => ({
   proveedor: '',
   descripcion: '',
   observaciones: '',
+  numero_economico_snapshot: vehicle?.numero_economico || '',
   placa_snapshot: vehicle?.placa || '',
   descripcion_snapshot: vehicle?.descripcion || vehicle?.propietario_nombre || '',
   kilometraje_actual: '',
@@ -146,6 +148,7 @@ export default function GasolineRecordModal({
       proveedor: record.proveedor || '',
       descripcion: record.descripcion || '',
       observaciones: record.observaciones || '',
+      numero_economico_snapshot: record.numero_economico_snapshot || vehicle?.numero_economico || '',
       placa_snapshot: record.placa_snapshot || vehicle?.placa || '',
       descripcion_snapshot: record.descripcion_snapshot || vehicle?.descripcion || vehicle?.propietario_nombre || '',
       kilometraje_actual: record.kilometraje_actual ?? '',
@@ -171,6 +174,7 @@ export default function GasolineRecordModal({
     if (!isNew && record) {
       setFormData((current) => ({
         ...current,
+        numero_economico_snapshot: vehicle?.numero_economico || current.numero_economico_snapshot,
         placa_snapshot: vehicle?.placa || current.placa_snapshot,
         descripcion_snapshot: vehicle?.descripcion || vehicle?.propietario_nombre || current.descripcion_snapshot
       }));
@@ -187,6 +191,7 @@ export default function GasolineRecordModal({
 
       setFormData((current) => ({
         ...current,
+        numero_economico_snapshot: vehicle?.numero_economico || current.numero_economico_snapshot,
         placa_snapshot: vehicle?.placa || current.placa_snapshot,
         descripcion_snapshot: vehicle?.descripcion || vehicle?.propietario_nombre || current.descripcion_snapshot,
         kilometraje_anterior: String(previousMileage)
@@ -196,6 +201,7 @@ export default function GasolineRecordModal({
 
     setFormData((current) => ({
       ...current,
+      numero_economico_snapshot: vehicle?.numero_economico || current.numero_economico_snapshot,
       placa_snapshot: vehicle?.placa || current.placa_snapshot,
       descripcion_snapshot: vehicle?.descripcion || vehicle?.propietario_nombre || current.descripcion_snapshot
     }));
@@ -223,8 +229,8 @@ export default function GasolineRecordModal({
   const pricePerM3 = m3Sent && m3Sent > 0 && totalAmount !== null ? totalAmount / m3Sent : 0;
 
   const vehicleLabel = useMemo(() => {
-    if (vehicle?.placa || vehicle?.descripcion || vehicle?.propietario_nombre) {
-      return `${vehicle?.placa || vehicleId} - ${vehicle?.descripcion || vehicle?.propietario_nombre || 'Sin descripcion'}`;
+    if (vehicle?.numero_economico || vehicle?.placa || vehicle?.descripcion || vehicle?.propietario_nombre) {
+      return getVehicleSelectorLabel(vehicle);
     }
 
     return `Vehiculo ${vehicleId}`;
@@ -346,6 +352,11 @@ export default function GasolineRecordModal({
       return;
     }
 
+    if (!String(formData.numero_economico_snapshot || '').trim()) {
+      setValidationMessage('El numero economico del vehiculo es obligatorio.');
+      return;
+    }
+
     if (!String(formData.descripcion_snapshot || '').trim()) {
       setValidationMessage('La descripcion del vehiculo es obligatoria.');
       return;
@@ -453,6 +464,11 @@ export default function GasolineRecordModal({
           <label>
             <span>Hora</span>
             <input type='time' value={formData.hora_carga} onChange={(event) => handleChange('hora_carga', event.target.value)} readOnly={isViewMode} />
+          </label>
+
+          <label>
+            <span>Numero economico</span>
+            <input value={formData.numero_economico_snapshot} readOnly />
           </label>
 
           <label>

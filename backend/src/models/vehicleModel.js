@@ -150,6 +150,8 @@ export const vehicleModel = {
 
   async createVehicle(vehicleData) {
     const {
+      numero_economico,
+      tipo_carro,
       propietario_nombre,
       placa,
       numero_serie,
@@ -163,22 +165,65 @@ export const vehicleModel = {
 
     const result = await query(
       `INSERT INTO vehiculos
-       (propietario_nombre, placa, numero_serie, marca, modelo, color, capacidad_kg, descripcion, imagen_url)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       (
+         numero_economico, tipo_carro, propietario_nombre, placa, numero_serie,
+         marca, modelo, color, capacidad_kg, descripcion, imagen_url
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
-      [propietario_nombre, placa, numero_serie, marca, modelo, color, capacidad_kg, descripcion, imagen_url]
+      [
+        numero_economico,
+        tipo_carro,
+        propietario_nombre,
+        placa,
+        numero_serie,
+        marca,
+        modelo,
+        color,
+        capacidad_kg,
+        descripcion,
+        imagen_url
+      ]
     );
 
     return result.rows[0];
   },
 
-  async checkDuplicates(placa, numeroSerie) {
+  async checkDuplicates(placa, numeroSerie, numeroEconomico = null, excludeVehicleId = null) {
+    const conditions = [];
+    const params = [];
+
+    if (placa) {
+      params.push(placa);
+      conditions.push(`placa = $${params.length}`);
+    }
+
+    if (numeroSerie) {
+      params.push(numeroSerie);
+      conditions.push(`numero_serie = $${params.length}`);
+    }
+
+    if (numeroEconomico) {
+      params.push(numeroEconomico);
+      conditions.push(`numero_economico = $${params.length}`);
+    }
+
+    if (conditions.length === 0) {
+      return null;
+    }
+
+    if (excludeVehicleId) {
+      params.push(excludeVehicleId);
+    }
+
     const result = await query(
-      `SELECT id, placa, numero_serie
+      `SELECT id, placa, numero_serie, numero_economico
        FROM vehiculos
-       WHERE deleted_at IS NULL AND (placa = $1 OR numero_serie = $2)
+       WHERE deleted_at IS NULL
+         ${excludeVehicleId ? `AND id <> $${params.length}` : ''}
+         AND (${conditions.join(' OR ')})
        LIMIT 1`,
-      [placa, numeroSerie]
+      params
     );
 
     return result.rows[0] || null;
@@ -715,7 +760,9 @@ export const vehicleModel = {
            g.*,
            v.placa AS vehiculo_placa,
            v.descripcion AS vehiculo_descripcion,
-           v.propietario_nombre AS vehiculo_nombre
+           v.propietario_nombre AS vehiculo_nombre,
+           v.numero_economico AS vehiculo_numero_economico,
+           v.tipo_carro AS vehiculo_tipo_carro
          FROM vehiculo_gasolina_registros g
          JOIN vehiculos v ON v.id = g.vehiculo_id
          WHERE g.id = $1
@@ -810,7 +857,9 @@ export const vehicleModel = {
            g.*,
            v.placa AS vehiculo_placa,
            v.descripcion AS vehiculo_descripcion,
-           v.propietario_nombre AS vehiculo_nombre
+           v.propietario_nombre AS vehiculo_nombre,
+           v.numero_economico AS vehiculo_numero_economico,
+           v.tipo_carro AS vehiculo_tipo_carro
          FROM vehiculo_gasolina_registros g
          JOIN vehiculos v ON v.id = g.vehiculo_id
          WHERE ${conditions.join(' AND ')}
@@ -1272,6 +1321,8 @@ export const vehicleModel = {
 
   async updateVehicle(vehicleId, vehicleData) {
     const {
+      numero_economico,
+      tipo_carro,
       propietario_nombre,
       placa,
       numero_serie,
@@ -1286,36 +1337,65 @@ export const vehicleModel = {
     try {
       const result = await query(
         `UPDATE vehiculos
-         SET propietario_nombre = $1,
-             placa = $2,
-             numero_serie = $3,
-             marca = $4,
-             modelo = $5,
-             color = $6,
-             capacidad_kg = $7,
-             descripcion = $8,
-             estado = $9,
+         SET numero_economico = $1,
+             tipo_carro = $2,
+             propietario_nombre = $3,
+             placa = $4,
+             numero_serie = $5,
+             marca = $6,
+             modelo = $7,
+             color = $8,
+             capacidad_kg = $9,
+             descripcion = $10,
+             estado = $11,
              updated_at = NOW()
-         WHERE id = $10
+         WHERE id = $12
          RETURNING *`,
-        [propietario_nombre, placa, numero_serie, marca, modelo, color, capacidad_kg, descripcion, estado, vehicleId]
+        [
+          numero_economico,
+          tipo_carro,
+          propietario_nombre,
+          placa,
+          numero_serie,
+          marca,
+          modelo,
+          color,
+          capacidad_kg,
+          descripcion,
+          estado,
+          vehicleId
+        ]
       );
       return result.rows[0];
     } catch (error) {
       const result = await query(
         `UPDATE vehiculos
-         SET propietario_nombre = $1,
-             placa = $2,
-             numero_serie = $3,
-             marca = $4,
-             modelo = $5,
-             color = $6,
-             capacidad_kg = $7,
-             descripcion = $8,
+         SET numero_economico = $1,
+             tipo_carro = $2,
+             propietario_nombre = $3,
+             placa = $4,
+             numero_serie = $5,
+             marca = $6,
+             modelo = $7,
+             color = $8,
+             capacidad_kg = $9,
+             descripcion = $10,
              updated_at = NOW()
-         WHERE id = $9
+         WHERE id = $11
          RETURNING *`,
-        [propietario_nombre, placa, numero_serie, marca, modelo, color, capacidad_kg, descripcion, vehicleId]
+        [
+          numero_economico,
+          tipo_carro,
+          propietario_nombre,
+          placa,
+          numero_serie,
+          marca,
+          modelo,
+          color,
+          capacidad_kg,
+          descripcion,
+          vehicleId
+        ]
       );
       return result.rows[0];
     }

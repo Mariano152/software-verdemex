@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import usePopupTopScroll from '../../hooks/usePopupTopScroll';
 import { FUEL_TYPE_OPTIONS, getFuelTypeLabel, normalizeFuelType } from '../../constants/fuelTypes';
+import { getVehicleSelectorLabel } from '../../utils/vehicleLabels';
 import '../Vehicles/Sections/MaintenanceRecordModal.css';
 import './GlobalGasolineRecordModal.css';
 
@@ -44,6 +45,7 @@ const EMPTY_FORM = {
   fecha_carga: buildTodayDate(),
   hora_carga: buildCurrentTime(),
   proveedor: '',
+  numero_economico_snapshot: '',
   placa_snapshot: '',
   descripcion_snapshot: '',
   kilometraje_actual: '',
@@ -146,6 +148,7 @@ export default function GlobalGasolineRecordModal({
       fecha_carga: formatDateForInput(record.fecha_carga) || buildTodayDate(),
       hora_carga: formatTimeForInput(record.hora_carga) || buildCurrentTime(),
       proveedor: record.proveedor || '',
+      numero_economico_snapshot: record.numero_economico_snapshot || record.vehiculo_numero_economico || '',
       placa_snapshot: record.placa_snapshot || record.vehiculo_placa || '',
       descripcion_snapshot: record.descripcion_snapshot || record.vehiculo_descripcion || '',
       kilometraje_actual: record.kilometraje_actual ?? '',
@@ -161,8 +164,8 @@ export default function GlobalGasolineRecordModal({
     const selectedVehicle = vehicles.find((vehicle) => String(vehicle.id) === String(record.vehiculo_id));
     setVehicleSearch(
       selectedVehicle
-        ? `${selectedVehicle.placa} - ${selectedVehicle.descripcion || selectedVehicle.propietario_nombre || 'Sin descripcion'}`
-        : `${record.placa_snapshot || record.vehiculo_placa || ''} - ${record.descripcion_snapshot || record.vehiculo_descripcion || 'Sin descripcion'}`
+        ? getVehicleSelectorLabel(selectedVehicle)
+        : `${record.numero_economico_snapshot || record.vehiculo_numero_economico || ''} - ${record.placa_snapshot || record.vehiculo_placa || ''}`
     );
     setExistingFiles(extractFiles(record));
     setSelectedFiles([]);
@@ -173,9 +176,10 @@ export default function GlobalGasolineRecordModal({
 
   const vehicleOptions = useMemo(() => vehicles.map((vehicle) => ({
     id: vehicle.id,
-    label: `${vehicle.placa} - ${vehicle.descripcion || vehicle.propietario_nombre || 'Sin descripcion'}`,
+    label: getVehicleSelectorLabel(vehicle),
+    numeroEconomico: vehicle.numero_economico || '',
     placa: vehicle.placa || '',
-    descripcion: vehicle.descripcion || ''
+    descripcion: vehicle.descripcion || vehicle.propietario_nombre || ''
   })), [vehicles]);
 
   const selectedVehicle = useMemo(() => (
@@ -189,6 +193,7 @@ export default function GlobalGasolineRecordModal({
     if (!isNew && record) {
       setFormData((current) => ({
         ...current,
+        numero_economico_snapshot: selectedVehicle.numero_economico || '',
         placa_snapshot: selectedVehicle.placa || '',
         descripcion_snapshot: selectedVehicle.descripcion || ''
       }));
@@ -206,6 +211,7 @@ export default function GlobalGasolineRecordModal({
 
       setFormData((current) => ({
         ...current,
+        numero_economico_snapshot: selectedVehicle.numero_economico || '',
         placa_snapshot: selectedVehicle.placa || '',
         descripcion_snapshot: selectedVehicle.descripcion || '',
         kilometraje_anterior: String(previousMileage)
@@ -215,6 +221,7 @@ export default function GlobalGasolineRecordModal({
 
     setFormData((current) => ({
       ...current,
+      numero_economico_snapshot: selectedVehicle.numero_economico || '',
       placa_snapshot: selectedVehicle.placa || '',
       descripcion_snapshot: selectedVehicle.descripcion || ''
     }));
@@ -261,6 +268,7 @@ export default function GlobalGasolineRecordModal({
     const matchedVehicle = vehicleOptions.find((option) => option.label === value);
     if (!matchedVehicle) {
       handleChange('vehiculo_id', '');
+      handleChange('numero_economico_snapshot', '');
       handleChange('placa_snapshot', '');
       handleChange('descripcion_snapshot', '');
       return;
@@ -269,6 +277,7 @@ export default function GlobalGasolineRecordModal({
     setFormData((current) => ({
       ...current,
       vehiculo_id: matchedVehicle.id,
+      numero_economico_snapshot: matchedVehicle.numeroEconomico,
       placa_snapshot: matchedVehicle.placa,
       descripcion_snapshot: matchedVehicle.descripcion
     }));
@@ -384,6 +393,11 @@ export default function GlobalGasolineRecordModal({
       return;
     }
 
+    if (!String(formData.numero_economico_snapshot || '').trim()) {
+      setValidationMessage('El numero economico del vehiculo es obligatorio.');
+      return;
+    }
+
     if (!String(formData.descripcion_snapshot || '').trim()) {
       setValidationMessage('La descripcion del vehiculo es obligatoria.');
       return;
@@ -461,7 +475,7 @@ export default function GlobalGasolineRecordModal({
               value={vehicleSearch}
               onChange={(event) => handleVehicleSearchChange(event.target.value)}
               readOnly={isViewMode}
-              placeholder='Busca por placa o descripcion'
+              placeholder='Busca por numero economico, placa o tipo'
             />
             <datalist id='global-gasoline-vehicles'>
               {vehicleOptions.map((vehicle) => (
@@ -507,6 +521,11 @@ export default function GlobalGasolineRecordModal({
           <label>
             <span>Hora</span>
             <input type='time' value={formData.hora_carga} onChange={(event) => handleChange('hora_carga', event.target.value)} readOnly={isViewMode} />
+          </label>
+
+          <label>
+            <span>Numero economico</span>
+            <input value={formData.numero_economico_snapshot} readOnly />
           </label>
 
           <label>

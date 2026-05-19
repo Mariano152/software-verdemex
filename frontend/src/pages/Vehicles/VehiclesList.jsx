@@ -1,12 +1,12 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { getVehicleIdentifier, getVehicleSecondaryLabel } from '../../utils/vehicleLabels';
 import './VehiclesList.css';
 
 const FILTER_OPTIONS = ['todos', 'activo', 'mantenimiento', 'inactivo'];
 
 const normalizeStatus = (status) => {
   const normalizedStatus = String(status || '').trim().toLowerCase();
-
   if (normalizedStatus === 'en_mantenimiento') {
     return 'mantenimiento';
   }
@@ -52,7 +52,6 @@ export default function VehiclesList() {
       try {
         setLoading(true);
         const token = localStorage.getItem('authToken');
-
         const response = await fetch('/api/vehicles', {
           method: 'GET',
           headers: {
@@ -62,15 +61,14 @@ export default function VehiclesList() {
         });
 
         if (!response.ok) {
-          throw new Error('Error al obtener vehículos');
+          throw new Error('Error al obtener vehiculos');
         }
 
         const data = await response.json();
         setVehicles(data.vehicles || []);
         setError(null);
-      } catch (err) {
-        console.error('Error fetching vehicles:', err);
-        setError(err.message);
+      } catch (fetchError) {
+        setError(fetchError.message);
         setVehicles([]);
       } finally {
         setLoading(false);
@@ -87,6 +85,8 @@ export default function VehiclesList() {
 
     const normalizedQuery = searchTerm.trim().toLowerCase();
     const searchableText = [
+      vehicle.numero_economico,
+      vehicle.tipo_carro,
       vehicle.placa,
       vehicle.propietario_nombre,
       vehicle.marca,
@@ -98,10 +98,7 @@ export default function VehiclesList() {
       .join(' ')
       .toLowerCase();
 
-    const matchesSearch = normalizedQuery
-      ? searchableText.includes(normalizedQuery)
-      : true;
-
+    const matchesSearch = normalizedQuery ? searchableText.includes(normalizedQuery) : true;
     return matchesFilter && matchesSearch;
   });
 
@@ -109,11 +106,11 @@ export default function VehiclesList() {
     <div className="vehicles-list">
       <div className="page-header">
         <div>
-          <h1>Gestión de Vehículos</h1>
+          <h1>Gestion de Vehiculos</h1>
           <p className="subtitle">Administra tu flotilla de transporte</p>
         </div>
         <Link to="/vehicles/create" className="btn btn-primary btn-lg">
-          Añadir Vehículo
+          Anadir Vehiculo
         </Link>
       </div>
 
@@ -137,13 +134,13 @@ export default function VehiclesList() {
             </div>
 
             <div className="vehicles-search">
-              <label htmlFor="vehicles-search">Buscar vehículo</label>
+              <label htmlFor="vehicles-search">Buscar vehiculo</label>
               <input
                 id="vehicles-search"
                 type="search"
                 value={searchTerm}
                 onChange={(event) => setSearchTerm(event.target.value)}
-                placeholder="Placa, propietario, marca o color"
+                placeholder="Numero economico, placa, tipo o propietario"
               />
             </div>
           </div>
@@ -154,7 +151,7 @@ export default function VehiclesList() {
         <div className="card-body">
           {loading ? (
             <div className="loading-state">
-              <p>Cargando vehículos...</p>
+              <p>Cargando vehiculos...</p>
             </div>
           ) : error ? (
             <div className="error-state">
@@ -167,14 +164,16 @@ export default function VehiclesList() {
             <table>
               <thead>
                 <tr>
+                  <th>Numero Economico</th>
+                  <th>Tipo</th>
                   <th>Placa</th>
                   <th>Propietario</th>
                   <th>Marca/Modelo</th>
-                  <th>Año</th>
                   <th>Color</th>
                   <th>Capacidad</th>
                   <th>Estado</th>
                   <th>Foto</th>
+                  <th>Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -185,11 +184,12 @@ export default function VehiclesList() {
                     onClick={() => navigate(`/vehicles/${vehicle.id}/edit`)}
                   >
                     <td>
-                      <strong className="plate">{vehicle.placa}</strong>
+                      <strong className="plate">{getVehicleIdentifier(vehicle)}</strong>
                     </td>
-                    <td>{vehicle.propietario_nombre}</td>
+                    <td>{vehicle.tipo_carro || '-'}</td>
+                    <td>{vehicle.placa || '-'}</td>
+                    <td>{vehicle.propietario_nombre || '-'}</td>
                     <td>{vehicle.marca}/{vehicle.modelo}</td>
-                    <td>{vehicle.modelo}</td>
                     <td>
                       <span className="color-name">{vehicle.color || '-'}</span>
                     </td>
@@ -203,14 +203,26 @@ export default function VehiclesList() {
                       {vehicle.imagen_url ? (
                         <img
                           src={vehicle.imagen_url}
-                          alt={vehicle.placa}
+                          alt={getVehicleSecondaryLabel(vehicle)}
                           className="vehicle-thumbnail"
                         />
                       ) : (
                         <div className="vehicle-thumbnail vehicle-thumbnail-placeholder">
-                          📷
+                          IMG
                         </div>
                       )}
+                    </td>
+                    <td>
+                      <button
+                        type="button"
+                        className="btn btn-outline"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          navigate(`/vehicles/${vehicle.id}/edit`);
+                        }}
+                      >
+                        Editar
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -220,8 +232,8 @@ export default function VehiclesList() {
             <div className="empty-state">
               <p>
                 {filter === 'todos' && !searchTerm.trim()
-                  ? 'No hay vehículos registrados'
-                  : 'No se encontraron vehículos con los filtros actuales'}
+                  ? 'No hay vehiculos registrados'
+                  : 'No se encontraron vehiculos con los filtros actuales'}
               </p>
               <Link to="/vehicles/create" className="btn btn-primary">
                 Crear el primero

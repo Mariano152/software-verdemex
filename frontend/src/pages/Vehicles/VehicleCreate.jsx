@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import NotificationModal from '@components/Notifications/NotificationModal';
+import { VEHICLE_TYPE_OPTIONS } from '../../constants/vehicleTypes';
 import './VehicleCreate.css';
 
 export default function VehicleCreate() {
@@ -8,6 +9,8 @@ export default function VehicleCreate() {
   const [loading, setLoading] = useState(false);
   const [notification, setNotification] = useState(null);
   const [formData, setFormData] = useState({
+    numeroEconomico: '',
+    tipoCarro: '',
     propietarioNombre: '',
     placa: '',
     numeroSerie: '',
@@ -20,19 +23,19 @@ export default function VehicleCreate() {
     imagenPreview: null
   });
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({ ...prev, [name]: value }));
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    setFormData((current) => ({ ...current, [name]: value }));
   };
 
-  const handleImageChange = (e) => {
-    const file = e.target.files?.[0];
+  const handleImageChange = (event) => {
+    const file = event.target.files?.[0];
     if (!file) return;
 
     const reader = new FileReader();
     reader.onloadend = () => {
-      setFormData((prev) => ({
-        ...prev,
+      setFormData((current) => ({
+        ...current,
         imagen: file,
         imagenPreview: reader.result
       }));
@@ -41,16 +44,18 @@ export default function VehicleCreate() {
   };
 
   const removeImage = () => {
-    setFormData((prev) => ({ ...prev, imagen: null, imagenPreview: null }));
+    setFormData((current) => ({ ...current, imagen: null, imagenPreview: null }));
   };
 
   const validate = () => {
     if (
-      !formData.propietarioNombre ||
-      !formData.placa ||
-      !formData.numeroSerie ||
-      !formData.marca ||
-      !formData.modelo
+      !formData.numeroEconomico
+      || !formData.tipoCarro
+      || !formData.propietarioNombre
+      || !formData.placa
+      || !formData.numeroSerie
+      || !formData.marca
+      || !formData.modelo
     ) {
       setNotification({
         type: 'error',
@@ -64,7 +69,7 @@ export default function VehicleCreate() {
       setNotification({
         type: 'error',
         title: 'Imagen requerida',
-        message: 'Debes subir una imagen del vehículo.'
+        message: 'Debes subir una imagen del vehiculo.'
       });
       return false;
     }
@@ -72,8 +77,8 @@ export default function VehicleCreate() {
     return true;
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
 
     if (!validate()) return;
 
@@ -81,16 +86,14 @@ export default function VehicleCreate() {
     setNotification(null);
 
     try {
-      // Obtener token de autenticación
       const token = localStorage.getItem('authToken');
       if (!token) {
-        throw new Error('No estás autenticado. Por favor inicia sesión.');
+        throw new Error('No estas autenticado. Por favor inicia sesion.');
       }
 
-      // Crear FormData con la imagen
       const submitData = new FormData();
-      
-      // Agregar datos básicos
+      submitData.append('numero_economico', formData.numeroEconomico);
+      submitData.append('tipo_carro', formData.tipoCarro);
       submitData.append('propietario_nombre', formData.propietarioNombre);
       submitData.append('placa', formData.placa.toUpperCase());
       submitData.append('numero_serie', formData.numeroSerie);
@@ -99,43 +102,36 @@ export default function VehicleCreate() {
       submitData.append('color', formData.color || '');
       submitData.append('capacidad_kg', formData.capacidadKg ? parseInt(formData.capacidadKg, 10) : '');
       submitData.append('descripcion', formData.descripcion || '');
-      
-      // Agregar imagen
+
       if (formData.imagen) {
         submitData.append('imagen', formData.imagen);
       }
 
-      console.log('📤 Enviando vehículo con imagen al backend...');
-      
       const response = await fetch('/api/vehicles', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${token}`
+          Authorization: `Bearer ${token}`
         },
         body: submitData
       });
 
       const responseData = await response.json();
-      
       if (!response.ok) {
-        throw new Error(responseData.message || 'Error registrando vehículo');
+        throw new Error(responseData.message || 'Error registrando vehiculo');
       }
 
-      console.log('✅ Vehículo registrado:', responseData);
-      
       setNotification({
         type: 'success',
-        title: '✓ Vehículo Registrado',
-        message: `${formData.propietarioNombre} - Placa: ${formData.placa.toUpperCase()}`
+        title: 'Vehiculo registrado',
+        message: `${formData.numeroEconomico} - Placa: ${formData.placa.toUpperCase()}`
       });
 
       setTimeout(() => navigate('/vehicles'), 1500);
     } catch (error) {
-      console.error('❌ Error:', error);
       setNotification({
         type: 'error',
-        title: 'Error al Registrar',
-        message: error.message || 'Ocurrió un error al registrar el vehículo.'
+        title: 'Error al registrar',
+        message: error.message || 'Ocurrio un error al registrar el vehiculo.'
       });
     } finally {
       setLoading(false);
@@ -146,11 +142,11 @@ export default function VehicleCreate() {
     <div className="vehicle-create">
       <div className="form-header">
         <Link to="/vehicles" className="btn btn-outline">
-          ← Volver
+          Volver
         </Link>
         <div>
-          <h1>Registro de Nuevo Vehículo</h1>
-          <p className="subtitle">RF1 - Información Básica del Vehículo</p>
+          <h1>Registro de Nuevo Vehiculo</h1>
+          <p className="subtitle">Informacion basica del vehiculo</p>
         </div>
       </div>
 
@@ -165,26 +161,54 @@ export default function VehicleCreate() {
 
       <div className="card">
         <form onSubmit={handleSubmit}>
-          {/* Sección Información Básica */}
           <div className="form-section">
-            <h3>Información Básica del Vehículo</h3>
+            <h3>Informacion Basica del Vehiculo</h3>
 
             <div className="form-row">
               <div className="form-group">
-                <label htmlFor="propietarioNombre">
-                  Nombre del Propietario *
-                </label>
+                <label htmlFor="numeroEconomico">Numero Economico *</label>
+                <input
+                  id="numeroEconomico"
+                  type="text"
+                  name="numeroEconomico"
+                  value={formData.numeroEconomico}
+                  onChange={handleChange}
+                  placeholder="VEH-001"
+                  required
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="tipoCarro">Tipo de Carro *</label>
+                <select
+                  id="tipoCarro"
+                  name="tipoCarro"
+                  value={formData.tipoCarro}
+                  onChange={handleChange}
+                  required
+                >
+                  <option value="">Selecciona un tipo</option>
+                  {VEHICLE_TYPE_OPTIONS.map((option) => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="propietarioNombre">Nombre del Propietario *</label>
                 <input
                   id="propietarioNombre"
                   type="text"
                   name="propietarioNombre"
                   value={formData.propietarioNombre}
                   onChange={handleChange}
-                  placeholder="Juan Rodríguez"
+                  placeholder="Juan Rodriguez"
                   required
                 />
               </div>
+            </div>
 
+            <div className="form-row">
               <div className="form-group">
                 <label htmlFor="placa">Placa *</label>
                 <input
@@ -199,7 +223,7 @@ export default function VehicleCreate() {
               </div>
 
               <div className="form-group">
-                <label htmlFor="numeroSerie">Número de Serie *</label>
+                <label htmlFor="numeroSerie">Numero de Serie *</label>
                 <input
                   id="numeroSerie"
                   type="text"
@@ -210,9 +234,7 @@ export default function VehicleCreate() {
                   required
                 />
               </div>
-            </div>
 
-            <div className="form-row">
               <div className="form-group">
                 <label htmlFor="marca">Marca *</label>
                 <input
@@ -225,9 +247,11 @@ export default function VehicleCreate() {
                   required
                 />
               </div>
+            </div>
 
+            <div className="form-row">
               <div className="form-group">
-                <label htmlFor="modelo">Año del Modelo *</label>
+                <label htmlFor="modelo">Ano del Modelo *</label>
                 <input
                   id="modelo"
                   type="number"
@@ -252,9 +276,7 @@ export default function VehicleCreate() {
                   placeholder="Blanco"
                 />
               </div>
-            </div>
 
-            <div className="form-row">
               <div className="form-group">
                 <label htmlFor="capacidadKg">Capacidad (Kg)</label>
                 <input
@@ -267,24 +289,25 @@ export default function VehicleCreate() {
                   min="0"
                 />
               </div>
+            </div>
 
+            <div className="form-row">
               <div className="form-group full-width">
-                <label htmlFor="descripcion">Descripción</label>
+                <label htmlFor="descripcion">Descripcion</label>
                 <textarea
                   id="descripcion"
                   name="descripcion"
                   value={formData.descripcion}
                   onChange={handleChange}
-                  placeholder="Descripción adicional del vehículo..."
+                  placeholder="Descripcion adicional del vehiculo..."
                   rows="3"
                 />
               </div>
             </div>
           </div>
 
-          {/* Sección Fotografía Principal */}
           <div className="form-section">
-            <h3>Fotografía del Vehículo *</h3>
+            <h3>Fotografia del Vehiculo *</h3>
 
             <div className="photo-upload-container">
               {formData.imagenPreview ? (
@@ -295,14 +318,14 @@ export default function VehicleCreate() {
                     onClick={removeImage}
                     className="btn-remove-photo"
                   >
-                    ✕
+                    X
                   </button>
                 </div>
               ) : (
                 <label htmlFor="imagen" className="photo-upload-placeholder">
-                  <div className="upload-icon">📷</div>
+                  <div className="upload-icon">IMG</div>
                   <div className="upload-text">
-                    Haz clic para seleccionar la imagen del vehículo
+                    Haz clic para seleccionar la imagen del vehiculo
                   </div>
                 </label>
               )}
@@ -317,7 +340,6 @@ export default function VehicleCreate() {
             </div>
           </div>
 
-          {/* Botones de Acción */}
           <div className="form-actions">
             <Link to="/vehicles" className="btn btn-outline">
               Cancelar
@@ -327,7 +349,7 @@ export default function VehicleCreate() {
               className="btn btn-success btn-lg"
               disabled={loading}
             >
-              {loading ? 'Registrando...' : '✓ Registrar Vehículo'}
+              {loading ? 'Registrando...' : 'Registrar Vehiculo'}
             </button>
           </div>
         </form>

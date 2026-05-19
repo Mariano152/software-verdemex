@@ -187,6 +187,7 @@ export default function VehicleGasolineSection({
         record.titulo,
         record.factura,
         record.tipo_combustible,
+        record.numero_economico_snapshot,
         record.proveedor,
         record.operador,
         record.observaciones
@@ -513,6 +514,7 @@ export default function VehicleGasolineSection({
 
                   <div className='gasoline-record-grid'>
                     <div><span className='record-label'>Factura</span><strong>{record.factura || '-'}</strong></div>
+                    <div><span className='record-label'>Numero economico</span><strong>{record.numero_economico_snapshot || vehicle?.numero_economico || '-'}</strong></div>
                     <div><span className='record-label'>Fecha</span><strong>{formatDate(record.fecha_carga)}</strong></div>
                     <div><span className='record-label'>Hora</span><strong>{formatTimeForInput(record.hora_carga) || '-'}</strong></div>
                     <div><span className='record-label'>Proveedor</span><strong>{record.proveedor || '-'}</strong></div>

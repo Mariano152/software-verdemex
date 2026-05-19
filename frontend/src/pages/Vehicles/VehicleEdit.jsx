@@ -7,6 +7,8 @@ import VehicleGasolineSection from './Sections/VehicleGasolineSection';
 import VehiclePhotosSection from './Sections/VehiclePhotosSection';
 import VehicleParametersSection from './Sections/VehicleParametersSection';
 import NotificationModal from '../../components/Notifications/NotificationModal';
+import { VEHICLE_TYPE_OPTIONS } from '../../constants/vehicleTypes';
+import { getVehicleIdentifier, getVehicleSecondaryLabel } from '../../utils/vehicleLabels';
 import '../../components/Notifications/NotificationModal.css';
 import './VehicleEdit.css';
 
@@ -27,6 +29,20 @@ export default function VehicleEdit() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [notification, setNotification] = useState(null);
+  const [isEditingBasicInfo, setIsEditingBasicInfo] = useState(false);
+  const [basicInfoSaving, setBasicInfoSaving] = useState(false);
+  const [basicInfoForm, setBasicInfoForm] = useState({
+    numero_economico: '',
+    tipo_carro: '',
+    propietario_nombre: '',
+    placa: '',
+    numero_serie: '',
+    marca: '',
+    modelo: '',
+    color: '',
+    capacidad_kg: '',
+    descripcion: ''
+  });
   const contentRef = useRef(null);
   const requestedSection = searchParams.get('section');
   const requestedDocumentId = searchParams.get('documentId');
@@ -54,6 +70,18 @@ export default function VehicleEdit() {
 
         const data = await response.json();
         setVehicle(data);
+        setBasicInfoForm({
+          numero_economico: data.numero_economico || '',
+          tipo_carro: data.tipo_carro || '',
+          propietario_nombre: data.propietario_nombre || '',
+          placa: data.placa || '',
+          numero_serie: data.numero_serie || '',
+          marca: data.marca || '',
+          modelo: data.modelo || '',
+          color: data.color || '',
+          capacidad_kg: data.capacidad_kg || '',
+          descripcion: data.descripcion || ''
+        });
         setError(null);
       } catch (err) {
         console.error('Error fetching vehicle:', err);
@@ -434,6 +462,63 @@ export default function VehicleEdit() {
     });
   };
 
+  const handleBasicInfoInputChange = (event) => {
+    const { name, value } = event.target;
+    setBasicInfoForm((current) => ({
+      ...current,
+      [name]: value
+    }));
+  };
+
+  const handleSaveBasicInfo = async () => {
+    setBasicInfoSaving(true);
+
+    try {
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`/api/vehicles/${id}`, {
+        method: 'PUT',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ basicInfo: basicInfoForm })
+      });
+
+      const responseData = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(responseData.message || 'No se pudo actualizar el vehiculo');
+      }
+
+      setVehicle(responseData);
+      setBasicInfoForm({
+        numero_economico: responseData.numero_economico || '',
+        tipo_carro: responseData.tipo_carro || '',
+        propietario_nombre: responseData.propietario_nombre || '',
+        placa: responseData.placa || '',
+        numero_serie: responseData.numero_serie || '',
+        marca: responseData.marca || '',
+        modelo: responseData.modelo || '',
+        color: responseData.color || '',
+        capacidad_kg: responseData.capacidad_kg || '',
+        descripcion: responseData.descripcion || ''
+      });
+      setIsEditingBasicInfo(false);
+      setNotification({
+        type: 'success',
+        title: 'Exito',
+        message: 'Datos del vehiculo actualizados correctamente'
+      });
+    } catch (saveError) {
+      setNotification({
+        type: 'error',
+        title: 'Error',
+        message: saveError.message || 'No se pudo actualizar el vehiculo'
+      });
+    } finally {
+      setBasicInfoSaving(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="edit-loading">
@@ -491,8 +576,101 @@ export default function VehicleEdit() {
         </button>
         <div className="edit-header-copy">
           <span className="edit-header-eyebrow">Expediente del vehículo</span>
-          <h1>{vehicle.placa}</h1>
-          <p className="owner-info">Propietario: {vehicle.propietario_nombre}</p>
+          <h1>{getVehicleIdentifier(vehicle)}</h1>
+          <p className="owner-info">{getVehicleSecondaryLabel(vehicle)}</p>
+          <p className="owner-info">Propietario: {vehicle.propietario_nombre || '-'}</p>
+        </div>
+      </div>
+
+      <div className="card" style={{ marginBottom: '1.5rem' }}>
+        <div style={{ padding: '1.5rem' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
+            <div>
+              <h2 style={{ margin: 0 }}>Datos del vehiculo</h2>
+              <p style={{ margin: '0.35rem 0 0 0', color: '#6b7280' }}>
+                El numero economico es el identificador principal de la unidad.
+              </p>
+            </div>
+            {!isEditingBasicInfo ? (
+              <button type="button" className="btn btn-primary" onClick={() => setIsEditingBasicInfo(true)}>
+                Editar vehiculo
+              </button>
+            ) : (
+              <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <button type="button" className="btn btn-secondary" onClick={() => setIsEditingBasicInfo(false)}>
+                  Cancelar
+                </button>
+                <button type="button" className="btn btn-primary" onClick={handleSaveBasicInfo} disabled={basicInfoSaving}>
+                  {basicInfoSaving ? 'Guardando...' : 'Guardar cambios'}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {isEditingBasicInfo ? (
+            <>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '1rem' }}>
+                <label>
+                  <span>Numero Economico</span>
+                  <input name="numero_economico" value={basicInfoForm.numero_economico} onChange={handleBasicInfoInputChange} />
+                </label>
+                <label>
+                  <span>Tipo de Carro</span>
+                  <select name="tipo_carro" value={basicInfoForm.tipo_carro} onChange={handleBasicInfoInputChange}>
+                    <option value="">Selecciona un tipo</option>
+                    {VEHICLE_TYPE_OPTIONS.map((option) => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </select>
+                </label>
+                <label>
+                  <span>Propietario</span>
+                  <input name="propietario_nombre" value={basicInfoForm.propietario_nombre} onChange={handleBasicInfoInputChange} />
+                </label>
+                <label>
+                  <span>Placa</span>
+                  <input name="placa" value={basicInfoForm.placa} onChange={handleBasicInfoInputChange} />
+                </label>
+                <label>
+                  <span>Numero de Serie</span>
+                  <input name="numero_serie" value={basicInfoForm.numero_serie} onChange={handleBasicInfoInputChange} />
+                </label>
+                <label>
+                  <span>Marca</span>
+                  <input name="marca" value={basicInfoForm.marca} onChange={handleBasicInfoInputChange} />
+                </label>
+                <label>
+                  <span>Modelo</span>
+                  <input name="modelo" type="number" min="1900" max="2100" value={basicInfoForm.modelo} onChange={handleBasicInfoInputChange} />
+                </label>
+                <label>
+                  <span>Color</span>
+                  <input name="color" value={basicInfoForm.color} onChange={handleBasicInfoInputChange} />
+                </label>
+                <label>
+                  <span>Capacidad (kg)</span>
+                  <input name="capacidad_kg" type="number" min="0" value={basicInfoForm.capacidad_kg} onChange={handleBasicInfoInputChange} />
+                </label>
+              </div>
+              <label style={{ display: 'block', marginTop: '1rem' }}>
+                <span>Descripcion</span>
+                <textarea
+                  name="descripcion"
+                  rows="3"
+                  value={basicInfoForm.descripcion}
+                  onChange={handleBasicInfoInputChange}
+                  style={{ width: '100%' }}
+                />
+              </label>
+            </>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
+              <div><strong>Numero Economico</strong><p>{vehicle.numero_economico || '-'}</p></div>
+              <div><strong>Tipo de Carro</strong><p>{vehicle.tipo_carro || '-'}</p></div>
+              <div><strong>Placa</strong><p>{vehicle.placa || '-'}</p></div>
+              <div><strong>Propietario</strong><p>{vehicle.propietario_nombre || '-'}</p></div>
+            </div>
+          )}
         </div>
       </div>
 

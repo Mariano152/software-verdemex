@@ -3,6 +3,7 @@ import * as XLSX from 'xlsx';
 import NotificationModal from '../../components/Notifications/NotificationModal';
 import { getFuelTypeLabel } from '../../constants/fuelTypes';
 import { getGasolinePerformanceStatus } from '../../utils/gasolinePerformance';
+import { getVehicleSelectorLabel } from '../../utils/vehicleLabels';
 import '../../components/Notifications/NotificationModal.css';
 import GlobalGasolineRecordModal from './GlobalGasolineRecordModal';
 import './GasolineDashboard.css';
@@ -159,6 +160,7 @@ export default function GasolineDashboard() {
         record.proveedor,
         record.operador,
         record.tipo_combustible,
+        record.numero_economico_snapshot,
         record.vehiculo_placa,
         record.placa_snapshot,
         record.descripcion_snapshot,
@@ -352,9 +354,9 @@ export default function GasolineDashboard() {
 
       return {
         Fecha: formatDate(record.fecha_carga),
+        'Numero Economico': record.numero_economico_snapshot || vehicle?.numero_economico || '',
         PROVEEDOR: record.proveedor || '',
         Factura: record.factura || '',
-        'Num Economico': record.numero_economico_snapshot || vehicle?.numero_economico || '',
         Placas: record.placa_snapshot || record.vehiculo_placa || '',
         Descripcion: record.descripcion_snapshot || record.vehiculo_descripcion || '',
         'Titulo de carga': record.titulo || '',
@@ -480,7 +482,7 @@ export default function GasolineDashboard() {
               type='search'
               value={filters.search}
               onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
-              placeholder='Factura, placa, proveedor, operador o descripcion'
+              placeholder='Numero economico, factura, placa, proveedor u operador'
             />
           </div>
 
@@ -493,7 +495,7 @@ export default function GasolineDashboard() {
               <option value='todos'>Todos</option>
               {vehicles.map((vehicle) => (
                 <option key={vehicle.id} value={vehicle.id}>
-                  {vehicle.placa} - {vehicle.descripcion || vehicle.propietario_nombre}
+                  {getVehicleSelectorLabel(vehicle)}
                 </option>
               ))}
             </select>
@@ -585,6 +587,7 @@ export default function GasolineDashboard() {
 
                   <div className='gasoline-global-grid'>
                     <div><span className='record-label'>Factura</span><strong>{record.factura || '-'}</strong></div>
+                    <div><span className='record-label'>Numero economico</span><strong>{record.numero_economico_snapshot || record.vehiculo_numero_economico || '-'}</strong></div>
                     <div><span className='record-label'>Fecha</span><strong>{formatDate(record.fecha_carga)}</strong></div>
                     <div><span className='record-label'>Hora</span><strong>{record.hora_carga?.slice(0, 5) || '-'}</strong></div>
                     <div><span className='record-label'>Proveedor</span><strong>{record.proveedor || '-'}</strong></div>
