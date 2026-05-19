@@ -308,15 +308,33 @@ export const vehicleModel = {
       costo,
       proveedor,
       descripcion,
-      observaciones
+      observaciones,
+      es_cambio_aceite,
+      kilometraje_base_aceite,
+      kilometraje_base_fuente
     } = maintenanceData;
 
     const result = await query(
       `INSERT INTO vehiculo_mantenimientos
-       (vehiculo_id, titulo, tipo_mantenimiento, fecha_servicio, costo, proveedor, descripcion, observaciones)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+       (
+         vehiculo_id, titulo, tipo_mantenimiento, fecha_servicio, costo, proveedor,
+         descripcion, observaciones, es_cambio_aceite, kilometraje_base_aceite, kilometraje_base_fuente
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
-      [vehicleId, titulo, tipo_mantenimiento, fecha_servicio, costo, proveedor, descripcion, observaciones]
+      [
+        vehicleId,
+        titulo,
+        tipo_mantenimiento,
+        fecha_servicio,
+        costo,
+        proveedor,
+        descripcion,
+        observaciones,
+        es_cambio_aceite ?? false,
+        kilometraje_base_aceite,
+        kilometraje_base_fuente
+      ]
     );
 
     return result.rows[0];
@@ -330,7 +348,10 @@ export const vehicleModel = {
       costo,
       proveedor,
       descripcion,
-      observaciones
+      observaciones,
+      es_cambio_aceite,
+      kilometraje_base_aceite,
+      kilometraje_base_fuente
     } = maintenanceData;
 
     const result = await query(
@@ -342,10 +363,26 @@ export const vehicleModel = {
            proveedor = $5,
            descripcion = $6,
            observaciones = $7,
+           es_cambio_aceite = $8,
+           kilometraje_base_aceite = $9,
+           kilometraje_base_fuente = $10,
            updated_at = NOW()
-       WHERE id = $8 AND vehiculo_id = $9 AND deleted_at IS NULL
+       WHERE id = $11 AND vehiculo_id = $12 AND deleted_at IS NULL
        RETURNING *`,
-      [titulo, tipo_mantenimiento, fecha_servicio, costo, proveedor, descripcion, observaciones, maintenanceId, vehicleId]
+      [
+        titulo,
+        tipo_mantenimiento,
+        fecha_servicio,
+        costo,
+        proveedor,
+        descripcion,
+        observaciones,
+        es_cambio_aceite ?? false,
+        kilometraje_base_aceite,
+        kilometraje_base_fuente,
+        maintenanceId,
+        vehicleId
+      ]
     );
 
     return result.rows[0] || null;

@@ -698,6 +698,8 @@ export default function VehicleEdit() {
         ) : activeSection === 'maintenance' ? (
           <VehicleMaintenanceSection
             vehicleId={id}
+            gasolineRecords={vehicle.gasolineRecords || []}
+            operationParameters={vehicle.operationParameters || null}
             maintenanceRecords={vehicle.maintenanceRecords || []}
             safetyElements={vehicle.safetyElements || []}
             vehicleStatus={vehicle.estado || 'activo'}

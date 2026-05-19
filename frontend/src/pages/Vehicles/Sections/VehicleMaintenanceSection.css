@@ -222,6 +222,102 @@
   margin-top: 1.25rem;
 }
 
+.oil-progress-panel {
+  margin-top: 1.25rem;
+  padding: 1.2rem;
+  border: 1px solid rgba(26, 77, 38, 0.08);
+  border-radius: 18px;
+  background: linear-gradient(180deg, #f8fbf6 0%, #ffffff 100%);
+}
+
+.oil-progress-panel-head h4 {
+  margin: 0;
+  color: var(--color-primary-dark);
+}
+
+.oil-progress-panel-head p,
+.oil-progress-empty {
+  margin: 0.45rem 0 0;
+  color: var(--color-text-light);
+}
+
+.oil-progress-empty {
+  padding: 1rem;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.85);
+  border: 1px dashed rgba(26, 77, 38, 0.16);
+}
+
+.oil-progress-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.oil-progress-alert {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  margin-top: 1rem;
+  padding: 0.95rem 1rem;
+  border-radius: 14px;
+  border: 1px solid #f1a7a7;
+  background: #fff5f5;
+  color: #8f1d1d;
+}
+
+.oil-progress-alert strong {
+  font-size: 0.98rem;
+}
+
+.oil-progress-card {
+  padding: 1rem;
+  border-radius: 16px;
+  background: #ffffff;
+  border: 1px solid rgba(26, 77, 38, 0.08);
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.04);
+}
+
+.oil-progress-card.attention {
+  border-color: #ef9a9a;
+  box-shadow: 0 12px 24px rgba(201, 52, 52, 0.08);
+}
+
+.oil-progress-card-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  color: var(--color-primary-dark);
+  font-weight: 800;
+}
+
+.oil-progress-card-top strong {
+  font-size: 1.35rem;
+  color: var(--color-primary);
+}
+
+.oil-progress-bar {
+  margin-top: 0.8rem;
+  height: 12px;
+}
+
+.oil-progress-main {
+  margin: 0.85rem 0 0;
+  color: #24392f;
+  font-weight: 700;
+}
+
+.oil-progress-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem 1rem;
+  margin-top: 0.7rem;
+  color: var(--color-text-light);
+  font-size: 0.92rem;
+}
+
 .records-filter-grid label,
 .records-search-field {
   display: flex;
@@ -549,7 +645,8 @@
 
   .maintenance-record-grid,
   .maintenance-record-body,
-  .records-filter-grid {
+  .records-filter-grid,
+  .oil-progress-grid {
     grid-template-columns: 1fr;
   }
 }

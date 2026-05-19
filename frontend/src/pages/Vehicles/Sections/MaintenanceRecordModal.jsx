@@ -9,7 +9,10 @@ const EMPTY_FORM = {
   costo: '',
   proveedor: '',
   descripcion: '',
-  observaciones: ''
+  observaciones: '',
+  es_cambio_aceite: false,
+  usar_kilometraje_base_manual: false,
+  kilometraje_base_aceite_manual: ''
 };
 
 const formatDateForInput = (dateValue) => {
@@ -62,7 +65,12 @@ export default function MaintenanceRecordModal({
       costo: record.costo ?? '',
       proveedor: record.proveedor || '',
       descripcion: record.descripcion || '',
-      observaciones: record.observaciones || ''
+      observaciones: record.observaciones || '',
+      es_cambio_aceite: Boolean(record.es_cambio_aceite),
+      usar_kilometraje_base_manual: record.kilometraje_base_fuente === 'manual',
+      kilometraje_base_aceite_manual: record.kilometraje_base_fuente === 'manual'
+        ? (record.kilometraje_base_aceite ?? '')
+        : ''
     });
 
     try {
@@ -81,7 +89,6 @@ export default function MaintenanceRecordModal({
   if (!isOpen) return null;
 
   const isViewMode = mode === 'view';
-
   const handleChange = (field, value) => {
     if (isViewMode) return;
     setFormData((current) => ({
@@ -186,6 +193,45 @@ export default function MaintenanceRecordModal({
             <span>Observaciones</span>
             <textarea rows={3} value={formData.observaciones} onChange={(e) => handleChange('observaciones', e.target.value)} readOnly={isViewMode} />
           </label>
+          <label className='full-width maintenance-checkbox-row'>
+            <span>Este mantenimiento fue un cambio de aceite</span>
+            <input
+              type='checkbox'
+              checked={Boolean(formData.es_cambio_aceite)}
+              onChange={(e) => handleChange('es_cambio_aceite', e.target.checked)}
+              disabled={isViewMode}
+            />
+          </label>
+          {formData.es_cambio_aceite ? (
+            <>
+              <label className='full-width maintenance-checkbox-row'>
+                <span>Capturar kilometraje base manual</span>
+                <input
+                  type='checkbox'
+                  checked={Boolean(formData.usar_kilometraje_base_manual)}
+                  onChange={(e) => handleChange('usar_kilometraje_base_manual', e.target.checked)}
+                  disabled={isViewMode}
+                />
+              </label>
+              <label>
+                <span>Kilometraje base del cambio</span>
+                <input
+                  type='number'
+                  min='0'
+                  step='0.01'
+                  value={formData.kilometraje_base_aceite_manual}
+                  onChange={(e) => handleChange('kilometraje_base_aceite_manual', e.target.value)}
+                  readOnly={isViewMode || !formData.usar_kilometraje_base_manual}
+                  placeholder={formData.usar_kilometraje_base_manual ? 'Ej. 1000' : 'Se tomara de la gasolina anterior'}
+                />
+              </label>
+              {!formData.usar_kilometraje_base_manual ? (
+                <div className='full-width maintenance-help-note'>
+                  Se buscara la carga de gasolina mas reciente anterior o igual a la fecha del cambio para tomar ese kilometraje como base.
+                </div>
+              ) : null}
+            </>
+          ) : null}
           {!isViewMode && (
             <label className='full-width'>
               <span>Documentos adjuntos</span>

@@ -88,6 +88,10 @@ const normalizeInteger = (value) => {
   const parsed = Number.parseInt(value, 10);
   return Number.isNaN(parsed) ? null : parsed;
 };
+const normalizeDateValue = (value) => {
+  const normalized = normalizeText(value);
+  return normalized || null;
+};
 const buildGasolineRecordTitle = ({ factura, fecha_carga, placa }) => {
   if (factura) return `Factura ${factura}`;
   if (fecha_carga && placa) return `Carga ${placa} ${fecha_carga}`;
@@ -301,6 +305,62 @@ const buildChanges = (fieldMap, previousData, nextData) => (
     return changes;
   }, [])
 );
+const buildMaintenanceData = async (req, vehicleId, existingRecord = null) => {
+  const esCambioAceite = normalizeBoolean(req.body.es_cambio_aceite);
+  const usarKilometrajeManual = normalizeBoolean(req.body.usar_kilometraje_base_manual);
+  const kilometrajeManual = normalizeNumber(req.body.kilometraje_base_aceite_manual);
+  const fechaServicio = normalizeDateValue(req.body.fecha_servicio);
+
+  const maintenanceData = {
+    titulo: req.body.titulo?.trim(),
+    tipo_mantenimiento: req.body.tipo_mantenimiento?.trim(),
+    fecha_servicio: fechaServicio,
+    costo: Number(req.body.costo || 0),
+    proveedor: req.body.proveedor?.trim() || '',
+    descripcion: req.body.descripcion?.trim() || '',
+    observaciones: req.body.observaciones?.trim() || '',
+    es_cambio_aceite: esCambioAceite,
+    kilometraje_base_aceite: null,
+    kilometraje_base_fuente: null
+  };
+
+  if (!esCambioAceite) {
+    return maintenanceData;
+  }
+
+  if (usarKilometrajeManual) {
+    if (kilometrajeManual === null || kilometrajeManual < 0) {
+      const error = new Error('Captura un kilometraje base valido para el cambio de aceite.');
+      error.statusCode = 400;
+      throw error;
+    }
+
+    maintenanceData.kilometraje_base_aceite = kilometrajeManual;
+    maintenanceData.kilometraje_base_fuente = 'manual';
+    return maintenanceData;
+  }
+
+  const previousMileage = await vehicleModel.getLatestGasolineMileageByVehicleId(vehicleId, {
+    fecha_carga: fechaServicio,
+    excludeGasolineId: null
+  });
+
+  if (previousMileage === null || previousMileage === undefined) {
+    const error = new Error('No existe una carga de gasolina anterior o igual a la fecha del cambio. Captura el kilometraje base manualmente.');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  maintenanceData.kilometraje_base_aceite = Number(previousMileage);
+  maintenanceData.kilometraje_base_fuente = 'gasolina';
+
+  if (existingRecord?.es_cambio_aceite && existingRecord.kilometraje_base_fuente === 'manual' && kilometrajeManual !== null) {
+    maintenanceData.kilometraje_base_aceite = kilometrajeManual;
+    maintenanceData.kilometraje_base_fuente = 'manual';
+  }
+
+  return maintenanceData;
+};
 
 export const vehicleController = {
   // Crear vehículo con toda la información
@@ -657,6 +717,9 @@ export const vehicleController = {
         parameters: savedParameters
       });
     } catch (error) {
+      if (error.statusCode === 400) {
+        return res.status(400).json({ message: error.message });
+      }
       if (error.code === '42P01') {
         return res.status(503).json({
           message: 'Los parametros operativos aun no estan disponibles en la base de datos. Ejecuta la migracion 019.'
@@ -745,15 +808,7 @@ export const vehicleController = {
         });
       }
 
-      const maintenanceData = {
-        titulo: req.body.titulo?.trim(),
-        tipo_mantenimiento: req.body.tipo_mantenimiento?.trim(),
-        fecha_servicio: req.body.fecha_servicio,
-        costo: Number(req.body.costo || 0),
-        proveedor: req.body.proveedor?.trim() || '',
-        descripcion: req.body.descripcion?.trim() || '',
-        observaciones: req.body.observaciones?.trim() || ''
-      };
+      const maintenanceData = await buildMaintenanceData(req, vehicleId);
 
       if (!maintenanceData.titulo || !maintenanceData.tipo_mantenimiento || !maintenanceData.fecha_servicio) {
         return res.status(400).json({
@@ -779,6 +834,9 @@ export const vehicleController = {
           fecha_servicio: maintenanceData.fecha_servicio,
           costo: maintenanceData.costo,
           proveedor: maintenanceData.proveedor || null,
+          es_cambio_aceite: maintenanceData.es_cambio_aceite,
+          kilometraje_base_aceite: maintenanceData.kilometraje_base_aceite,
+          kilometraje_base_fuente: maintenanceData.kilometraje_base_fuente,
           archivos_adjuntos: req.files?.length || 0
         }
       });
@@ -801,6 +859,9 @@ export const vehicleController = {
         maintenanceRecord: createdRecord
       });
     } catch (error) {
+      if (error.statusCode === 400) {
+        return res.status(400).json({ message: error.message });
+      }
       if (error.code === '42P01') {
         return res.status(503).json({
           message: 'El historial de mantenimiento aún no está disponible en la base de datos. Ejecuta la migración 013.'
@@ -825,15 +886,7 @@ export const vehicleController = {
         });
       }
 
-      const maintenanceData = {
-        titulo: req.body.titulo?.trim(),
-        tipo_mantenimiento: req.body.tipo_mantenimiento?.trim(),
-        fecha_servicio: req.body.fecha_servicio,
-        costo: Number(req.body.costo || 0),
-        proveedor: req.body.proveedor?.trim() || '',
-        descripcion: req.body.descripcion?.trim() || '',
-        observaciones: req.body.observaciones?.trim() || ''
-      };
+      const maintenanceData = await buildMaintenanceData(req, vehicleId, existingRecord);
 
       if (!maintenanceData.titulo || !maintenanceData.tipo_mantenimiento || !maintenanceData.fecha_servicio) {
         return res.status(400).json({
@@ -856,7 +909,10 @@ export const vehicleController = {
           costo: 'Costo',
           proveedor: 'Proveedor',
           descripcion: 'Descripcion',
-          observaciones: 'Observaciones'
+          observaciones: 'Observaciones',
+          es_cambio_aceite: 'Cambio de aceite',
+          kilometraje_base_aceite: 'Kilometraje base aceite',
+          kilometraje_base_fuente: 'Fuente kilometraje base'
         },
         {
           titulo: normalizeNullableText(existingRecord.titulo),
@@ -865,7 +921,10 @@ export const vehicleController = {
           costo: normalizeNumber(existingRecord.costo),
           proveedor: normalizeNullableText(existingRecord.proveedor),
           descripcion: normalizeNullableText(existingRecord.descripcion),
-          observaciones: normalizeNullableText(existingRecord.observaciones)
+          observaciones: normalizeNullableText(existingRecord.observaciones),
+          es_cambio_aceite: Boolean(existingRecord.es_cambio_aceite),
+          kilometraje_base_aceite: normalizeNumber(existingRecord.kilometraje_base_aceite),
+          kilometraje_base_fuente: normalizeNullableText(existingRecord.kilometraje_base_fuente)
         },
         {
           titulo: normalizeNullableText(maintenanceData.titulo),
@@ -874,7 +933,10 @@ export const vehicleController = {
           costo: normalizeNumber(maintenanceData.costo),
           proveedor: normalizeNullableText(maintenanceData.proveedor),
           descripcion: normalizeNullableText(maintenanceData.descripcion),
-          observaciones: normalizeNullableText(maintenanceData.observaciones)
+          observaciones: normalizeNullableText(maintenanceData.observaciones),
+          es_cambio_aceite: Boolean(maintenanceData.es_cambio_aceite),
+          kilometraje_base_aceite: normalizeNumber(maintenanceData.kilometraje_base_aceite),
+          kilometraje_base_fuente: normalizeNullableText(maintenanceData.kilometraje_base_fuente)
         }
       );
 

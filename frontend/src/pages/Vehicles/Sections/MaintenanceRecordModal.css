@@ -126,6 +126,31 @@
   grid-column: 1 / -1;
 }
 
+.maintenance-checkbox-row {
+  flex-direction: row !important;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.9rem 1rem;
+  border: 1px solid #dbe4ee;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.maintenance-checkbox-row input[type='checkbox'] {
+  width: 20px;
+  height: 20px;
+}
+
+.maintenance-help-note {
+  padding: 0.9rem 1rem;
+  border-radius: 12px;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  color: #1d4ed8;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
 .maintenance-files-block {
   margin-top: 20px;
   padding-top: 16px;

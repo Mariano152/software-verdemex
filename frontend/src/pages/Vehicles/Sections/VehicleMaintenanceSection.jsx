@@ -38,8 +38,116 @@ const VEHICLE_STATE_OPTIONS = [
   { value: 'en_mantenimiento', label: 'Mantenimiento' }
 ];
 
+const addMonths = (dateValue, monthsToAdd) => {
+  if (!dateValue || monthsToAdd === null || monthsToAdd === undefined || monthsToAdd === '') return null;
+  const date = parseDateValue(dateValue);
+  if (Number.isNaN(date.getTime())) return null;
+  date.setHours(0, 0, 0, 0);
+  const next = new Date(date);
+  next.setMonth(next.getMonth() + Number(monthsToAdd));
+  return next;
+};
+
+const formatCompactNumber = (value) => Number(value || 0).toLocaleString('es-MX', {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2
+});
+
+const parseDateValue = (dateValue) => {
+  if (!dateValue) return new Date(Number.NaN);
+  if (dateValue instanceof Date) return new Date(dateValue);
+  if (typeof dateValue === 'string') {
+    const normalized = dateValue.includes('T') ? dateValue : `${dateValue}T00:00:00`;
+    return new Date(normalized);
+  }
+  return new Date(dateValue);
+};
+
+const getLatestOilChangeRecord = (records = []) => (
+  [...records]
+    .filter((record) => record?.es_cambio_aceite)
+    .sort((left, right) => {
+      const leftStamp = parseDateValue(left?.fecha_servicio || '1900-01-01').getTime();
+      const rightStamp = parseDateValue(right?.fecha_servicio || '1900-01-01').getTime();
+      if (rightStamp !== leftStamp) return rightStamp - leftStamp;
+      return new Date(right?.created_at || 0).getTime() - new Date(left?.created_at || 0).getTime();
+    })[0] || null
+);
+
+const getLatestMileageRecord = (records = []) => (
+  [...records]
+    .filter((record) => record?.kilometraje_actual !== null && record?.kilometraje_actual !== undefined)
+    .sort((left, right) => {
+      const leftStamp = new Date(`${left?.fecha_carga || '1900-01-01'}T${left?.hora_carga || '00:00:00'}`).getTime();
+      const rightStamp = new Date(`${right?.fecha_carga || '1900-01-01'}T${right?.hora_carga || '00:00:00'}`).getTime();
+      if (rightStamp !== leftStamp) return rightStamp - leftStamp;
+      return new Date(right?.created_at || 0).getTime() - new Date(left?.created_at || 0).getTime();
+    })[0] || null
+);
+
+const buildTimeRemainingLabel = (targetDate) => {
+  if (!targetDate) return '-';
+  const today = new Date();
+  const target = new Date(targetDate);
+  today.setHours(0, 0, 0, 0);
+  target.setHours(0, 0, 0, 0);
+  const diffDays = Math.round((target.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+  if (diffDays === 0) return 'hoy';
+  if (diffDays < 0) return `hace ${Math.abs(diffDays)} ${Math.abs(diffDays) === 1 ? 'dia' : 'dias'}`;
+
+  const months = Math.floor(diffDays / 30);
+  const days = diffDays % 30;
+  if (months > 0 && days > 0) return `en ${months} ${months === 1 ? 'mes' : 'meses'} y ${days} ${days === 1 ? 'dia' : 'dias'}`;
+  if (months > 0) return `en ${months} ${months === 1 ? 'mes' : 'meses'}`;
+  return `en ${days} ${days === 1 ? 'dia' : 'dias'}`;
+};
+
+const buildElapsedTimeLabel = (startDateValue) => {
+  const startDate = parseDateValue(startDateValue);
+  const today = new Date();
+  if (Number.isNaN(startDate.getTime())) return '-';
+
+  startDate.setHours(0, 0, 0, 0);
+  today.setHours(0, 0, 0, 0);
+
+  if (today <= startDate) return '0 dias';
+
+  const diffDays = Math.round((today.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+  const months = Math.floor(diffDays / 30);
+  const days = diffDays % 30;
+
+  if (months > 0 && days > 0) {
+    return `${months} ${months === 1 ? 'mes' : 'meses'} y ${days} ${days === 1 ? 'dia' : 'dias'}`;
+  }
+
+  if (months > 0) {
+    return `${months} ${months === 1 ? 'mes' : 'meses'}`;
+  }
+
+  return `${days} ${days === 1 ? 'dia' : 'dias'}`;
+};
+
+const buildDistanceRemainingLabel = (currentMileage, dueMileage) => {
+  if (currentMileage === null || currentMileage === undefined || dueMileage === null || dueMileage === undefined) {
+    return '-';
+  }
+
+  const remaining = Number(dueMileage) - Number(currentMileage);
+  if (remaining === 0) return 'hoy';
+  if (remaining > 0) return `en ${formatCompactNumber(remaining)} km`;
+  return `hace ${formatCompactNumber(Math.abs(remaining))} km`;
+};
+
+const buildProgressColor = (progress) => {
+  const safeProgress = Math.max(0, Math.min(100, Number(progress || 0)));
+  const hue = Math.round(120 - ((120 * safeProgress) / 100));
+  return `hsl(${hue} 72% 46%)`;
+};
+
 export default function VehicleMaintenanceSection({
   vehicleId,
+  gasolineRecords = [],
+  operationParameters = null,
   maintenanceRecords = [],
   initialRecordId = null,
   safetyElements = [],
@@ -373,6 +481,109 @@ export default function VehicleMaintenanceSection({
       return matchesType && matchesProvider && matchesSearch;
     });
   }, [records, recordSearchTerm, selectedMaintenanceType, selectedProvider]);
+  const oilTracking = useMemo(() => {
+    const latestOilChange = getLatestOilChangeRecord(records);
+    const latestMileageRecord = getLatestMileageRecord(gasolineRecords);
+    const baseMileage = latestOilChange?.kilometraje_base_aceite !== null && latestOilChange?.kilometraje_base_aceite !== undefined
+      ? Number(latestOilChange.kilometraje_base_aceite)
+      : null;
+    const currentMileage = latestMileageRecord?.kilometraje_actual !== null && latestMileageRecord?.kilometraje_actual !== undefined
+      ? Number(latestMileageRecord.kilometraje_actual)
+      : null;
+
+    if (!latestOilChange) {
+      return {
+        ready: false,
+        message: 'Aun no hay un mantenimiento marcado como cambio de aceite.'
+      };
+    }
+
+    if (!operationParameters?.tiempo_cambio_aceite_meses && !operationParameters?.distancia_cambio_aceite_km) {
+      return {
+        ready: false,
+        message: 'Configura primero los parametros de cambio de aceite para ver el seguimiento.'
+      };
+    }
+
+    if (!latestOilChange?.fecha_servicio) {
+      return {
+        ready: false,
+        message: 'El ultimo cambio de aceite no tiene una fecha de servicio valida.'
+      };
+    }
+
+    const oilDate = parseDateValue(latestOilChange.fecha_servicio);
+    const dueDate = addMonths(latestOilChange.fecha_servicio, operationParameters.tiempo_cambio_aceite_meses);
+    if (Number.isNaN(oilDate.getTime())) {
+      return {
+        ready: false,
+        message: 'No se pudo leer la fecha del ultimo cambio de aceite.'
+      };
+    }
+
+    const today = new Date();
+    oilDate.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+
+    const hasTimeConfig = Boolean(operationParameters?.tiempo_cambio_aceite_meses) && dueDate && !Number.isNaN(dueDate.getTime());
+    const totalTimeDays = hasTimeConfig
+      ? Math.max(1, Math.round((dueDate.getTime() - oilDate.getTime()) / (1000 * 60 * 60 * 24)))
+      : null;
+    const elapsedTimeDays = hasTimeConfig
+      ? Math.max(0, Math.round((today.getTime() - oilDate.getTime()) / (1000 * 60 * 60 * 24)))
+      : null;
+    const timeProgress = hasTimeConfig && totalTimeDays
+      ? Math.max(0, Math.min(100, (elapsedTimeDays / totalTimeDays) * 100))
+      : 0;
+    const warningMonths = Number(operationParameters?.aviso_previo_tiempo_aceite_meses || 0);
+    const warningTimeDays = hasTimeConfig ? warningMonths * 30 : 0;
+    const timeRemainingDays = hasTimeConfig
+      ? Math.round((dueDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+      : null;
+    const isTimeWarning = hasTimeConfig && timeRemainingDays <= warningTimeDays;
+    const isTimeOverdue = hasTimeConfig && timeRemainingDays < 0;
+
+    const totalDistance = Number(operationParameters.distancia_cambio_aceite_km || 0);
+    const hasDistanceConfig = totalDistance > 0;
+    const traveledDistance = baseMileage !== null && currentMileage !== null ? Math.max(0, currentMileage - baseMileage) : null;
+    const dueMileage = baseMileage !== null && hasDistanceConfig ? baseMileage + totalDistance : null;
+    const distanceProgress = traveledDistance !== null && hasDistanceConfig
+      ? Math.max(0, Math.min(100, (traveledDistance / totalDistance) * 100))
+      : 0;
+    const warningDistance = Number(operationParameters?.aviso_previo_cambio_aceite_km || 0);
+    const remainingDistance = dueMileage !== null && currentMileage !== null
+      ? dueMileage - currentMileage
+      : null;
+    const isDistanceWarning = hasDistanceConfig && remainingDistance !== null && remainingDistance <= warningDistance;
+    const isDistanceOverdue = hasDistanceConfig && remainingDistance !== null && remainingDistance < 0;
+    const requiresAttention = isTimeWarning || isDistanceWarning;
+
+    return {
+      ready: true,
+      hasTimeConfig,
+      hasDistanceConfig,
+      requiresAttention,
+      isTimeWarning,
+      isDistanceWarning,
+      isTimeOverdue,
+      isDistanceOverdue,
+      lastOilChangeDate: latestOilChange.fecha_servicio,
+      dueDate,
+      baseMileage,
+      currentMileage,
+      dueMileage,
+      traveledDistance,
+      totalDistance,
+      remainingDistance,
+      timeProgress,
+      distanceProgress,
+      timeColor: buildProgressColor(timeProgress),
+      distanceColor: buildProgressColor(distanceProgress),
+      elapsedTimeLabel: buildElapsedTimeLabel(latestOilChange.fecha_servicio),
+      timeRemainingLabel: hasTimeConfig ? buildTimeRemainingLabel(dueDate) : 'Sin parametro de tiempo',
+      distanceRemainingLabel: hasDistanceConfig ? buildDistanceRemainingLabel(currentMileage, dueMileage) : 'Sin parametro de kilometraje'
+    };
+  }, [gasolineRecords, operationParameters, records]);
 
   return (
     <div className='maintenance-section'>
@@ -456,6 +667,77 @@ export default function VehicleMaintenanceSection({
           </button>
         </div>
 
+        <div className='oil-progress-panel'>
+          <div className='oil-progress-panel-head'>
+            <div>
+              <h4>Seguimiento de cambio de aceite</h4>
+              <p>Solo se toma en cuenta el ultimo mantenimiento marcado como cambio de aceite.</p>
+            </div>
+          </div>
+
+          {!oilTracking.ready ? (
+            <div className='oil-progress-empty'>
+              {oilTracking.message}
+            </div>
+          ) : (
+            <>
+              {oilTracking.requiresAttention ? (
+                <div className='oil-progress-alert'>
+                  <strong>Alerta de cambio de aceite</strong>
+                  <span>
+                    {oilTracking.isTimeOverdue || oilTracking.isDistanceOverdue
+                      ? 'La unidad ya vencio al menos uno de sus limites y debe revisarse.'
+                      : 'La unidad entro al umbral de aviso configurado y debe revisarse pronto.'}
+                  </span>
+                </div>
+              ) : null}
+
+              <div className='oil-progress-grid'>
+                <article className={`oil-progress-card ${oilTracking.isTimeWarning ? 'attention' : ''}`}>
+                <div className='oil-progress-card-top'>
+                  <span>Tiempo</span>
+                  <strong>{oilTracking.hasTimeConfig ? `${Math.round(oilTracking.timeProgress)}%` : '-'}</strong>
+                </div>
+                <div className='progress-bar oil-progress-bar'>
+                  <div
+                    className='progress-fill'
+                    style={{ width: `${oilTracking.timeProgress}%`, background: oilTracking.timeColor }}
+                  ></div>
+                </div>
+                <p className='oil-progress-main'>Lleva {oilTracking.elapsedTimeLabel} y falta {oilTracking.timeRemainingLabel}</p>
+                <div className='oil-progress-meta'>
+                  <span>Ultimo cambio: {formatDate(oilTracking.lastOilChangeDate)}</span>
+                  <span>Vence: {formatDate(oilTracking.dueDate)}</span>
+                </div>
+              </article>
+
+              <article className={`oil-progress-card ${oilTracking.isDistanceWarning ? 'attention' : ''}`}>
+                <div className='oil-progress-card-top'>
+                  <span>Kilometraje</span>
+                  <strong>{oilTracking.hasDistanceConfig ? `${Math.round(oilTracking.distanceProgress)}%` : '-'}</strong>
+                </div>
+                <div className='progress-bar oil-progress-bar'>
+                  <div
+                    className='progress-fill'
+                    style={{ width: `${oilTracking.distanceProgress}%`, background: oilTracking.distanceColor }}
+                  ></div>
+                </div>
+                <p className='oil-progress-main'>
+                  Lleva {oilTracking.traveledDistance !== null ? `${formatCompactNumber(oilTracking.traveledDistance)} km` : '-'}
+                  {oilTracking.currentMileage !== null ? ` y va en ${formatCompactNumber(oilTracking.currentMileage)} km` : ''}
+                  {` y falta ${oilTracking.distanceRemainingLabel}`}
+                </p>
+                <div className='oil-progress-meta'>
+                  <span>Base: {oilTracking.baseMileage !== null ? `${formatCompactNumber(oilTracking.baseMileage)} km` : '-'}</span>
+                  <span>Va en: {oilTracking.currentMileage !== null ? `${formatCompactNumber(oilTracking.currentMileage)} km` : '-'}</span>
+                  <span>Meta: {oilTracking.dueMileage !== null ? `${formatCompactNumber(oilTracking.dueMileage)} km` : '-'}</span>
+                </div>
+              </article>
+              </div>
+            </>
+          )}
+        </div>
+
         <div className='records-filter-grid'>
           <div className='records-search-field'>
             <label htmlFor='maintenance-record-search'>Buscar mantenimiento</label>
@@ -507,6 +789,11 @@ export default function VehicleMaintenanceSection({
                     <div>
                       <h4>{record.titulo}</h4>
                       <p className='maintenance-record-type'>{record.tipo_mantenimiento}</p>
+                      {record.es_cambio_aceite ? (
+                        <p className='maintenance-record-type'>
+                          Cambio de aceite · Base: {record.kilometraje_base_aceite ?? '-'} km · Fuente: {record.kilometraje_base_fuente || '-'}
+                        </p>
+                      ) : null}
                     </div>
                     <div className='maintenance-record-actions'>
                       <button type='button' className='ghost-btn' onClick={() => openViewRecordModal(record)}>Ver</button>
@@ -696,6 +983,9 @@ export default function VehicleMaintenanceSection({
 
       <MaintenanceRecordModal
         vehicleId={vehicleId}
+        gasolineRecords={gasolineRecords}
+        maintenanceRecords={records}
+        operationParameters={operationParameters}
         record={selectedRecord}
         isOpen={recordModalOpen}
         isNew={isNewRecord}
