@@ -13,6 +13,12 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const configuredOrigins = [
+  process.env.FRONTEND_URL,
+  process.env.CORS_ORIGIN
+]
+  .filter(Boolean)
+  .flatMap((value) => value.split(',').map((origin) => origin.trim()).filter(Boolean));
 
 // CORS configurado explícitamente
 const corsOptions = {
@@ -24,7 +30,8 @@ const corsOptions = {
       'http://localhost:3000',
       'http://127.0.0.1:5173',
       'http://127.0.0.1:5174',
-      'http://127.0.0.1:5175'
+      'http://127.0.0.1:5175',
+      ...configuredOrigins
     ];
     
     if (!origin || allowedOrigins.includes(origin)) {

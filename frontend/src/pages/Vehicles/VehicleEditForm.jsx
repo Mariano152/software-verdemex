@@ -31,7 +31,7 @@ export default function VehicleEditForm() {
         setLoading(true);
         const token = localStorage.getItem('authToken');
 
-        const response = await fetch(`http://localhost:3000/api/vehicles/${id}`, {
+        const response = await fetch(`/api/vehicles/${id}`, {
           method: 'GET',
           headers: {
             Authorization: `Bearer ${token}`,
@@ -87,7 +87,7 @@ export default function VehicleEditForm() {
     try {
       const token = localStorage.getItem('authToken');
 
-      const response = await fetch(`http://localhost:3000/api/vehicles/${id}`, {
+      const response = await fetch(`/api/vehicles/${id}`, {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,
