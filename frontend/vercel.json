@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/api/:path*",
-      "destination": "https://CHANGE_ME_RENDER_URL/api/:path*"
+      "destination": "https://software-verdemex.onrender.com/api/:path*"
     },
     {
       "source": "/(.*)",
