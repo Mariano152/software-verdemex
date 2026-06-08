@@ -278,20 +278,46 @@
 .analytics-chart-grid,
 .analytics-detail-grid {
   display: grid;
-  grid-template-columns: 2fr 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
 }
 
 .analytics-detail-grid {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.analytics-chart-grid-single {
+  grid-template-columns: 1fr;
+}
+
+.analytics-order-primary {
+  order: 1;
+}
+
+.analytics-order-secondary {
+  order: 2;
+}
+
+.analytics-order-tertiary {
+  order: 3;
+}
+
+.analytics-order-quaternary {
+  order: 4;
 }
 
 .analytics-chart-panel {
   min-height: 360px;
+  display: flex;
+  flex-direction: column;
 }
 
 .analytics-chart-panel-wide {
   min-height: 380px;
+}
+
+.analytics-chart-grid-single.analytics-order-secondary > .analytics-panel:last-child {
+  display: none;
 }
 
 .analytics-chart-with-details {
@@ -312,7 +338,18 @@
   display: flex;
   flex-direction: column;
   gap: 14px;
+}
+
+.analytics-panel-scroll {
   margin-top: 20px;
+  max-height: 320px;
+  overflow-y: auto;
+  padding-right: 6px;
+}
+
+.analytics-panel-scroll-legend {
+  margin-top: 0;
+  max-height: 280px;
 }
 
 .analytics-ranking-item {
@@ -472,8 +509,8 @@
 }
 
 .analytics-donut-layout {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: minmax(220px, 0.9fr) minmax(0, 1.1fr);
   align-items: center;
   gap: 18px;
   padding-top: 8px;
@@ -481,7 +518,7 @@
 
 .analytics-nested-donut-grid {
   display: grid;
-  grid-template-columns: 1fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 20px;
 }
 
@@ -759,6 +796,11 @@
 
   .analytics-chart-grid,
   .analytics-detail-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .analytics-nested-donut-grid,
+  .analytics-donut-layout {
     grid-template-columns: 1fr;
   }
 }

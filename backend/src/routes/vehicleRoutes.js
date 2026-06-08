@@ -9,6 +9,7 @@ const router = express.Router();
 router.use(verifyToken);
 
 router.post('/', photoUploadMiddleware, vehicleController.createVehicle);
+router.delete('/:id', vehicleController.deleteVehicle);
 router.put('/:id', photoUploadMiddleware, vehicleController.updateVehicle);
 
 router.get('/', vehicleController.listVehicles);

@@ -1356,6 +1356,212 @@ export const vehicleModel = {
     return result.rows;
   },
 
+  async softDeleteVehicleCascade(vehicleId) {
+    const client = await pool.connect();
+
+    try {
+      await client.query('BEGIN');
+
+      const vehicleResult = await client.query(
+        `UPDATE vehiculos
+         SET deleted_at = NOW(),
+             updated_at = NOW()
+         WHERE id = $1 AND deleted_at IS NULL
+         RETURNING *`,
+        [vehicleId]
+      );
+
+      const deletedVehicle = vehicleResult.rows[0] || null;
+      if (!deletedVehicle) {
+        await client.query('ROLLBACK');
+        return null;
+      }
+
+      const documentIdsResult = await client.query(
+        `SELECT id
+         FROM vehiculo_documentos
+         WHERE vehiculo_id = $1 AND deleted_at IS NULL`,
+        [vehicleId]
+      );
+      const documentIds = documentIdsResult.rows.map((row) => row.id);
+
+      const maintenanceIdsResult = await client.query(
+        `SELECT id
+         FROM vehiculo_mantenimientos
+         WHERE vehiculo_id = $1 AND deleted_at IS NULL`,
+        [vehicleId]
+      );
+      const maintenanceIds = maintenanceIdsResult.rows.map((row) => row.id);
+
+      const gasolineIdsResult = await client.query(
+        `SELECT id
+         FROM vehiculo_gasolina_registros
+         WHERE vehiculo_id = $1 AND deleted_at IS NULL`,
+        [vehicleId]
+      );
+      const gasolineIds = gasolineIdsResult.rows.map((row) => row.id);
+
+      const expedienteIdsResult = await client.query(
+        `SELECT id
+         FROM expedientes
+         WHERE vehiculo_id = $1 AND deleted_at IS NULL`,
+        [vehicleId]
+      );
+      const expedienteIds = expedienteIdsResult.rows.map((row) => row.id);
+
+      const documentsResult = await client.query(
+        `UPDATE vehiculo_documentos
+         SET deleted_at = NOW(),
+             updated_at = NOW()
+         WHERE vehiculo_id = $1 AND deleted_at IS NULL
+         RETURNING id`,
+        [vehicleId]
+      );
+
+      const documentFilesResult = documentIds.length > 0
+        ? await client.query(
+            `UPDATE vehiculo_documento_archivos
+             SET deleted_at = NOW(),
+                 updated_at = NOW()
+             WHERE vehiculo_documento_id = ANY($1::uuid[]) AND deleted_at IS NULL
+             RETURNING id`,
+            [documentIds]
+          )
+        : { rows: [] };
+
+      const maintenanceResult = await client.query(
+        `UPDATE vehiculo_mantenimientos
+         SET deleted_at = NOW(),
+             updated_at = NOW()
+         WHERE vehiculo_id = $1 AND deleted_at IS NULL
+         RETURNING id`,
+        [vehicleId]
+      );
+
+      const maintenanceFilesResult = maintenanceIds.length > 0
+        ? await client.query(
+            `UPDATE vehiculo_mantenimiento_archivos
+             SET deleted_at = NOW(),
+                 updated_at = NOW()
+             WHERE vehiculo_mantenimiento_id = ANY($1::uuid[]) AND deleted_at IS NULL
+             RETURNING id`,
+            [maintenanceIds]
+          )
+        : { rows: [] };
+
+      const gasolineResult = await client.query(
+        `UPDATE vehiculo_gasolina_registros
+         SET deleted_at = NOW(),
+             updated_at = NOW()
+         WHERE vehiculo_id = $1 AND deleted_at IS NULL
+         RETURNING id`,
+        [vehicleId]
+      );
+
+      const gasolineFilesResult = gasolineIds.length > 0
+        ? await client.query(
+            `UPDATE vehiculo_gasolina_archivos
+             SET deleted_at = NOW(),
+                 updated_at = NOW()
+             WHERE vehiculo_gasolina_registro_id = ANY($1::uuid[]) AND deleted_at IS NULL
+             RETURNING id`,
+            [gasolineIds]
+          )
+        : { rows: [] };
+
+      const photosResult = await client.query(
+        `UPDATE vehiculo_fotografias
+         SET deleted_at = NOW(),
+             updated_at = NOW()
+         WHERE vehiculo_id = $1 AND deleted_at IS NULL
+         RETURNING id`,
+        [vehicleId]
+      );
+
+      const safetyElementsResult = await client.query(
+        `UPDATE vehiculo_elementos_seguridad
+         SET deleted_at = NOW(),
+             updated_at = NOW()
+         WHERE vehiculo_id = $1 AND deleted_at IS NULL
+         RETURNING id`,
+        [vehicleId]
+      );
+
+      const operationParametersResult = await client.query(
+        `UPDATE vehiculo_parametros_operativos
+         SET deleted_at = NOW(),
+             updated_at = NOW()
+         WHERE vehiculo_id = $1 AND deleted_at IS NULL
+         RETURNING id`,
+        [vehicleId]
+      );
+
+      const expedientesResult = await client.query(
+        `UPDATE expedientes
+         SET deleted_at = NOW(),
+             updated_at = NOW()
+         WHERE vehiculo_id = $1 AND deleted_at IS NULL
+         RETURNING id`,
+        [vehicleId]
+      );
+
+      const expedienteItemsResult = expedienteIds.length > 0
+        ? await client.query(
+            `UPDATE expediente_items
+             SET deleted_at = NOW(),
+                 updated_at = NOW()
+             WHERE expediente_id = ANY($1::uuid[]) AND deleted_at IS NULL
+             RETURNING id`,
+            [expedienteIds]
+          )
+        : { rows: [] };
+
+      const incidenciasResult = await client.query(
+        `UPDATE vehiculo_incidencias
+         SET deleted_at = NOW(),
+             updated_at = NOW()
+         WHERE vehiculo_id = $1 AND deleted_at IS NULL
+         RETURNING id`,
+        [vehicleId]
+      );
+
+      const statusHistoryResult = await client.query(
+        `UPDATE vehiculo_historial_estatus
+         SET deleted_at = NOW(),
+             updated_at = NOW()
+         WHERE vehiculo_id = $1 AND deleted_at IS NULL
+         RETURNING id`,
+        [vehicleId]
+      );
+
+      await client.query('COMMIT');
+
+      return {
+        vehicle: deletedVehicle,
+        summary: {
+          documents: documentsResult.rows.length,
+          documentFiles: documentFilesResult.rows.length,
+          maintenanceRecords: maintenanceResult.rows.length,
+          maintenanceFiles: maintenanceFilesResult.rows.length,
+          gasolineRecords: gasolineResult.rows.length,
+          gasolineFiles: gasolineFilesResult.rows.length,
+          photos: photosResult.rows.length,
+          safetyElements: safetyElementsResult.rows.length,
+          operationParameters: operationParametersResult.rows.length,
+          expedientes: expedientesResult.rows.length,
+          expedienteItems: expedienteItemsResult.rows.length,
+          incidencias: incidenciasResult.rows.length,
+          statusHistory: statusHistoryResult.rows.length
+        }
+      };
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  },
+
   async updateVehicle(vehicleId, vehicleData) {
     const {
       numero_economico,

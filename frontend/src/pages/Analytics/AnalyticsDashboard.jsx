@@ -381,6 +381,8 @@ const formatDeltaLabel = (delta, comparisonLabel) => {
   return `${sign}${formatNumber(delta.percentage, 1)}% ${comparisonLabel}`;
 };
 
+const formatPercentage = (value) => `${formatNumber(value, 1)}%`;
+
 const buildComparisonContext = ({ records, currentRange, preset, baseFilters = {} }) => {
   if (!currentRange.from || !currentRange.to || preset === 'all') {
     return {
@@ -443,6 +445,8 @@ const buildOverviewCards = (metrics, comparison) => {
   const litersDelta = getDelta(metrics.totalLiters, comparison.metrics.totalLiters);
   const priceDelta = getDelta(metrics.averagePricePerLiter, comparison.metrics.averagePricePerLiter);
   const efficiencyDelta = getDelta(metrics.averageEfficiency, comparison.metrics.averageEfficiency);
+  const costPerKmDelta = getDelta(metrics.costPerKm, comparison.metrics.costPerKm);
+  const ticketDelta = getDelta(metrics.averageTicket, comparison.metrics.averageTicket);
 
   return [
     {
@@ -454,10 +458,26 @@ const buildOverviewCards = (metrics, comparison) => {
       deltaDirection: amountDelta.direction
     },
     {
+      id: 'costPerKm',
+      label: 'Costo por km',
+      value: formatCurrency(metrics.costPerKm),
+      detail: metrics.totalKm > 0 ? `${formatNumber(metrics.totalKm)} km recorridos` : 'Sin kilometraje suficiente',
+      deltaLabel: formatDeltaLabel(costPerKmDelta, comparison.label),
+      deltaDirection: costPerKmDelta.direction
+    },
+    {
+      id: 'efficiency',
+      label: 'Rendimiento promedio',
+      value: `${formatNumber(metrics.averageEfficiency)} km/L`,
+      detail: `${metrics.completeRecords} cargas con km y litros válidos`,
+      deltaLabel: formatDeltaLabel(efficiencyDelta, comparison.label),
+      deltaDirection: efficiencyDelta.direction
+    },
+    {
       id: 'liters',
       label: 'Litros cargados',
       value: `${formatNumber(metrics.totalLiters)} L`,
-      detail: `Ticket promedio ${formatCurrency(metrics.averageTicket)}`,
+      detail: `${metrics.recordsCount} cargas registradas`,
       deltaLabel: formatDeltaLabel(litersDelta, comparison.label),
       deltaDirection: litersDelta.direction
     },
@@ -470,66 +490,115 @@ const buildOverviewCards = (metrics, comparison) => {
       deltaDirection: priceDelta.direction
     },
     {
-      id: 'efficiency',
-      label: 'Rendimiento promedio',
-      value: `${formatNumber(metrics.averageEfficiency)} km/L`,
-      detail: `${metrics.completeRecords} cargas con km y litros válidos`,
-      deltaLabel: formatDeltaLabel(efficiencyDelta, comparison.label),
-      deltaDirection: efficiencyDelta.direction
+      id: 'averageTicket',
+      label: 'Ticket promedio',
+      value: formatCurrency(metrics.averageTicket),
+      detail: 'Monto promedio por carga',
+      deltaLabel: formatDeltaLabel(ticketDelta, comparison.label),
+      deltaDirection: ticketDelta.direction
     }
   ];
 };
 
-const buildDetailCards = (metrics, comparison) => {
+const buildDetailCards = (metrics, comparison, context = {}) => {
   const comparisonMetrics = comparison.metrics;
   const totalAmountDelta = getDelta(metrics.totalAmount, comparisonMetrics.totalAmount);
   const totalLitersDelta = getDelta(metrics.totalLiters, comparisonMetrics.totalLiters);
+  const priceDelta = getDelta(metrics.averagePricePerLiter, comparisonMetrics.averagePricePerLiter);
   const efficiencyDelta = getDelta(metrics.averageEfficiency, comparisonMetrics.averageEfficiency);
   const costPerKmDelta = getDelta(metrics.costPerKm, comparisonMetrics.costPerKm);
-  const costPerM3Delta = getDelta(metrics.costPerM3, comparisonMetrics.costPerM3);
+  const ticketDelta = getDelta(metrics.averageTicket, comparisonMetrics.averageTicket);
+  const completeRate = metrics.recordsCount > 0 ? (metrics.completeRecords / metrics.recordsCount) * 100 : 0;
+  const dominantProviderShare = Number(context.dominantProviderShare || 0);
+  const dominantProviderLabel = context.dominantProvider?.label || 'Sin proveedor dominante';
+  const topVehicleLabel = context.topVehicle?.label || 'Sin vehículo identificado';
 
-  return [
-    {
-      id: 'totalAmount',
-      label: 'Gasto total',
-      value: formatCurrency(metrics.totalAmount),
-      detail: `${metrics.recordsCount} cargas consideradas`,
-      deltaLabel: formatDeltaLabel(totalAmountDelta, comparison.label),
-      deltaDirection: totalAmountDelta.direction
-    },
-    {
-      id: 'totalLiters',
-      label: 'Litros totales',
-      value: `${formatNumber(metrics.totalLiters)} L`,
-      detail: `${formatCurrency(metrics.averagePricePerLiter)} por litro promedio`,
-      deltaLabel: formatDeltaLabel(totalLitersDelta, comparison.label),
-      deltaDirection: totalLitersDelta.direction
-    },
-    {
-      id: 'averageEfficiency',
-      label: 'Rendimiento promedio',
-      value: `${formatNumber(metrics.averageEfficiency)} km/L`,
-      detail: `${formatNumber(metrics.totalKm)} km recorridos`,
-      deltaLabel: formatDeltaLabel(efficiencyDelta, comparison.label),
-      deltaDirection: efficiencyDelta.direction
-    },
-    {
-      id: 'costPerKm',
-      label: 'Costo por km',
-      value: formatCurrency(metrics.costPerKm),
-      detail: `${metrics.completeRecords} cargas completas`,
-      deltaLabel: formatDeltaLabel(costPerKmDelta, comparison.label),
-      deltaDirection: costPerKmDelta.direction
-    },
-    {
-      id: 'costPerM3',
-      label: 'Costo por m3',
-      value: formatCurrency(metrics.costPerM3),
-      detail: `${formatNumber(metrics.totalM3)} m3 enviados`,
-      deltaLabel: formatDeltaLabel(costPerM3Delta, comparison.label),
-      deltaDirection: costPerM3Delta.direction
-    }
-  ];
+  return {
+    primaryCards: [
+      {
+        id: 'totalAmount',
+        label: 'Gasto total',
+        value: formatCurrency(metrics.totalAmount),
+        detail: `${metrics.recordsCount} cargas consideradas`,
+        deltaLabel: formatDeltaLabel(totalAmountDelta, comparison.label),
+        deltaDirection: totalAmountDelta.direction
+      },
+      {
+        id: 'costPerKm',
+        label: 'Costo por km',
+        value: formatCurrency(metrics.costPerKm),
+        detail: `${metrics.completeRecords} cargas completas`,
+        deltaLabel: formatDeltaLabel(costPerKmDelta, comparison.label),
+        deltaDirection: costPerKmDelta.direction
+      },
+      {
+        id: 'averageEfficiency',
+        label: 'Rendimiento promedio',
+        value: `${formatNumber(metrics.averageEfficiency)} km/L`,
+        detail: `${formatNumber(metrics.totalKm)} km recorridos`,
+        deltaLabel: formatDeltaLabel(efficiencyDelta, comparison.label),
+        deltaDirection: efficiencyDelta.direction
+      },
+      {
+        id: 'totalLiters',
+        label: 'Litros totales',
+        value: `${formatNumber(metrics.totalLiters)} L`,
+        detail: `${metrics.recordsCount} cargas consideradas`,
+        deltaLabel: formatDeltaLabel(totalLitersDelta, comparison.label),
+        deltaDirection: totalLitersDelta.direction
+      },
+      {
+        id: 'averagePricePerLiter',
+        label: 'Precio promedio por litro',
+        value: formatCurrency(metrics.averagePricePerLiter),
+        detail: metrics.totalLiters > 0 ? 'Calculado con litros reales' : 'Sin litros suficientes',
+        deltaLabel: formatDeltaLabel(priceDelta, comparison.label),
+        deltaDirection: priceDelta.direction
+      },
+      {
+        id: 'averageTicket',
+        label: 'Ticket promedio',
+        value: formatCurrency(metrics.averageTicket),
+        detail: 'Monto promedio por carga',
+        deltaLabel: formatDeltaLabel(ticketDelta, comparison.label),
+        deltaDirection: ticketDelta.direction
+      }
+    ],
+    secondaryCards: [
+      {
+        id: 'recordsCount',
+        label: 'Cargas registradas',
+        value: formatNumber(metrics.recordsCount),
+        detail: `${metrics.firstLoadCount} primera${metrics.firstLoadCount === 1 ? '' : 's'} carga${metrics.firstLoadCount === 1 ? '' : 's'}`,
+        deltaLabel: comparison.label === 'sin comparación' ? 'Lectura actual' : `Base ${comparison.label}`,
+        deltaDirection: 'flat'
+      },
+      {
+        id: 'dataQuality',
+        label: 'Calidad del dato',
+        value: formatPercentage(completeRate),
+        detail: `${metrics.completeRecords} de ${metrics.recordsCount} cargas con km y litros válidos`,
+        deltaLabel: 'Cobertura del análisis',
+        deltaDirection: 'flat'
+      },
+      {
+        id: 'dominantProvider',
+        label: 'Proveedor dominante',
+        value: dominantProviderLabel,
+        detail: `${formatPercentage(dominantProviderShare)} del gasto total`,
+        deltaLabel: 'Concentración de compra',
+        deltaDirection: 'flat'
+      },
+      {
+        id: 'topVehicle',
+        label: 'Vehículo con mayor gasto',
+        value: topVehicleLabel,
+        detail: context.topVehicle ? formatCurrency(context.topVehicle.totalAmount) : 'Sin gasto suficiente',
+        deltaLabel: 'Unidad más demandante',
+        deltaDirection: 'flat'
+      }
+    ]
+  };
 };
 
 const buildTrendSeries = ({ records, preset, dateFrom, dateTo }) => {
@@ -677,7 +746,8 @@ const DetailTable = ({ title, subtitle, rows, emptyMessage, valueFormatter, metr
           <p>{emptyMessage}</p>
         </div>
       ) : (
-        <div className='analytics-ranking-list'>
+        <div className='analytics-panel-scroll'>
+          <div className='analytics-ranking-list'>
           {rows.map((row) => {
             const value = Number(row[metricKey] || 0);
             const percentage = maxValue > 0 ? (value / maxValue) * 100 : 0;
@@ -697,6 +767,7 @@ const DetailTable = ({ title, subtitle, rows, emptyMessage, valueFormatter, metr
               </div>
             );
           })}
+          </div>
         </div>
       )}
     </div>
@@ -860,7 +931,8 @@ const VehicleBarChart = ({ data }) => {
 
   return (
     <div className='analytics-chart-with-details'>
-      <div className='analytics-bar-chart'>
+      <div className='analytics-panel-scroll'>
+        <div className='analytics-bar-chart'>
         {data.map((item) => {
           const percentage = maxLiters > 0 ? (Number(item.totalLiters || 0) / maxLiters) * 100 : 0;
           const isActive = item.key === (hoveredKey || selectedKey);
@@ -885,6 +957,7 @@ const VehicleBarChart = ({ data }) => {
             </button>
           );
         })}
+        </div>
       </div>
 
       <div className='analytics-selection-card analytics-selection-card-compact'>
@@ -1064,30 +1137,32 @@ const DonutChart = ({
           ) : null}
         </div>
 
-        <div className='analytics-donut-legend'>
-          {data.map((item, index) => {
-            const value = Number(item[metricKey] || 0);
-            const percentage = total > 0 ? (value / total) * 100 : 0;
-            const isActive = item.key === (hoveredKey || selectedKey);
+        <div className='analytics-panel-scroll analytics-panel-scroll-legend'>
+          <div className='analytics-donut-legend'>
+            {data.map((item, index) => {
+              const value = Number(item[metricKey] || 0);
+              const percentage = total > 0 ? (value / total) * 100 : 0;
+              const isActive = item.key === (hoveredKey || selectedKey);
 
-            return (
-              <button
-                key={item.key}
-                type='button'
-                className={`analytics-donut-legend-item ${isActive ? 'analytics-donut-legend-item-active' : ''}`}
-                onMouseEnter={() => setHoveredKey(item.key)}
-                onMouseLeave={() => setHoveredKey(null)}
-                onClick={() => setSelectedKey(item.key)}
-              >
-                <span>
-                  <i style={{ backgroundColor: DONUT_COLORS[index % DONUT_COLORS.length] }} />
-                  {item.label}
-                </span>
-                <strong>{formatNumber(percentage, 1)}%</strong>
-                <small>{detailValueFormatter(value)}{totalSuffix}</small>
-              </button>
-            );
-          })}
+              return (
+                <button
+                  key={item.key}
+                  type='button'
+                  className={`analytics-donut-legend-item ${isActive ? 'analytics-donut-legend-item-active' : ''}`}
+                  onMouseEnter={() => setHoveredKey(item.key)}
+                  onMouseLeave={() => setHoveredKey(null)}
+                  onClick={() => setSelectedKey(item.key)}
+                >
+                  <span>
+                    <i style={{ backgroundColor: DONUT_COLORS[index % DONUT_COLORS.length] }} />
+                    {item.label}
+                  </span>
+                  <strong>{formatNumber(percentage, 1)}%</strong>
+                  <small>{detailValueFormatter(value)}{totalSuffix}</small>
+                </button>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -1304,11 +1379,6 @@ export default function AnalyticsDashboard() {
     records
   ]);
 
-  const detailCards = useMemo(
-    () => buildDetailCards(detailMetrics, detailComparison),
-    [detailComparison, detailMetrics]
-  );
-
   const providerOptions = useMemo(() => buildOptions(records, 'proveedor'), [records]);
   const operatorOptions = useMemo(() => buildOptions(records, 'operador'), [records]);
   const fuelTypeOptions = useMemo(() => buildOptions(records, 'tipo_combustible'), [records]);
@@ -1362,6 +1432,19 @@ export default function AnalyticsDashboard() {
   const vehicleDistribution = useMemo(() => buildVehicleDistribution(detailRecords), [detailRecords]);
   const fuelTypeDistribution = useMemo(() => buildFuelTypeDistribution(detailRecords), [detailRecords]);
   const fuelTypeKpis = useMemo(() => buildFuelTypeKpis(detailRecords), [detailRecords]);
+  const dominantProvider = providerDistribution[0] || null;
+  const dominantProviderShare = dominantProvider && detailMetrics.totalAmount > 0
+    ? (dominantProvider.totalAmount / detailMetrics.totalAmount) * 100
+    : 0;
+  const topVehicle = topVehiclesByAmount[0] || null;
+  const detailCards = useMemo(
+    () => buildDetailCards(detailMetrics, detailComparison, {
+      dominantProvider,
+      dominantProviderShare,
+      topVehicle
+    }),
+    [detailComparison, detailMetrics, dominantProvider, dominantProviderShare, topVehicle]
+  );
   const recentRecords = useMemo(() => detailRecords.slice(0, 8), [detailRecords]);
 
   if (loading) {
@@ -1572,7 +1655,7 @@ export default function AnalyticsDashboard() {
           </div>
 
           <div className='analytics-kpi-grid analytics-kpi-grid-detail'>
-            {detailCards.map((card) => (
+            {detailCards.primaryCards.map((card) => (
               <div key={card.id} className='analytics-kpi-card'>
                 <span>{card.label}</span>
                 <strong>{card.value}</strong>
@@ -1580,6 +1663,26 @@ export default function AnalyticsDashboard() {
                 <DeltaBadge direction={card.deltaDirection} label={card.deltaLabel} />
               </div>
             ))}
+          </div>
+
+          <div className='analytics-panel'>
+            <div className='analytics-panel-header'>
+              <div>
+                <h3>Contexto operativo</h3>
+                <p>Indicadores de respaldo para entender la calidad del análisis y dónde se concentra el gasto.</p>
+              </div>
+            </div>
+
+            <div className='analytics-kpi-grid analytics-kpi-grid-detail'>
+              {detailCards.secondaryCards.map((card) => (
+                <div key={card.id} className='analytics-kpi-card'>
+                  <span>{card.label}</span>
+                  <strong>{card.value}</strong>
+                  <small>{card.detail}</small>
+                  <DeltaBadge direction={card.deltaDirection} label={card.deltaLabel} />
+                </div>
+              ))}
+            </div>
           </div>
 
           <div className='analytics-panel'>
@@ -1609,7 +1712,7 @@ export default function AnalyticsDashboard() {
             )}
           </div>
 
-          <div className='analytics-chart-grid'>
+          <div className='analytics-chart-grid analytics-chart-grid-single analytics-order-primary'>
             <div className='analytics-panel analytics-chart-panel analytics-chart-panel-wide'>
               <div className='analytics-panel-header'>
                 <div>
@@ -1618,6 +1721,19 @@ export default function AnalyticsDashboard() {
                 </div>
               </div>
               <TrendChart data={trendSeries} granularityLabel={trendGranularityLabel} />
+            </div>
+
+          </div>
+
+          <div className='analytics-chart-grid analytics-order-tertiary'>
+            <div className='analytics-panel analytics-chart-panel analytics-chart-panel-wide'>
+              <div className='analytics-panel-header'>
+                <div>
+                  <h3>Consumo por veh??culo</h3>
+                  <p>Selecciona una barra para ver el detalle operativo de esa unidad.</p>
+                </div>
+              </div>
+              <VehicleBarChart data={vehicleLitersSeries} />
             </div>
 
             <div className='analytics-panel analytics-chart-panel'>
@@ -1639,33 +1755,31 @@ export default function AnalyticsDashboard() {
             </div>
           </div>
 
-          <div className='analytics-chart-grid'>
-            <div className='analytics-panel analytics-chart-panel'>
-              <div className='analytics-panel-header'>
-                <div>
-                  <h3>Distribución por proveedor</h3>
-                  <p>Hover o click para ver participación, monto, litros y costo promedio.</p>
-                </div>
-              </div>
-              <DonutChart
-                data={providerDistribution}
-                metricKey='totalAmount'
-                centerValueFormatter={formatCurrency}
-                detailValueFormatter={formatCurrency}
-                ariaLabel='Distribución de gasto por proveedor'
-              />
-            </div>
-          </div>
-
-          <div className='analytics-chart-grid'>
+          <div className='analytics-chart-grid analytics-chart-grid-single analytics-order-secondary'>
             <div className='analytics-panel analytics-chart-panel analytics-chart-panel-wide'>
               <div className='analytics-panel-header'>
                 <div>
                   <h3>Consumo por vehículo</h3>
-                  <p>Selecciona una barra para ver el detalle operativo de esa unidad.</p>
+                  <p>DistribuciÃ³n del consumo por unidad en dinero y litros.</p>
                 </div>
               </div>
-              <VehicleBarChart data={vehicleLitersSeries} />
+              <div className='analytics-nested-donut-grid'>
+                <DonutChart
+                  data={vehicleDistribution}
+                  metricKey='totalAmount'
+                  centerValueFormatter={formatCurrency}
+                  detailValueFormatter={formatCurrency}
+                  ariaLabel='DistribuciÃ³n de gasto por vehÃ­culo'
+                />
+                <DonutChart
+                  data={vehicleDistribution}
+                  metricKey='totalLiters'
+                  centerValueFormatter={(value) => `${formatNumber(value)} L`}
+                  detailValueFormatter={(value) => formatNumber(value)}
+                  totalSuffix=' L'
+                  ariaLabel='DistribuciÃ³n de litros por vehÃ­culo'
+                />
+              </div>
             </div>
 
             <div className='analytics-panel analytics-chart-panel'>

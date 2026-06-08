@@ -2124,6 +2124,52 @@ export const vehicleController = {
     }
   },
 
+  async deleteVehicle(req, res) {
+    try {
+      const { id } = req.params;
+      const existingVehicle = await vehicleModel.getVehicleById(id);
+
+      if (!existingVehicle) {
+        return res.status(404).json({
+          message: 'Vehiculo no encontrado'
+        });
+      }
+
+      const deletionResult = await vehicleModel.softDeleteVehicleCascade(id);
+      if (!deletionResult) {
+        return res.status(404).json({
+          message: 'Vehiculo no encontrado'
+        });
+      }
+
+      await vehicleController.logHistory(req, id, {
+        module: 'vehiculos',
+        action: 'eliminar',
+        entityType: 'vehicle',
+        entityId: id,
+        description: `Elimino el vehiculo ${existingVehicle.numero_economico || existingVehicle.placa || id}`,
+        details: {
+          placa: existingVehicle.placa || null,
+          numero_economico: existingVehicle.numero_economico || null,
+          tipo_carro: existingVehicle.tipo_carro || null,
+          summary: deletionResult.summary
+        }
+      });
+
+      res.json({
+        message: 'Vehiculo eliminado correctamente',
+        vehicleId: id,
+        summary: deletionResult.summary
+      });
+    } catch (error) {
+      console.error('Error eliminando vehiculo:', error);
+      res.status(500).json({
+        message: 'Error al eliminar vehiculo',
+        error: error.message
+      });
+    }
+  },
+
   async listVehicles(req, res) {
     try {
       const vehicles = await vehicleModel.getActiveVehicles();

@@ -31,6 +31,7 @@ export default function VehicleEdit() {
   const [notification, setNotification] = useState(null);
   const [isEditingBasicInfo, setIsEditingBasicInfo] = useState(false);
   const [basicInfoSaving, setBasicInfoSaving] = useState(false);
+  const [vehicleDeleting, setVehicleDeleting] = useState(false);
   const [basicInfoForm, setBasicInfoForm] = useState({
     numero_economico: '',
     tipo_carro: '',
@@ -519,6 +520,42 @@ export default function VehicleEdit() {
     }
   };
 
+  const handleDeleteVehicle = async () => {
+    const vehicleLabel = getVehicleIdentifier(vehicle) || vehicle?.placa || id;
+    const confirmed = window.confirm(
+      `Se eliminara el vehiculo ${vehicleLabel} junto con sus documentos, mantenimientos y registros de gasolina.\n\nEsta accion lo ocultara del sistema. Deseas continuar?`
+    );
+
+    if (!confirmed) return;
+
+    try {
+      setVehicleDeleting(true);
+      const token = localStorage.getItem('authToken');
+      const response = await fetch(`/api/vehicles/${id}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      const responseData = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(responseData.message || 'Error al eliminar vehiculo');
+      }
+
+      navigate('/vehicles');
+    } catch (deleteError) {
+      setNotification({
+        type: 'error',
+        title: 'Error',
+        message: deleteError.message || 'No se pudo eliminar el vehiculo'
+      });
+    } finally {
+      setVehicleDeleting(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="edit-loading">
@@ -592,9 +629,20 @@ export default function VehicleEdit() {
               </p>
             </div>
             {!isEditingBasicInfo ? (
-              <button type="button" className="btn btn-primary" onClick={() => setIsEditingBasicInfo(true)}>
-                Editar vehiculo
-              </button>
+              <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+                <button type="button" className="btn btn-primary" onClick={() => setIsEditingBasicInfo(true)} disabled={vehicleDeleting}>
+                  Editar vehiculo
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={handleDeleteVehicle}
+                  disabled={vehicleDeleting}
+                  style={{ background: '#991b1b', borderColor: '#991b1b', color: '#fff' }}
+                >
+                  {vehicleDeleting ? 'Eliminando...' : 'Eliminar vehiculo'}
+                </button>
+              </div>
             ) : (
               <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
                 <button type="button" className="btn btn-secondary" onClick={() => setIsEditingBasicInfo(false)}>
