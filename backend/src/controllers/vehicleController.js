@@ -362,6 +362,15 @@ const buildMaintenanceData = async (req, vehicleId, existingRecord = null) => {
   return maintenanceData;
 };
 
+const buildGlobalMaintenanceData = async (req, vehicleId, existingRecord = null) => {
+  const maintenanceData = await buildMaintenanceData(req, vehicleId, existingRecord);
+
+  return {
+    vehiculo_id: normalizeNullableText(vehicleId),
+    ...maintenanceData
+  };
+};
+
 export const vehicleController = {
   // Crear vehículo con toda la información
   async createVehicle(req, res) {
@@ -1854,6 +1863,364 @@ export const vehicleController = {
       console.error('Error eliminando archivo global de gasolina:', error);
       res.status(500).json({
         message: 'Error al eliminar archivo global de gasolina',
+        error: error.message
+      });
+    }
+  },
+
+  async listGlobalMaintenanceRecords(req, res) {
+    try {
+      const records = await vehicleModel.getAllMaintenanceRecords({
+        vehicleId: req.query.vehicleId || null,
+        dateFrom: req.query.dateFrom || null,
+        dateTo: req.query.dateTo || null
+      });
+
+      const enrichedRecords = await Promise.all(
+        records.map((record) => vehicleModel.getGlobalMaintenanceRecordPayload(record.id))
+      );
+
+      res.json({
+        message: 'Registros globales de mantenimiento listados correctamente',
+        count: enrichedRecords.filter(Boolean).length,
+        maintenanceRecords: enrichedRecords.filter(Boolean)
+      });
+    } catch (error) {
+      console.error('Error listando registros globales de mantenimiento:', error);
+      res.status(500).json({
+        message: 'Error al listar registros globales de mantenimiento',
+        error: error.message
+      });
+    }
+  },
+
+  async getGlobalMaintenanceRecordById(req, res) {
+    try {
+      const { maintenanceId } = req.params;
+      const maintenanceRecord = await vehicleModel.getGlobalMaintenanceRecordPayload(maintenanceId);
+
+      if (!maintenanceRecord) {
+        return res.status(404).json({
+          message: 'Registro global de mantenimiento no encontrado'
+        });
+      }
+
+      res.json(maintenanceRecord);
+    } catch (error) {
+      console.error('Error obteniendo registro global de mantenimiento:', error);
+      res.status(500).json({
+        message: 'Error al obtener registro global de mantenimiento',
+        error: error.message
+      });
+    }
+  },
+
+  async createGlobalMaintenanceRecord(req, res) {
+    try {
+      const vehicleId = req.body.vehiculo_id?.trim();
+      const vehicle = await vehicleModel.getVehicleById(vehicleId);
+
+      if (!vehicle) {
+        return res.status(404).json({
+          message: 'Vehiculo no encontrado'
+        });
+      }
+
+      const maintenanceData = await buildGlobalMaintenanceData(req, vehicleId);
+
+      if (!maintenanceData.titulo || !maintenanceData.tipo_mantenimiento || !maintenanceData.fecha_servicio) {
+        return res.status(400).json({
+          message: 'Titulo, tipo de mantenimiento y fecha de servicio son requeridos'
+        });
+      }
+
+      const maintenanceRecord = await vehicleModel.createMaintenanceRecord(vehicleId, maintenanceData);
+
+      if (req.files && req.files.length > 0) {
+        await vehicleModel.addMaintenanceFiles(maintenanceRecord.id, req.files);
+      }
+
+      const createdRecord = await vehicleModel.getGlobalMaintenanceRecordPayload(maintenanceRecord.id);
+
+      await vehicleController.logHistory(req, vehicleId, {
+        module: 'mantenimiento',
+        action: 'crear',
+        entityType: 'maintenance_record',
+        entityId: maintenanceRecord.id,
+        description: `Agrego mantenimiento global "${maintenanceData.titulo}" para ${vehicle.placa}`,
+        details: {
+          titulo: maintenanceData.titulo,
+          tipo_mantenimiento: maintenanceData.tipo_mantenimiento,
+          fecha_servicio: maintenanceData.fecha_servicio,
+          costo: maintenanceData.costo,
+          proveedor: maintenanceData.proveedor || null,
+          es_cambio_aceite: maintenanceData.es_cambio_aceite,
+          kilometraje_base_aceite: maintenanceData.kilometraje_base_aceite,
+          kilometraje_base_fuente: maintenanceData.kilometraje_base_fuente,
+          archivos_adjuntos: req.files?.length || 0
+        }
+      });
+
+      res.status(201).json({
+        message: 'Registro global de mantenimiento creado correctamente',
+        maintenanceRecord: createdRecord
+      });
+    } catch (error) {
+      if (error.statusCode === 400) {
+        return res.status(400).json({ message: error.message });
+      }
+      if (error.code === '42P01' || error.code === '42703') {
+        return res.status(503).json({
+          message: 'El historial global de mantenimiento requiere las migraciones 013 y 021.'
+        });
+      }
+      console.error('Error creando registro global de mantenimiento:', error);
+      res.status(500).json({
+        message: 'Error al crear registro global de mantenimiento',
+        error: error.message
+      });
+    }
+  },
+
+  async updateGlobalMaintenanceRecord(req, res) {
+    try {
+      const { maintenanceId } = req.params;
+      const existingRecord = await vehicleModel.getGlobalMaintenanceRecordById(maintenanceId);
+
+      if (!existingRecord) {
+        return res.status(404).json({
+          message: 'Registro global de mantenimiento no encontrado'
+        });
+      }
+
+      const vehicleId = req.body.vehiculo_id?.trim();
+      const vehicle = await vehicleModel.getVehicleById(vehicleId);
+
+      if (!vehicle) {
+        return res.status(404).json({
+          message: 'Vehiculo no encontrado'
+        });
+      }
+
+      const maintenanceData = await buildGlobalMaintenanceData(req, vehicleId, existingRecord);
+
+      if (!maintenanceData.titulo || !maintenanceData.tipo_mantenimiento || !maintenanceData.fecha_servicio) {
+        return res.status(400).json({
+          message: 'Titulo, tipo de mantenimiento y fecha de servicio son requeridos'
+        });
+      }
+
+      await vehicleModel.updateGlobalMaintenanceRecord(maintenanceId, maintenanceData);
+
+      if (req.files && req.files.length > 0) {
+        await vehicleModel.addMaintenanceFiles(maintenanceId, req.files);
+      }
+
+      const updatedRecord = await vehicleModel.getGlobalMaintenanceRecordPayload(maintenanceId);
+      const changes = buildChanges(
+        {
+          vehiculo_id: 'Vehiculo',
+          titulo: 'Titulo',
+          tipo_mantenimiento: 'Tipo de mantenimiento',
+          fecha_servicio: 'Fecha de servicio',
+          costo: 'Costo',
+          proveedor: 'Proveedor',
+          descripcion: 'Descripcion',
+          observaciones: 'Observaciones',
+          es_cambio_aceite: 'Cambio de aceite',
+          kilometraje_base_aceite: 'Kilometraje base aceite',
+          kilometraje_base_fuente: 'Fuente kilometraje base'
+        },
+        {
+          vehiculo_id: normalizeNullableText(existingRecord.vehiculo_id),
+          titulo: normalizeNullableText(existingRecord.titulo),
+          tipo_mantenimiento: normalizeNullableText(existingRecord.tipo_mantenimiento),
+          fecha_servicio: normalizeNullableText(existingRecord.fecha_servicio),
+          costo: normalizeNumber(existingRecord.costo),
+          proveedor: normalizeNullableText(existingRecord.proveedor),
+          descripcion: normalizeNullableText(existingRecord.descripcion),
+          observaciones: normalizeNullableText(existingRecord.observaciones),
+          es_cambio_aceite: Boolean(existingRecord.es_cambio_aceite),
+          kilometraje_base_aceite: normalizeNumber(existingRecord.kilometraje_base_aceite),
+          kilometraje_base_fuente: normalizeNullableText(existingRecord.kilometraje_base_fuente)
+        },
+        {
+          vehiculo_id: normalizeNullableText(maintenanceData.vehiculo_id),
+          titulo: normalizeNullableText(maintenanceData.titulo),
+          tipo_mantenimiento: normalizeNullableText(maintenanceData.tipo_mantenimiento),
+          fecha_servicio: normalizeNullableText(maintenanceData.fecha_servicio),
+          costo: normalizeNumber(maintenanceData.costo),
+          proveedor: normalizeNullableText(maintenanceData.proveedor),
+          descripcion: normalizeNullableText(maintenanceData.descripcion),
+          observaciones: normalizeNullableText(maintenanceData.observaciones),
+          es_cambio_aceite: Boolean(maintenanceData.es_cambio_aceite),
+          kilometraje_base_aceite: normalizeNumber(maintenanceData.kilometraje_base_aceite),
+          kilometraje_base_fuente: normalizeNullableText(maintenanceData.kilometraje_base_fuente)
+        }
+      );
+
+      await vehicleController.logHistory(req, vehicleId, {
+        module: 'mantenimiento',
+        action: 'actualizar',
+        entityType: 'maintenance_record',
+        entityId: maintenanceId,
+        description: `Actualizo mantenimiento global "${maintenanceData.titulo}" para ${vehicle.placa}`,
+        details: {
+          changes,
+          archivos_nuevos: req.files?.length || 0
+        }
+      });
+
+      res.json({
+        message: 'Registro global de mantenimiento actualizado correctamente',
+        maintenanceRecord: updatedRecord
+      });
+    } catch (error) {
+      if (error.statusCode === 400) {
+        return res.status(400).json({ message: error.message });
+      }
+      if (error.code === '42P01' || error.code === '42703') {
+        return res.status(503).json({
+          message: 'El historial global de mantenimiento requiere las migraciones 013 y 021.'
+        });
+      }
+      console.error('Error actualizando registro global de mantenimiento:', error);
+      res.status(500).json({
+        message: 'Error al actualizar registro global de mantenimiento',
+        error: error.message
+      });
+    }
+  },
+
+  async deleteGlobalMaintenanceRecord(req, res) {
+    try {
+      const { maintenanceId } = req.params;
+      const existingRecord = await vehicleModel.getGlobalMaintenanceRecordById(maintenanceId);
+
+      if (!existingRecord) {
+        return res.status(404).json({
+          message: 'Registro global de mantenimiento no encontrado'
+        });
+      }
+
+      const deletedRecord = await vehicleModel.deleteMaintenanceRecord(existingRecord.vehiculo_id, maintenanceId);
+
+      if (!deletedRecord) {
+        return res.status(404).json({
+          message: 'Registro global de mantenimiento no encontrado'
+        });
+      }
+
+      res.json({
+        message: 'Registro global de mantenimiento eliminado correctamente'
+      });
+
+      await vehicleController.logHistory(req, existingRecord.vehiculo_id, {
+        module: 'mantenimiento',
+        action: 'eliminar',
+        entityType: 'maintenance_record',
+        entityId: maintenanceId,
+        description: `Elimino mantenimiento global "${deletedRecord.titulo || maintenanceId}"`,
+        details: {
+          fecha_servicio: deletedRecord.fecha_servicio || null
+        }
+      });
+    } catch (error) {
+      if (error.code === '42P01' || error.code === '42703') {
+        return res.status(503).json({
+          message: 'El historial global de mantenimiento requiere las migraciones 013 y 021.'
+        });
+      }
+      console.error('Error eliminando registro global de mantenimiento:', error);
+      res.status(500).json({
+        message: 'Error al eliminar registro global de mantenimiento',
+        error: error.message
+      });
+    }
+  },
+
+  async downloadGlobalMaintenanceFile(req, res) {
+    try {
+      const { maintenanceId } = req.params;
+      const parsedIndex = Number.parseInt(req.query.fileIndex ?? '0', 10);
+      const fileIndex = Number.isNaN(parsedIndex) || parsedIndex < 0 ? 0 : parsedIndex;
+
+      const selectedFile = await vehicleModel.getGlobalMaintenanceFileByIndex(maintenanceId, fileIndex);
+      if (!selectedFile?.archivo_data) {
+        return res.status(404).json({
+          message: 'Archivo de mantenimiento no encontrado'
+        });
+      }
+
+      const fileName = selectedFile.nombre_original || 'mantenimiento.bin';
+      const fileSize = Buffer.isBuffer(selectedFile.archivo_data)
+        ? selectedFile.archivo_data.length
+        : selectedFile.tamano_bytes || 0;
+
+      res.setHeader('Content-Type', selectedFile.tipo_mime || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+      res.setHeader('Content-Length', fileSize);
+      return res.send(selectedFile.archivo_data);
+    } catch (error) {
+      if (error.code === '42P01' || error.code === '42703') {
+        return res.status(503).json({
+          message: 'El historial global de mantenimiento requiere las migraciones 013 y 021.'
+        });
+      }
+      console.error('Error descargando archivo global de mantenimiento:', error);
+      res.status(500).json({
+        message: 'Error al descargar archivo global de mantenimiento',
+        error: error.message
+      });
+    }
+  },
+
+  async deleteGlobalMaintenanceFile(req, res) {
+    try {
+      const { maintenanceId, fileId } = req.params;
+      const maintenanceRecord = await vehicleModel.getGlobalMaintenanceRecordById(maintenanceId);
+
+      if (!maintenanceRecord) {
+        return res.status(404).json({
+          message: 'Registro global de mantenimiento no encontrado'
+        });
+      }
+
+      const deletedFile = await vehicleModel.deleteMaintenanceFile(maintenanceId, fileId);
+
+      if (!deletedFile) {
+        return res.status(404).json({
+          message: 'Archivo no encontrado'
+        });
+      }
+
+      const updatedRecord = await vehicleModel.getGlobalMaintenanceRecordPayload(maintenanceId);
+
+      await vehicleController.logHistory(req, maintenanceRecord.vehiculo_id, {
+        module: 'mantenimiento',
+        action: 'eliminar_archivo',
+        entityType: 'maintenance_file',
+        entityId: fileId,
+        description: `Elimino un archivo adjunto del mantenimiento global "${maintenanceRecord.titulo || maintenanceId}"`,
+        details: {
+          maintenance_id: maintenanceId,
+          archivo_id: fileId
+        }
+      });
+
+      res.json({
+        message: 'Archivo eliminado correctamente',
+        maintenanceRecord: updatedRecord
+      });
+    } catch (error) {
+      if (error.code === '42P01' || error.code === '42703') {
+        return res.status(503).json({
+          message: 'El historial global de mantenimiento requiere las migraciones 013 y 021.'
+        });
+      }
+      console.error('Error eliminando archivo global de mantenimiento:', error);
+      res.status(500).json({
+        message: 'Error al eliminar archivo global de mantenimiento',
         error: error.message
       });
     }

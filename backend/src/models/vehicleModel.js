@@ -73,6 +73,16 @@ const mapGlobalGasolineFileRow = (fileRow, gasolineId, index) => ({
   download_url: `/api/gasoline-records/${gasolineId}/download?fileIndex=${index}`
 });
 
+const mapGlobalMaintenanceFileRow = (fileRow, maintenanceId, index) => ({
+  id: fileRow.id,
+  nombre_original: fileRow.nombre_original,
+  tipo_mime: fileRow.tipo_mime,
+  tamano: Number(fileRow.tamano_bytes || 0),
+  tamano_bytes: Number(fileRow.tamano_bytes || 0),
+  orden: fileRow.orden ?? index + 1,
+  download_url: `/api/maintenance-records/${maintenanceId}/download?fileIndex=${index}`
+});
+
 export const vehicleModel = {
   async getVehicleParametersByVehicleId(vehicleId) {
     try {
@@ -426,6 +436,131 @@ export const vehicleModel = {
     }
   },
 
+  async getGlobalMaintenanceRecordById(maintenanceId) {
+    try {
+      const result = await query(
+        `SELECT
+           m.*,
+           v.placa AS vehiculo_placa,
+           v.descripcion AS vehiculo_descripcion,
+           v.propietario_nombre AS vehiculo_nombre,
+           v.numero_economico AS vehiculo_numero_economico,
+           v.tipo_carro AS vehiculo_tipo_carro
+         FROM vehiculo_mantenimientos m
+         JOIN vehiculos v ON v.id = m.vehiculo_id
+         WHERE m.id = $1
+           AND m.deleted_at IS NULL
+           AND v.deleted_at IS NULL
+         LIMIT 1`,
+        [maintenanceId]
+      );
+
+      return result.rows[0] || null;
+    } catch (error) {
+      if (error.code === '42P01' || error.code === '42703') {
+        return null;
+      }
+      throw error;
+    }
+  },
+
+  async getAllMaintenanceRecords(filters = {}) {
+    try {
+      const params = [];
+      const conditions = [
+        'm.deleted_at IS NULL',
+        'v.deleted_at IS NULL'
+      ];
+
+      if (filters.vehicleId) {
+        params.push(filters.vehicleId);
+        conditions.push(`m.vehiculo_id = $${params.length}`);
+      }
+
+      if (filters.dateFrom) {
+        params.push(filters.dateFrom);
+        conditions.push(`m.fecha_servicio >= $${params.length}`);
+      }
+
+      if (filters.dateTo) {
+        params.push(filters.dateTo);
+        conditions.push(`m.fecha_servicio <= $${params.length}`);
+      }
+
+      const result = await query(
+        `SELECT
+           m.*,
+           v.placa AS vehiculo_placa,
+           v.descripcion AS vehiculo_descripcion,
+           v.propietario_nombre AS vehiculo_nombre,
+           v.numero_economico AS vehiculo_numero_economico,
+           v.tipo_carro AS vehiculo_tipo_carro
+         FROM vehiculo_mantenimientos m
+         JOIN vehiculos v ON v.id = m.vehiculo_id
+         WHERE ${conditions.join(' AND ')}
+         ORDER BY m.fecha_servicio DESC, m.created_at DESC`,
+        params
+      );
+
+      return result.rows;
+    } catch (error) {
+      if (error.code === '42P01' || error.code === '42703') {
+        return [];
+      }
+      throw error;
+    }
+  },
+
+  async updateGlobalMaintenanceRecord(maintenanceId, maintenanceData) {
+    const {
+      vehiculo_id,
+      titulo,
+      tipo_mantenimiento,
+      fecha_servicio,
+      costo,
+      proveedor,
+      descripcion,
+      observaciones,
+      es_cambio_aceite,
+      kilometraje_base_aceite,
+      kilometraje_base_fuente
+    } = maintenanceData;
+
+    const result = await query(
+      `UPDATE vehiculo_mantenimientos
+       SET vehiculo_id = $1,
+           titulo = $2,
+           tipo_mantenimiento = $3,
+           fecha_servicio = $4,
+           costo = $5,
+           proveedor = $6,
+           descripcion = $7,
+           observaciones = $8,
+           es_cambio_aceite = $9,
+           kilometraje_base_aceite = $10,
+           kilometraje_base_fuente = $11,
+           updated_at = NOW()
+       WHERE id = $12 AND deleted_at IS NULL
+       RETURNING *`,
+      [
+        vehiculo_id,
+        titulo,
+        tipo_mantenimiento,
+        fecha_servicio,
+        costo,
+        proveedor,
+        descripcion,
+        observaciones,
+        es_cambio_aceite ?? false,
+        kilometraje_base_aceite,
+        kilometraje_base_fuente,
+        maintenanceId
+      ]
+    );
+
+    return result.rows[0] || null;
+  },
+
   async addMaintenanceFiles(maintenanceId, files = []) {
     if (!files.length) return [];
 
@@ -503,6 +638,32 @@ export const vehicleModel = {
        ORDER BY f.orden ASC NULLS LAST, f.created_at ASC NULLS LAST
        LIMIT 1 OFFSET $3`,
       [vehicleId, maintenanceId, safeIndex]
+    );
+
+    return result.rows[0] || null;
+  },
+
+  async getGlobalMaintenanceFileByIndex(maintenanceId, fileIndex = 0) {
+    const safeIndex = Number.isInteger(fileIndex) && fileIndex >= 0 ? fileIndex : 0;
+    const result = await query(
+      `SELECT
+         m.id AS maintenance_id,
+         m.vehiculo_id,
+         f.id,
+         f.nombre_original,
+         f.tipo_mime,
+         f.tamano_bytes,
+         f.archivo_data,
+         f.orden
+       FROM vehiculo_mantenimientos m
+       LEFT JOIN vehiculo_mantenimiento_archivos f
+         ON f.vehiculo_mantenimiento_id = m.id
+        AND f.deleted_at IS NULL
+       WHERE m.id = $1
+         AND m.deleted_at IS NULL
+       ORDER BY f.orden ASC NULLS LAST, f.created_at ASC NULLS LAST
+       LIMIT 1 OFFSET $2`,
+      [maintenanceId, safeIndex]
     );
 
     return result.rows[0] || null;
@@ -1340,6 +1501,20 @@ export const vehicleModel = {
       ...gasolineRecord,
       archivos_json: JSON.stringify(fileRows.map((fileRow, index) =>
         mapGlobalGasolineFileRow(fileRow, gasolineId, index)
+      ))
+    };
+  },
+
+  async getGlobalMaintenanceRecordPayload(maintenanceId) {
+    const maintenanceRecord = await vehicleModel.getGlobalMaintenanceRecordById(maintenanceId);
+    if (!maintenanceRecord) return null;
+
+    const fileRows = await vehicleModel.getMaintenanceFilesMetadata(maintenanceId);
+
+    return {
+      ...maintenanceRecord,
+      archivos_json: JSON.stringify(fileRows.map((fileRow, index) =>
+        mapGlobalMaintenanceFileRow(fileRow, maintenanceId, index)
       ))
     };
   },

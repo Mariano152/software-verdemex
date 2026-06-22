@@ -748,6 +748,11 @@
   overflow-x: auto;
 }
 
+.analytics-records-table-wrapper-scroll {
+  max-height: 560px;
+  overflow-y: auto;
+}
+
 .analytics-records-table {
   width: 100%;
   border-collapse: collapse;

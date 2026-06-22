@@ -5,6 +5,7 @@ import './Layout.css';
 
 const SECTION_METADATA = [
   { match: '/gasoline', section: 'Gasolina', caption: 'Bitacora global de cargas, kilometrajes y documentos' },
+  { match: '/maintenance', section: 'Mantenimiento', caption: 'Bitacora global de servicios y proximos cambios de aceite' },
   { match: '/vehicles', section: 'Vehiculos', caption: 'Gestion de flotilla, documentos y operacion diaria' },
   { match: '/drivers', section: 'Conductores', caption: 'Control de perfiles, desempeno y asignaciones' },
   { match: '/orders', section: 'Pedidos', caption: 'Seguimiento operativo y trazabilidad de entregas' },
@@ -28,6 +29,7 @@ export default function Layout({ children }) {
   const menuItems = [
     { path: '/dashboard', label: 'Dashboard', icon: '📊' },
     { path: '/gasoline', label: 'Gasolina', icon: '⛽' },
+    { path: '/maintenance', label: 'Mantenimiento', icon: '🛠️' },
     { path: '/vehicles', label: 'Vehiculos', icon: '🚚' },
     { path: '/drivers', label: 'Conductores', icon: '👨‍✈️' },
     { path: '/orders', label: 'Pedidos', icon: '📦' },
