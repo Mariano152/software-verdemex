@@ -84,6 +84,8 @@ const extractFiles = (record) => {
 export default function GasolineDashboard() {
   const [vehicles, setVehicles] = useState([]);
   const [records, setRecords] = useState([]);
+  const [inventoryPipas, setInventoryPipas] = useState([]);
+  const [inventoryRecords, setInventoryRecords] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [notification, setNotification] = useState(null);
@@ -104,7 +106,7 @@ export default function GasolineDashboard() {
         setLoading(true);
         const token = localStorage.getItem('authToken');
 
-        const [vehiclesResponse, recordsResponse] = await Promise.all([
+        const [vehiclesResponse, recordsResponse, pipasResponse, inventoryResponse] = await Promise.all([
           fetch('/api/vehicles', {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -116,11 +118,25 @@ export default function GasolineDashboard() {
               Authorization: `Bearer ${token}`,
               'Content-Type': 'application/json'
             }
+          }),
+          fetch('/api/inventory/pipas', {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }),
+          fetch('/api/inventory/records', {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
           })
         ]);
 
         const vehiclesData = await vehiclesResponse.json().catch(() => ({}));
         const recordsData = await recordsResponse.json().catch(() => ({}));
+        const pipasData = await pipasResponse.json().catch(() => ({}));
+        const inventoryData = await inventoryResponse.json().catch(() => ({}));
 
         if (!vehiclesResponse.ok) {
           throw new Error(vehiclesData.message || 'No se pudieron cargar los vehiculos');
@@ -132,6 +148,8 @@ export default function GasolineDashboard() {
 
         setVehicles(vehiclesData.vehicles || []);
         setRecords(sortRecordsByDateTimeDesc(recordsData.gasolineRecords || []));
+        setInventoryPipas(pipasResponse.ok ? (pipasData.pipas || []) : []);
+        setInventoryRecords(inventoryResponse.ok ? (inventoryData.inventoryRecords || []) : []);
         setError(null);
       } catch (fetchError) {
         console.error('Error loading gasoline dashboard:', fetchError);
@@ -160,6 +178,7 @@ export default function GasolineDashboard() {
         record.proveedor,
         record.operador,
         record.tipo_combustible,
+        record.pipa_nombre_snapshot,
         record.numero_economico_snapshot,
         record.vehiculo_placa,
         record.placa_snapshot,
@@ -360,6 +379,8 @@ export default function GasolineDashboard() {
         Placas: record.placa_snapshot || record.vehiculo_placa || '',
         Descripcion: record.descripcion_snapshot || record.vehiculo_descripcion || '',
         'Titulo de carga': record.titulo || '',
+        'Origen de carga': record.origen_carga === 'pipa' ? 'Pipa' : 'Gasolinera',
+        Pipa: record.pipa_nombre_snapshot || '',
         Combustible: getFuelTypeLabel(record.tipo_combustible),
         'Kilometraje actual': Number(record.kilometraje_actual || 0),
         'Kilometraje anterior': Number(record.kilometraje_anterior || 0),
@@ -482,7 +503,7 @@ export default function GasolineDashboard() {
               type='search'
               value={filters.search}
               onChange={(event) => setFilters((current) => ({ ...current, search: event.target.value }))}
-              placeholder='Numero economico, factura, placa, proveedor u operador'
+              placeholder='Numero economico, factura, placa, proveedor, pipa u operador'
             />
           </div>
 
@@ -572,6 +593,7 @@ export default function GasolineDashboard() {
                       <p className='maintenance-record-type'>
                         {record.placa_snapshot || record.vehiculo_placa || '-'} · {record.descripcion_snapshot || record.vehiculo_descripcion || 'Sin descripcion'}
                       </p>
+                      <p className='maintenance-record-type'>{record.origen_carga === 'pipa' ? `Carga desde pipa${record.pipa_nombre_snapshot ? `: ${record.pipa_nombre_snapshot}` : ''}` : 'Carga desde gasolinera'}</p>
                       <p className='maintenance-record-type'>{getFuelTypeLabel(record.tipo_combustible)}</p>
                       <div className={`gasoline-performance-badge ${performanceStatus.className}`}>
                         <strong>{performanceStatus.label}</strong>
@@ -591,6 +613,8 @@ export default function GasolineDashboard() {
                     <div><span className='record-label'>Fecha</span><strong>{formatDate(record.fecha_carga)}</strong></div>
                     <div><span className='record-label'>Hora</span><strong>{record.hora_carga?.slice(0, 5) || '-'}</strong></div>
                     <div><span className='record-label'>Proveedor</span><strong>{record.proveedor || '-'}</strong></div>
+                    <div><span className='record-label'>Origen</span><strong>{record.origen_carga === 'pipa' ? 'Pipa' : 'Gasolinera'}</strong></div>
+                    <div><span className='record-label'>Pipa</span><strong>{record.pipa_nombre_snapshot || '-'}</strong></div>
                     <div><span className='record-label'>Combustible</span><strong>{getFuelTypeLabel(record.tipo_combustible)}</strong></div>
                     <div><span className='record-label'>Operador</span><strong>{record.operador || '-'}</strong></div>
                     <div><span className='record-label'>Km actual</span><strong>{formatNumber(record.kilometraje_actual)}</strong></div>
@@ -635,6 +659,8 @@ export default function GasolineDashboard() {
       <GlobalGasolineRecordModal
         vehicles={vehicles}
         records={records}
+        pipas={inventoryPipas}
+        inventoryRecords={inventoryRecords}
         record={selectedRecord}
         isOpen={recordModalOpen}
         isNew={isNewRecord}

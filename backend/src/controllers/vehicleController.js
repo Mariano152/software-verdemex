@@ -1,5 +1,6 @@
 import { vehicleModel } from '../models/vehicleModel.js';
 import { vehicleHistoryModel } from '../models/vehicleHistoryModel.js';
+import { inventoryModel } from '../models/inventoryModel.js';
 import { cloudinaryService } from '../services/cloudinaryService.js';
 import { VALID_FUEL_TYPES, normalizeFuelType } from '../constants/fuelTypes.js';
 
@@ -92,6 +93,10 @@ const normalizeDateValue = (value) => {
   const normalized = normalizeText(value);
   return normalized || null;
 };
+const normalizeLoadSource = (value) => {
+  const normalized = normalizeText(value).toLowerCase();
+  return normalized === 'pipa' ? 'pipa' : 'gasolinera';
+};
 const buildGasolineRecordTitle = ({ factura, fecha_carga, placa }) => {
   if (factura) return `Factura ${factura}`;
   if (fecha_carga && placa) return `Carga ${placa} ${fecha_carga}`;
@@ -135,6 +140,10 @@ const buildGlobalGasolineData = (body, vehicle, previousMileage = null, options 
     m3_enviados: normalizeNumber(body.m3_enviados),
     operador: normalizeNullableText(body.operador),
     primera_carga: primeraCarga,
+    origen_carga: normalizeLoadSource(body.origen_carga),
+    inventario_pipa_registro_id: normalizeNullableText(body.inventario_pipa_registro_id),
+    pipa_nombre_snapshot: normalizeNullableText(body.pipa_nombre_snapshot),
+    precio_litro_referencia: normalizeNumber(body.precio_litro_referencia),
     placa_snapshot: normalizeNullableText(vehicle?.placa),
     descripcion_snapshot: normalizeNullableText(vehicle?.descripcion || vehicle?.propietario_nombre),
     numero_economico_snapshot: normalizeNullableText(vehicle?.numero_economico || body.numero_economico_snapshot)
@@ -169,12 +178,12 @@ const validateGlobalGasolineData = (gasolineData, operationParameters = null) =>
     return 'El numero economico del vehiculo es requerido';
   }
 
-  if (!gasolineData.descripcion_snapshot) {
-    return 'La descripcion del vehiculo es requerida';
-  }
-
   if (!gasolineData.operador) {
     return 'El operador es requerido';
+  }
+
+  if (gasolineData.origen_carga === 'pipa' && !gasolineData.inventario_pipa_registro_id) {
+    return 'Selecciona una pipa con recarga valida para usar este origen';
   }
 
   if (gasolineData.costo_total < 0 || gasolineData.litros <= 0) {
@@ -209,6 +218,65 @@ const validateGlobalGasolineData = (gasolineData, operationParameters = null) =>
   }
 
   return null;
+};
+
+const isGasolineValidationError = (error) => (
+  error?.statusCode === 400
+  || String(error?.message || '').startsWith('Selecciona la pipa')
+  || String(error?.message || '').startsWith('La pipa seleccionada')
+);
+
+const syncPipaFifoConsumption = async (gasolineId, body, gasolineData) => {
+  if (gasolineData.origen_carga !== 'pipa') {
+    await inventoryModel.clearPipaFifoConsumption(gasolineId);
+    return;
+  }
+
+  const pipaId = normalizeNullableText(body.pipa_id);
+  await inventoryModel.replacePipaFifoConsumption({
+    gasolineId,
+    pipaId,
+    fecha: gasolineData.fecha_carga,
+    allocations: gasolineData.fifo_allocations || []
+  });
+};
+
+const applyPipaPricingIfNeeded = async (body, gasolineData, options = {}) => {
+  if (gasolineData.origen_carga !== 'pipa') {
+    return gasolineData;
+  }
+
+  const pipaId = normalizeNullableText(body.pipa_id);
+  if (!pipaId) {
+    const error = new Error('Selecciona la pipa origen para la carga');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const pipa = await inventoryModel.getPipaById(pipaId);
+  if (!pipa) {
+    const error = new Error('La pipa seleccionada no existe');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  const fifoPricing = await inventoryModel.calculatePipaFifoCost({
+    pipaId,
+    litros: gasolineData.litros,
+    fecha: gasolineData.fecha_carga,
+    excludeGasolineId: options.excludeGasolineId || null
+  });
+
+  return {
+    ...gasolineData,
+    tipo_combustible: normalizeFuelType(pipa.tipo_combustible),
+    costo_total: fifoPricing.costo_total,
+    proveedor: gasolineData.proveedor || fifoPricing.proveedor || pipa.nombre,
+    inventario_pipa_registro_id: fifoPricing.inventario_pipa_registro_id,
+    pipa_nombre_snapshot: pipa.nombre,
+    precio_litro_referencia: fifoPricing.precio_litro_referencia,
+    fifo_allocations: fifoPricing.allocations
+  };
 };
 const buildVehicleParametersData = (body = {}) => ({
   capacidad_tanque_litros: normalizeNumber(body.capacidad_tanque_litros),
@@ -1168,11 +1236,12 @@ export const vehicleController = {
         fecha_carga: req.body.fecha_carga,
         hora_carga: req.body.hora_carga
       });
-      const gasolineData = buildGlobalGasolineData(
+      let gasolineData = buildGlobalGasolineData(
         { ...req.body, vehiculo_id: vehicleId },
         vehicle,
         latestMileage
       );
+      gasolineData = await applyPipaPricingIfNeeded(req.body, gasolineData);
       const validationError = validateGlobalGasolineData(gasolineData, vehicle.parametros_operativos);
 
       if (validationError) {
@@ -1181,6 +1250,7 @@ export const vehicleController = {
 
 
       const gasolineRecord = await vehicleModel.createGasolineRecord(vehicleId, gasolineData);
+      await syncPipaFifoConsumption(gasolineRecord.id, req.body, gasolineData);
 
       if (req.files && req.files.length > 0) {
         await vehicleModel.addGasolineFiles(gasolineRecord.id, req.files);
@@ -1234,6 +1304,9 @@ export const vehicleController = {
           message: 'El historial de gasolina aÃºn no estÃ¡ disponible en la base de datos. Ejecuta la migraciÃ³n 014.'
         });
       }
+      if (isGasolineValidationError(error)) {
+        return res.status(400).json({ message: error.message });
+      }
       console.error('Error creando registro de gasolina:', error);
       res.status(500).json({
         message: 'Error al crear registro de gasolina',
@@ -1259,18 +1332,21 @@ export const vehicleController = {
         hora_carga: req.body.hora_carga,
         excludeGasolineId: gasolineId
       });
-      const gasolineData = buildGlobalGasolineData(
+      let gasolineData = buildGlobalGasolineData(
         { ...req.body, vehiculo_id: vehicleId },
         vehicle,
-        latestMileage,
-        { preserveCapturedPreviousMileage: true }
+        latestMileage
       );
+      gasolineData = await applyPipaPricingIfNeeded(req.body, gasolineData, {
+        excludeGasolineId: gasolineId
+      });
       const validationError = validateGlobalGasolineData(gasolineData, vehicle.parametros_operativos);
       if (validationError) {
         return res.status(400).json({ message: validationError });
       }
 
       await vehicleModel.updateGasolineRecord(vehicleId, gasolineId, gasolineData);
+      await syncPipaFifoConsumption(gasolineId, req.body, gasolineData);
 
 
       const updatedRecord = await vehicleController.getGasolineRecordPayload(vehicleId, gasolineId);
@@ -1367,6 +1443,9 @@ export const vehicleController = {
           message: 'El historial de gasolina aÃºn no estÃ¡ disponible en la base de datos. Ejecuta la migraciÃ³n 014.'
         });
       }
+      if (isGasolineValidationError(error)) {
+        return res.status(400).json({ message: error.message });
+      }
       console.error('Error actualizando registro de gasolina:', error);
       res.status(500).json({
         message: 'Error al actualizar registro de gasolina',
@@ -1385,6 +1464,7 @@ export const vehicleController = {
           message: 'Registro de gasolina no encontrado'
         });
       }
+      await inventoryModel.clearPipaFifoConsumption(gasolineId);
 
       res.json({
         message: 'Registro de gasolina eliminado correctamente'
@@ -1563,7 +1643,8 @@ export const vehicleController = {
         fecha_carga: req.body.fecha_carga,
         hora_carga: req.body.hora_carga
       });
-      const gasolineData = buildGlobalGasolineData(req.body, vehicle, latestMileage);
+      let gasolineData = buildGlobalGasolineData(req.body, vehicle, latestMileage);
+      gasolineData = await applyPipaPricingIfNeeded(req.body, gasolineData);
       const validationError = validateGlobalGasolineData(gasolineData, vehicle.parametros_operativos);
 
       if (validationError) {
@@ -1571,6 +1652,7 @@ export const vehicleController = {
       }
 
       const gasolineRecord = await vehicleModel.createGasolineRecord(vehicleId, gasolineData);
+      await syncPipaFifoConsumption(gasolineRecord.id, req.body, gasolineData);
 
       if (req.files && req.files.length > 0) {
         await vehicleModel.addGasolineFiles(gasolineRecord.id, req.files);
@@ -1609,6 +1691,9 @@ export const vehicleController = {
           message: 'El historial global de gasolina requiere la migracion 017.'
         });
       }
+      if (isGasolineValidationError(error)) {
+        return res.status(400).json({ message: error.message });
+      }
       console.error('Error creando registro global de gasolina:', error);
       res.status(500).json({
         message: 'Error al crear registro global de gasolina',
@@ -1642,8 +1727,9 @@ export const vehicleController = {
         hora_carga: req.body.hora_carga,
         excludeGasolineId: gasolineId
       });
-      const gasolineData = buildGlobalGasolineData(req.body, vehicle, latestMileage, {
-        preserveCapturedPreviousMileage: true
+      let gasolineData = buildGlobalGasolineData(req.body, vehicle, latestMileage);
+      gasolineData = await applyPipaPricingIfNeeded(req.body, gasolineData, {
+        excludeGasolineId: gasolineId
       });
       const validationError = validateGlobalGasolineData(gasolineData, vehicle.parametros_operativos);
 
@@ -1652,6 +1738,7 @@ export const vehicleController = {
       }
 
       await vehicleModel.updateGlobalGasolineRecord(gasolineId, gasolineData);
+      await syncPipaFifoConsumption(gasolineId, req.body, gasolineData);
 
       if (req.files && req.files.length > 0) {
         await vehicleModel.addGasolineFiles(gasolineId, req.files);
@@ -1734,6 +1821,9 @@ export const vehicleController = {
           message: 'El historial global de gasolina requiere la migracion 017.'
         });
       }
+      if (isGasolineValidationError(error)) {
+        return res.status(400).json({ message: error.message });
+      }
       console.error('Error actualizando registro global de gasolina:', error);
       res.status(500).json({
         message: 'Error al actualizar registro global de gasolina',
@@ -1752,6 +1842,7 @@ export const vehicleController = {
           message: 'Registro global de gasolina no encontrado'
         });
       }
+      await inventoryModel.clearPipaFifoConsumption(gasolineId);
 
       res.json({
         message: 'Registro global de gasolina eliminado correctamente'

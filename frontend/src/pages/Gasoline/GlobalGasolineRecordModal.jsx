@@ -40,6 +40,8 @@ const formatTimeForInput = (value) => {
 const EMPTY_FORM = {
   vehiculo_id: '',
   titulo: '',
+  origen_carga: 'gasolinera',
+  pipa_id: '',
   tipo_combustible: '',
   factura: '',
   fecha_carga: buildTodayDate(),
@@ -55,7 +57,10 @@ const EMPTY_FORM = {
   m3_enviados: '',
   operador: '',
   primera_carga: false,
-  observaciones: ''
+  observaciones: '',
+  inventario_pipa_registro_id: '',
+  pipa_nombre_snapshot: '',
+  precio_litro_referencia: ''
 };
 
 const extractFiles = (record) => {
@@ -73,7 +78,9 @@ const extractFiles = (record) => {
 
 const buildRecordTimestamp = (record) => {
   if (!record?.fecha_carga) return 0;
-  const date = new Date(`${record.fecha_carga}T${record.hora_carga || '00:00:00'}`);
+  const recordDate = formatDateForInput(record.fecha_carga);
+  const recordTime = formatTimeForInput(record.hora_carga) || '00:00:00';
+  const date = new Date(`${recordDate}T${recordTime}`);
   return Number.isNaN(date.getTime()) ? 0 : date.getTime();
 };
 
@@ -101,15 +108,75 @@ const findPreviousMileage = ({ records, vehicleId, date, time, excludeRecordId }
   return Number(previousRecord?.kilometraje_actual || 0);
 };
 
+const getPreviousMileageForForm = ({ records, vehicleId, date, time, excludeRecordId, primeraCarga }) => {
+  if (primeraCarga) return null;
+
+  return findPreviousMileage({
+    records,
+    vehicleId,
+    date,
+    time,
+    excludeRecordId
+  });
+};
+
 const parseNumber = (value) => {
   if (value === '' || value === null || value === undefined) return null;
   const parsed = Number(value);
   return Number.isNaN(parsed) ? null : parsed;
 };
 
+const buildInventoryTimestamp = (record) => {
+  if (!record?.fecha) return 0;
+  const date = new Date(`${record.fecha}T00:00:00`);
+  return Number.isNaN(date.getTime()) ? 0 : date.getTime();
+};
+
+const calculateFifoPreview = ({ inventoryRecords = [], pipaId, liters, date }) => {
+  const requestedLiters = parseNumber(liters);
+  if (!pipaId || requestedLiters === null || requestedLiters <= 0) return null;
+
+  const maxTimestamp = date ? new Date(`${date}T23:59:59`).getTime() : Number.POSITIVE_INFINITY;
+  let remainingLiters = requestedLiters;
+  let totalCost = 0;
+  const allocations = [];
+
+  const pipaRecords = [...inventoryRecords]
+    .filter((record) => (
+      String(record.pipa_id) === String(pipaId)
+      && buildInventoryTimestamp(record) <= maxTimestamp
+    ))
+    .sort((left, right) => buildInventoryTimestamp(left) - buildInventoryTimestamp(right));
+
+  for (const record of pipaRecords) {
+    if (remainingLiters <= 0) break;
+
+    const availableLiters = parseNumber(record.litros_disponibles) ?? parseNumber(record.litros_comprados) ?? 0;
+    if (availableLiters <= 0) continue;
+
+    const unitCost = parseNumber(record.costo_unitario)
+      ?? (parseNumber(record.litros_comprados) > 0
+        ? Number(record.costo_total_compra || 0) / Number(record.litros_comprados || 1)
+        : 0);
+    const consumedLiters = Math.min(availableLiters, remainingLiters);
+    totalCost += consumedLiters * unitCost;
+    allocations.push({ record, consumedLiters, unitCost });
+    remainingLiters = Number((remainingLiters - consumedLiters).toFixed(2));
+  }
+
+  return {
+    complete: remainingLiters <= 0,
+    firstRecord: allocations[0]?.record || null,
+    totalCost: Number(totalCost.toFixed(2)),
+    averageUnitCost: Number((totalCost / requestedLiters).toFixed(4))
+  };
+};
+
 export default function GlobalGasolineRecordModal({
   vehicles = [],
   records = [],
+  pipas = [],
+  inventoryRecords = [],
   record,
   isOpen,
   isNew = false,
@@ -131,6 +198,10 @@ export default function GlobalGasolineRecordModal({
   useEffect(() => {
     if (!isOpen) return;
 
+    const matchedInventoryRecord = record?.inventario_pipa_registro_id
+      ? inventoryRecords.find((item) => String(item.id) === String(record.inventario_pipa_registro_id))
+      : null;
+
     if (isNew || !record) {
       setFormData(EMPTY_FORM);
       setVehicleSearch('');
@@ -143,6 +214,8 @@ export default function GlobalGasolineRecordModal({
     setFormData({
       vehiculo_id: record.vehiculo_id || '',
       titulo: record.titulo || '',
+      origen_carga: record.origen_carga || 'gasolinera',
+      pipa_id: matchedInventoryRecord?.pipa_id || '',
       tipo_combustible: normalizeFuelType(record.tipo_combustible),
       factura: record.factura || '',
       fecha_carga: formatDateForInput(record.fecha_carga) || buildTodayDate(),
@@ -158,7 +231,10 @@ export default function GlobalGasolineRecordModal({
       m3_enviados: record.m3_enviados ?? '',
       operador: record.operador || '',
       primera_carga: Boolean(record.primera_carga),
-      observaciones: record.observaciones || ''
+      observaciones: record.observaciones || '',
+      inventario_pipa_registro_id: record.inventario_pipa_registro_id || '',
+      pipa_nombre_snapshot: record.pipa_nombre_snapshot || '',
+      precio_litro_referencia: record.precio_litro_referencia ?? ''
     });
 
     const selectedVehicle = vehicles.find((vehicle) => String(vehicle.id) === String(record.vehiculo_id));
@@ -170,7 +246,7 @@ export default function GlobalGasolineRecordModal({
     setExistingFiles(extractFiles(record));
     setSelectedFiles([]);
     setValidationMessage('');
-  }, [isOpen, isNew, record, vehicles]);
+  }, [inventoryRecords, isOpen, isNew, record, vehicles]);
 
   usePopupTopScroll(isOpen, [overlayRef, modalRef], [mode, record?.id]);
 
@@ -185,20 +261,20 @@ export default function GlobalGasolineRecordModal({
   const selectedVehicle = useMemo(() => (
     vehicles.find((vehicle) => String(vehicle.id) === String(formData.vehiculo_id)) || null
   ), [formData.vehiculo_id, vehicles]);
+  const isViewMode = mode === 'view';
+  const selectedPipa = useMemo(() => (
+    pipas.find((item) => String(item.id) === String(formData.pipa_id)) || null
+  ), [formData.pipa_id, pipas]);
+  const fifoPreview = useMemo(() => calculateFifoPreview({
+    inventoryRecords,
+    pipaId: formData.pipa_id,
+    liters: formData.litros,
+    date: formData.fecha_carga
+  }), [formData.fecha_carga, formData.litros, formData.pipa_id, inventoryRecords]);
 
   useEffect(() => {
     if (!isOpen || mode === 'view') return;
     if (!selectedVehicle) return;
-
-    if (!isNew && record) {
-      setFormData((current) => ({
-        ...current,
-        numero_economico_snapshot: selectedVehicle.numero_economico || '',
-        placa_snapshot: selectedVehicle.placa || '',
-        descripcion_snapshot: selectedVehicle.descripcion || ''
-      }));
-      return;
-    }
 
     if (!formData.primera_carga) {
       const previousMileage = findPreviousMileage({
@@ -236,11 +312,30 @@ export default function GlobalGasolineRecordModal({
     selectedVehicle
   ]);
 
-  const isViewMode = mode === 'view';
+  useEffect(() => {
+    if (!isOpen || isViewMode || formData.origen_carga !== 'pipa') return;
+
+    const nextFuelType = selectedPipa?.tipo_combustible ? normalizeFuelType(selectedPipa.tipo_combustible) : formData.tipo_combustible;
+    const selectedPipaRecord = fifoPreview?.firstRecord || null;
+
+    setFormData((current) => ({
+      ...current,
+      tipo_combustible: nextFuelType || current.tipo_combustible,
+      proveedor: current.proveedor || selectedPipaRecord?.proveedor || selectedPipa?.nombre || '',
+      inventario_pipa_registro_id: selectedPipaRecord?.id || '',
+      pipa_nombre_snapshot: selectedPipa?.nombre || '',
+      precio_litro_referencia: fifoPreview?.complete ? String(fifoPreview.averageUnitCost) : '',
+      costo_total: fifoPreview?.complete
+        ? String(fifoPreview.totalCost.toFixed(2))
+        : current.costo_total
+    }));
+  }, [fifoPreview, formData.origen_carga, formData.tipo_combustible, isOpen, isViewMode, selectedPipa]);
+
   const currentMileage = parseNumber(formData.kilometraje_actual);
   const previousMileage = parseNumber(formData.kilometraje_anterior) ?? 0;
   const liters = parseNumber(formData.litros);
   const totalAmount = parseNumber(formData.costo_total);
+  const sourcePricePerLiter = parseNumber(formData.precio_litro_referencia);
   const m3Sent = parseNumber(formData.m3_enviados);
   const tankCapacity = parseNumber(selectedVehicle?.operationParameters?.capacidad_tanque_litros);
   const kilometersTraveled = currentMileage !== null ? currentMileage - previousMileage : 0;
@@ -255,10 +350,40 @@ export default function GlobalGasolineRecordModal({
     if (isViewMode) return;
 
     setValidationMessage('');
-    setFormData((current) => ({
-      ...current,
-      [field]: value
-    }));
+    setFormData((current) => {
+      const next = {
+        ...current,
+        [field]: value
+      };
+
+      if (field === 'origen_carga' && value === 'gasolinera') {
+        next.pipa_id = '';
+        next.inventario_pipa_registro_id = '';
+        next.pipa_nombre_snapshot = '';
+        next.precio_litro_referencia = '';
+      }
+
+      if (['vehiculo_id', 'fecha_carga', 'hora_carga'].includes(field) && !next.primera_carga) {
+        const previousMileage = getPreviousMileageForForm({
+          records,
+          vehicleId: next.vehiculo_id,
+          date: next.fecha_carga,
+          time: next.hora_carga,
+          excludeRecordId: record?.id,
+          primeraCarga: next.primera_carga
+        });
+        next.kilometraje_anterior = String(previousMileage ?? 0);
+      }
+
+      if (field === 'litros' && current.origen_carga === 'pipa' && sourcePricePerLiter !== null) {
+        const nextLiters = parseNumber(value);
+        next.costo_total = nextLiters !== null && nextLiters > 0
+          ? String((nextLiters * sourcePricePerLiter).toFixed(2))
+          : '';
+      }
+
+      return next;
+    });
   };
 
   const handleVehicleSearchChange = (value) => {
@@ -373,6 +498,11 @@ export default function GlobalGasolineRecordModal({
       return;
     }
 
+    if (formData.origen_carga === 'pipa' && !formData.pipa_id) {
+      setValidationMessage('Selecciona la pipa origen.');
+      return;
+    }
+
     if (!String(formData.proveedor || '').trim()) {
       setValidationMessage('El proveedor es obligatorio.');
       return;
@@ -395,11 +525,6 @@ export default function GlobalGasolineRecordModal({
 
     if (!String(formData.numero_economico_snapshot || '').trim()) {
       setValidationMessage('El numero economico del vehiculo es obligatorio.');
-      return;
-    }
-
-    if (!String(formData.descripcion_snapshot || '').trim()) {
-      setValidationMessage('La descripcion del vehiculo es obligatoria.');
       return;
     }
 
@@ -468,6 +593,15 @@ export default function GlobalGasolineRecordModal({
         </div>
 
         <div className='maintenance-modal-grid'>
+          <div className='full-width global-gasoline-source-row'>
+            <button type='button' className={`global-toggle-btn ${formData.origen_carga === 'gasolinera' ? 'active' : ''}`} onClick={() => handleChange('origen_carga', 'gasolinera')} disabled={isViewMode}>
+              Gasolinera
+            </button>
+            <button type='button' className={`global-toggle-btn ${formData.origen_carga === 'pipa' ? 'active' : ''}`} onClick={() => handleChange('origen_carga', 'pipa')} disabled={isViewMode}>
+              Pipa
+            </button>
+          </div>
+
           <label className='full-width'>
             <span>Vehiculo</span>
             <input
@@ -503,6 +637,24 @@ export default function GlobalGasolineRecordModal({
             )}
           </label>
 
+          {formData.origen_carga === 'pipa' ? (
+            <label>
+              <span>Pipa origen</span>
+              {isViewMode ? (
+                <input value={formData.pipa_nombre_snapshot || '-'} readOnly />
+              ) : (
+                <select value={formData.pipa_id} onChange={(event) => handleChange('pipa_id', event.target.value)}>
+                  <option value=''>Selecciona una pipa</option>
+                  {pipas.map((pipa) => (
+                    <option key={pipa.id} value={pipa.id}>
+                      {pipa.nombre} - {getFuelTypeLabel(pipa.tipo_combustible)}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </label>
+          ) : null}
+
           <label>
             <span>Factura</span>
             <input value={formData.factura} onChange={(event) => handleChange('factura', event.target.value)} readOnly={isViewMode} />
@@ -533,11 +685,6 @@ export default function GlobalGasolineRecordModal({
             <input value={formData.placa_snapshot} readOnly />
           </label>
 
-          <label className='full-width'>
-            <span>Descripcion del vehiculo</span>
-            <input value={formData.descripcion_snapshot} readOnly />
-          </label>
-
           <label>
             <span>Kilometraje actual</span>
             <input type='number' min='0' step='0.01' value={formData.kilometraje_actual} onChange={(event) => handleChange('kilometraje_actual', event.target.value)} readOnly={isViewMode} />
@@ -563,7 +710,7 @@ export default function GlobalGasolineRecordModal({
 
           <label>
             <span>Monto</span>
-            <input type='number' min='0' step='0.01' value={formData.costo_total} onChange={(event) => handleChange('costo_total', event.target.value)} readOnly={isViewMode} />
+            <input type='number' min='0' step='0.01' value={formData.costo_total} onChange={(event) => handleChange('costo_total', event.target.value)} readOnly={isViewMode || formData.origen_carga === 'pipa'} />
           </label>
 
           <label>
@@ -590,6 +737,7 @@ export default function GlobalGasolineRecordModal({
           <div className='full-width global-gasoline-metrics'>
             <div><span>Km recorridos</span><strong>{kilometersTraveled > 0 ? kilometersTraveled.toLocaleString('es-MX') : '0'}</strong></div>
             <div><span>Precio por litro</span><strong>{pricePerLiter.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })}</strong></div>
+            <div><span>Precio ref. pipa</span><strong>{sourcePricePerLiter !== null ? sourcePricePerLiter.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' }) : '-'}</strong></div>
             <div><span>Rendimiento</span><strong>{efficiency.toLocaleString('es-MX', { maximumFractionDigits: 2 })} km/L</strong></div>
             <div><span>Precio por km</span><strong>{pricePerKm.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })}</strong></div>
             <div><span>Precio por m3</span><strong>{pricePerM3.toLocaleString('es-MX', { style: 'currency', currency: 'MXN' })}</strong></div>

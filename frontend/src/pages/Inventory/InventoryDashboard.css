@@ -1,0 +1,240 @@
+@import '../Gasoline/GasolineDashboard.css';
+
+.inventory-dashboard {
+  min-height: calc(100vh - 128px);
+}
+
+.inventory-dashboard .section-header,
+.inventory-dashboard .maintenance-history-section {
+  background: rgba(255, 255, 255, 0.96);
+}
+
+.inventory-dashboard .maintenance-history-section:last-of-type {
+  flex: 1;
+}
+
+.inventory-header-actions {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.maintenance-add-btn-secondary {
+  background: #e8f4ec;
+  color: #1f5f32;
+}
+
+.inventory-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+}
+
+.inventory-summary-card,
+.inventory-pipa-card,
+.inventory-record-card {
+  background: linear-gradient(180deg, #fbfdf9 0%, #f5faf3 100%);
+  border: 1px solid #dce9d8;
+  border-radius: 20px;
+  padding: 18px;
+}
+
+.inventory-pipa-card-clickable {
+  width: 100%;
+  display: block;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+}
+
+.inventory-pipa-card-clickable:hover {
+  transform: translateY(-2px);
+  border-color: #b8d8bf;
+  box-shadow: 0 18px 38px rgba(27, 77, 43, 0.12);
+}
+
+.inventory-summary-card span {
+  display: block;
+  margin-bottom: 10px;
+  font-size: 0.84rem;
+  font-weight: 700;
+  color: #607067;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.inventory-summary-card strong {
+  color: #16324f;
+  font-size: 1.5rem;
+}
+
+.inventory-filter-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 16px;
+  margin-top: 20px;
+}
+
+.inventory-filter-row label,
+.inventory-filter-row .records-search-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.inventory-filter-row input,
+.inventory-filter-row select {
+  border: 1px solid #cddcd2;
+  border-radius: 12px;
+  padding: 12px 14px;
+  font: inherit;
+  color: #16324f;
+  background: #ffffff;
+}
+
+.inventory-pipa-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 18px;
+}
+
+.inventory-capacity-card {
+  margin-top: 16px;
+  padding: 14px 16px;
+  border: 1px solid #d8e7db;
+  border-radius: 16px;
+  background: #f9fcf7;
+}
+
+.inventory-capacity-copy {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.inventory-capacity-copy span,
+.inventory-capacity-card small {
+  color: #587261;
+}
+
+.inventory-capacity-copy strong {
+  color: #16324f;
+  font-size: 1.2rem;
+}
+
+.inventory-capacity-track {
+  width: 100%;
+  height: 12px;
+  border-radius: 999px;
+  background: #e4efe6;
+  overflow: hidden;
+  margin: 12px 0 8px;
+}
+
+.inventory-capacity-track div {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #2d7a3e 0%, #5ca36c 100%);
+}
+
+.inventory-record-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 14px;
+  margin-top: 16px;
+}
+
+.inventory-record-grid strong {
+  color: #16324f;
+}
+
+.inventory-history-modal {
+  max-width: 980px;
+}
+
+.inventory-consumption-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-height: min(64vh, 680px);
+  overflow-y: auto;
+  padding-right: 8px;
+  scrollbar-color: #9cc5a6 #edf5ec;
+  scrollbar-width: thin;
+}
+
+.inventory-consumption-list::-webkit-scrollbar {
+  width: 10px;
+}
+
+.inventory-consumption-list::-webkit-scrollbar-track {
+  background: #edf5ec;
+  border-radius: 999px;
+}
+
+.inventory-consumption-list::-webkit-scrollbar-thumb {
+  background: #9cc5a6;
+  border-radius: 999px;
+}
+
+.inventory-consumption-card {
+  border: 1px solid #dbe8d8;
+  border-radius: 18px;
+  background: linear-gradient(180deg, #ffffff 0%, #f7fbf5 100%);
+  padding: 16px;
+}
+
+.inventory-consumption-main {
+  display: grid;
+  grid-template-columns: 1fr 2fr 1fr 1fr;
+  gap: 14px;
+}
+
+.inventory-consumption-main strong {
+  display: block;
+  color: #16324f;
+}
+
+.inventory-consumption-main small {
+  display: block;
+  margin-top: 4px;
+  color: #607067;
+}
+
+.inventory-consumption-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid #e2ecdf;
+  color: #607067;
+  font-size: 0.9rem;
+}
+
+@media (max-width: 900px) {
+  .inventory-header-actions {
+    width: 100%;
+  }
+
+  .inventory-header-actions .maintenance-add-btn {
+    flex: 1 1 220px;
+  }
+}
+
+@media (max-width: 720px) {
+  .inventory-pipa-grid,
+  .inventory-summary-grid,
+  .inventory-record-grid,
+  .inventory-consumption-main {
+    grid-template-columns: 1fr;
+  }
+
+  .inventory-capacity-copy {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

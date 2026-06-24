@@ -104,15 +104,18 @@
 }
 
 .maintenance-modal-grid input,
+.maintenance-modal-grid select,
 .maintenance-modal-grid textarea {
   border: 1px solid #cbd5e1;
   border-radius: 12px;
   padding: 12px 14px;
   font: inherit;
   color: #0f172a;
+  background: #ffffff;
 }
 
 .maintenance-modal-grid input[readonly],
+.maintenance-modal-grid select:disabled,
 .maintenance-modal-grid textarea[readonly] {
   background: #f8fafc;
   color: #334155;

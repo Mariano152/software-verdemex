@@ -2,6 +2,7 @@ import { Navigate } from 'react-router-dom';
 import { ProtectedRoute } from '../components/ProtectedRoute/ProtectedRoute';
 import Dashboard from '../pages/Dashboard/Dashboard';
 import GasolineDashboard from '../pages/Gasoline/GasolineDashboard';
+import InventoryDashboard from '../pages/Inventory/InventoryDashboard';
 import MaintenanceDashboard from '../pages/Maintenance/MaintenanceDashboard';
 import Login from '../components/Login/Login';
 
@@ -52,6 +53,10 @@ export const routes = [
   {
     path: '/gasoline',
     element: <ProtectedRoute element={<GasolineDashboard />} />
+  },
+  {
+    path: '/inventory',
+    element: <ProtectedRoute element={<InventoryDashboard />} />
   },
   {
     path: '/maintenance',

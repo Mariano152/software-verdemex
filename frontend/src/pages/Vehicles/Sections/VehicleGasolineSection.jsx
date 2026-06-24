@@ -118,11 +118,51 @@ export default function VehicleGasolineSection({
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedFuelType, setSelectedFuelType] = useState('todos');
   const [selectedProvider, setSelectedProvider] = useState('todos');
+  const [inventoryPipas, setInventoryPipas] = useState([]);
+  const [inventoryRecords, setInventoryRecords] = useState([]);
   const openedFromHistoryRef = useRef(null);
 
   useEffect(() => {
     setRecords(sortRecordsByDateDesc(gasolineRecords));
   }, [gasolineRecords]);
+
+  useEffect(() => {
+    const fetchInventoryData = async () => {
+      try {
+        const token = localStorage.getItem('authToken');
+        const [pipasResponse, recordsResponse] = await Promise.all([
+          fetch('/api/inventory/pipas', {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }),
+          fetch('/api/inventory/records', {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          })
+        ]);
+
+        const pipasData = await pipasResponse.json().catch(() => ({}));
+        const inventoryData = await recordsResponse.json().catch(() => ({}));
+
+        if (pipasResponse.ok) {
+          setInventoryPipas(pipasData.pipas || []);
+        }
+
+        if (recordsResponse.ok) {
+          setInventoryRecords(inventoryData.inventoryRecords || []);
+        }
+      } catch {
+        setInventoryPipas([]);
+        setInventoryRecords([]);
+      }
+    };
+
+    fetchInventoryData();
+  }, []);
 
   useEffect(() => {
     if (!initialRecordId) {
@@ -584,6 +624,8 @@ export default function VehicleGasolineSection({
         vehicleId={vehicleId}
         vehicle={vehicle}
         records={records}
+        pipas={inventoryPipas}
+        inventoryRecords={inventoryRecords}
         record={selectedRecord}
         isOpen={recordModalOpen}
         isNew={isNewRecord}
