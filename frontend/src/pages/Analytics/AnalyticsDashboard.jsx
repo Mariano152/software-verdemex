@@ -3,6 +3,8 @@ import { getFuelTypeLabel, normalizeFuelType } from '../../constants/fuelTypes';
 import './AnalyticsDashboard.css';
 
 const MONTH_LABELS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+const MONTH_LABELS_LONG = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+const CHART_PALETTE = ['#2563eb', '#06b6d4', '#22c55e', '#84cc16', '#eab308', '#f97316', '#ef4444', '#ec4899', '#8b5cf6', '#6366f1', '#f59e0b', '#14b8a6'];
 const GASOLINE_RECORDS_UPDATED_EVENT = 'gasoline-records-updated';
 const GASOLINE_RECORDS_UPDATED_STORAGE_KEY = 'gasoline-records-updated-at';
 
@@ -16,9 +18,27 @@ const formatNumber = (value, maximumFractionDigits = 2) => Number(value || 0).to
   maximumFractionDigits
 });
 
+const formatSignedNumber = (value, maximumFractionDigits = 2) => {
+  const amount = Number(value || 0);
+  const sign = amount > 0 ? '+' : '';
+  return `${sign}${formatNumber(amount, maximumFractionDigits)}`;
+};
+
+const formatSignedCurrency = (value) => {
+  const amount = Number(value || 0);
+  const sign = amount > 0 ? '+' : amount < 0 ? '-' : '';
+  return `${sign}${formatCurrency(Math.abs(amount))}`;
+};
+
 const formatPercentage = (value) => `${formatNumber(value, 1)}%`;
 
-const parseDateParts = (value) => {
+const formatDateShortMonth = (value) => {
+  const parts = parseDateParts(value);
+  if (!parts) return value || '-';
+  return `${String(parts.day).padStart(2, '0')} ${MONTH_LABELS[parts.month - 1]} ${parts.year}`;
+};
+
+function parseDateParts(value) {
   if (!value) return null;
 
   const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -38,7 +58,7 @@ const parseDateParts = (value) => {
     month: date.getMonth() + 1,
     day: date.getDate()
   };
-};
+}
 
 const buildDateFromParts = (parts) => new Date(parts.year, parts.month - 1, parts.day);
 
@@ -60,6 +80,28 @@ const formatDate = (value) => {
   if (!parts) return value || '-';
   return `${String(parts.day).padStart(2, '0')}-${String(parts.month).padStart(2, '0')}-${parts.year}`;
 };
+
+const buildVehicleDisplayLabel = ({ economicNumber, description, fallback = 'Sin vehículo' }) => {
+  const economic = String(economicNumber || '').trim();
+  const detail = String(description || '').trim();
+
+  if (economic && detail) return `${economic} - ${detail}`;
+  if (economic) return economic;
+  if (detail) return detail;
+  return fallback;
+};
+
+const getVehicleRecordLabel = (record, fallback = 'Sin vehículo') => buildVehicleDisplayLabel({
+  economicNumber: record.numero_economico_snapshot || record.vehiculo_numero_economico,
+  description: record.descripcion_snapshot || record.vehiculo_descripcion || record.vehiculo_nombre,
+  fallback
+});
+
+const getVehicleOptionLabel = (vehicle) => buildVehicleDisplayLabel({
+  economicNumber: vehicle.numero_economico,
+  description: vehicle.descripcion || vehicle.propietario_nombre,
+  fallback: 'Sin vehículo'
+});
 
 const getDateRangeByPreset = (preset) => {
   const today = new Date();
@@ -137,13 +179,35 @@ const shiftRangeByPreset = (preset, currentRange, direction) => {
   return { from: toLocalDateString(shiftedFrom), to: toLocalDateString(shiftedTo) };
 };
 
-const getComparisonLabel = (preset, direction = 'previous') => {
-  const suffix = direction === 'next' ? 'posterior' : 'anterior';
-  if (preset === 'week') return `vs semana ${suffix}`;
-  if (preset === 'month') return `vs mes ${suffix}`;
-  if (preset === 'quarter') return `vs trimestre ${suffix}`;
-  if (preset === 'year') return `vs año ${suffix}`;
-  return direction === 'next' ? 'vs periodo posterior' : 'vs periodo anterior';
+const formatRangeLabel = (preset, range) => {
+  if (!range.from || !range.to) return 'todo el historial';
+
+  const fromParts = parseDateParts(range.from);
+  const toParts = parseDateParts(range.to);
+  if (!fromParts || !toParts) return `${range.from} al ${range.to}`;
+
+  if (preset === 'month') return `${MONTH_LABELS_LONG[fromParts.month - 1]} ${fromParts.year}`;
+  if (preset === 'year') return `${fromParts.year}`;
+  if (preset === 'quarter') return `T${Math.floor((fromParts.month - 1) / 3) + 1} ${fromParts.year}`;
+  if (preset === 'week') return `semana del ${formatDate(range.from)}`;
+  return `${formatDate(range.from)} al ${formatDate(range.to)}`;
+};
+
+const formatFilterDateCaption = ({ dateFrom, dateTo }) => {
+  if (dateFrom && dateTo) return `Filtro: ${formatDate(dateFrom)} al ${formatDate(dateTo)}`;
+  if (dateFrom) return `Filtro desde: ${formatDate(dateFrom)}`;
+  if (dateTo) return `Filtro hasta: ${formatDate(dateTo)}`;
+  return 'Filtro: todo el historial';
+};
+
+const formatAxisValue = (value) => {
+  const amount = Number(value || 0);
+  const absolute = Math.abs(amount);
+
+  if (absolute >= 1000000) return `${formatNumber(amount / 1000000, 1)} M`;
+  if (absolute >= 1000) return `${formatNumber(amount / 1000, 1)} mil`;
+  if (absolute >= 100) return formatNumber(amount, 0);
+  return formatNumber(amount, 1);
 };
 
 const getTrendGranularity = ({ preset, dateFrom, dateTo }) => {
@@ -184,6 +248,7 @@ const getDelta = (currentValue, comparisonValue) => {
   if (comparison === 0) {
     return {
       percentage: current === 0 ? 0 : 100,
+      difference,
       direction: difference > 0 ? 'up' : difference < 0 ? 'down' : 'flat'
     };
   }
@@ -191,16 +256,12 @@ const getDelta = (currentValue, comparisonValue) => {
   const percentage = (difference / comparison) * 100;
   return {
     percentage,
+    difference,
     direction: difference > 0 ? 'up' : difference < 0 ? 'down' : 'flat'
   };
 };
 
-const formatDeltaLabel = (delta, comparisonLabel) => {
-  const sign = delta.percentage > 0 ? '+' : '';
-  return `${sign}${formatNumber(delta.percentage, 1)}% ${comparisonLabel}`;
-};
-
-const aggregateByKey = (records, getKey, getLabel, amountGetter) => {
+const aggregateByKey = (records, getKey, getLabel, amountGetter, extraAccumulator) => {
   const map = new Map();
 
   records.forEach((record) => {
@@ -216,20 +277,30 @@ const aggregateByKey = (records, getKey, getLabel, amountGetter) => {
 
     current.totalAmount += Number(amountGetter(record) || 0);
     current.recordsCount += 1;
+    if (extraAccumulator) extraAccumulator(current, record);
     map.set(key, current);
   });
 
-  return Array.from(map.values()).map((item) => ({
+  return Array.from(map.values()).map((item, index) => ({
     ...item,
-    averageAmount: item.recordsCount > 0 ? item.totalAmount / item.recordsCount : 0
+    averageAmount: item.recordsCount > 0 ? item.totalAmount / item.recordsCount : 0,
+    color: CHART_PALETTE[index % CHART_PALETTE.length]
   }));
 };
 
 const calculateGasolineMetrics = (records = []) => {
+  const vehicleIds = new Set();
+  const providers = new Set();
+
   const totals = records.reduce((acc, record) => {
     const amount = Number(record.costo_total || 0);
     const liters = Number(record.litros || 0);
     const kilometers = Number(record.kilometros_recorridos || 0);
+    const provider = String(record.proveedor || '').trim();
+    const vehicleId = String(record.vehiculo_id || '').trim();
+
+    if (provider) providers.add(provider);
+    if (vehicleId) vehicleIds.add(vehicleId);
 
     return {
       totalAmount: acc.totalAmount + amount,
@@ -251,21 +322,26 @@ const calculateGasolineMetrics = (records = []) => {
     averageTicket: totals.recordsCount > 0 ? totals.totalAmount / totals.recordsCount : 0,
     averagePricePerLiter: totals.totalLiters > 0 ? totals.totalAmount / totals.totalLiters : 0,
     averageEfficiency: totals.totalLiters > 0 ? totals.totalKm / totals.totalLiters : 0,
-    costPerKm: totals.totalKm > 0 ? totals.totalAmount / totals.totalKm : 0
+    costPerKm: totals.totalKm > 0 ? totals.totalAmount / totals.totalKm : 0,
+    activeVehicles: vehicleIds.size,
+    uniqueProviders: providers.size
   };
 };
 
 const calculateMaintenanceMetrics = (records = []) => {
   const providers = new Set();
   const vehicles = new Set();
+  const maintenanceTypes = new Set();
 
   const totals = records.reduce((acc, record) => {
     const amount = Number(record.costo || 0);
     const provider = String(record.proveedor || '').trim();
     const vehicle = String(record.vehiculo_id || '').trim();
+    const type = String(record.tipo_mantenimiento || '').trim();
 
     if (provider) providers.add(provider);
     if (vehicle) vehicles.add(vehicle);
+    if (type) maintenanceTypes.add(type);
 
     return {
       totalAmount: acc.totalAmount + amount,
@@ -286,7 +362,9 @@ const calculateMaintenanceMetrics = (records = []) => {
     oilChangeRate: totals.recordsCount > 0 ? (totals.oilChanges / totals.recordsCount) * 100 : 0,
     providerCoverage: totals.recordsCount > 0 ? (totals.withProvider / totals.recordsCount) * 100 : 0,
     uniqueProviders: providers.size,
-    uniqueVehicles: vehicles.size
+    uniqueVehicles: vehicles.size,
+    uniqueTypes: maintenanceTypes.size,
+    costPerVehicle: vehicles.size > 0 ? totals.totalAmount / vehicles.size : 0
   };
 };
 
@@ -375,8 +453,9 @@ const buildComparisonContext = ({
 }) => {
   if (!currentRange.from || !currentRange.to || preset === 'all') {
     return {
-      label: 'sin comparación',
-      metrics: metricsCalculator([])
+      referenceLabel: 'todo el historial',
+      metrics: metricsCalculator([]),
+      hasComparison: false
     };
   }
 
@@ -394,8 +473,9 @@ const buildComparisonContext = ({
 
   if (previousRecords.length > 0) {
     return {
-      label: getComparisonLabel(preset, 'previous'),
-      metrics: metricsCalculator(previousRecords)
+      referenceLabel: formatRangeLabel(preset, previousRange),
+      metrics: metricsCalculator(previousRecords),
+      hasComparison: true
     };
   }
 
@@ -410,14 +490,16 @@ const buildComparisonContext = ({
 
   if (nextRecords.length > 0) {
     return {
-      label: getComparisonLabel(preset, 'next'),
-      metrics: metricsCalculator(nextRecords)
+      referenceLabel: formatRangeLabel(preset, nextRange),
+      metrics: metricsCalculator(nextRecords),
+      hasComparison: true
     };
   }
 
   return {
-    label: 'sin comparación',
-    metrics: metricsCalculator([])
+    referenceLabel: 'todo el historial',
+    metrics: metricsCalculator([]),
+    hasComparison: false
   };
 };
 
@@ -440,26 +522,33 @@ const buildTrendSeries = ({
     const date = buildDateFromParts(parts);
     let key = '';
     let label = '';
+    let rangeLabel = '';
     let sortDate = null;
 
     if (granularity === 'day') {
       key = normalizeDateKey(record[dateField]);
       label = `${String(parts.day).padStart(2, '0')} ${MONTH_LABELS[parts.month - 1]}`;
+      rangeLabel = formatDateShortMonth(key);
       sortDate = new Date(date);
     } else if (granularity === 'week') {
       const weekStart = getWeekStart(date);
+      const weekEnd = new Date(weekStart);
+      weekEnd.setDate(weekEnd.getDate() + 6);
       key = toLocalDateString(weekStart);
       label = `Sem ${String(weekStart.getDate()).padStart(2, '0')} ${MONTH_LABELS[weekStart.getMonth()]}`;
+      rangeLabel = `${formatDate(weekStart)} al ${formatDate(weekEnd)}`;
       sortDate = weekStart;
     } else {
       key = `${parts.year}-${String(parts.month).padStart(2, '0')}`;
       label = `${MONTH_LABELS[parts.month - 1]} ${String(parts.year).slice(-2)}`;
+      rangeLabel = `${MONTH_LABELS_LONG[parts.month - 1]} ${parts.year}`;
       sortDate = new Date(parts.year, parts.month - 1, 1);
     }
 
     const current = map.get(key) || {
       key,
       label,
+      rangeLabel,
       sortValue: sortDate.getTime(),
       records: []
     };
@@ -473,11 +562,326 @@ const buildTrendSeries = ({
     .map((bucket) => ({
       key: bucket.key,
       label: bucket.label,
+      rangeLabel: bucket.rangeLabel,
       totalAmount: bucket.records.reduce((sum, item) => sum + Number(item[amountField] || 0), 0),
       recordsCount: bucket.records.length,
       ...extraBuilder(bucket.records)
     }));
 };
+
+const buildKpiDelta = ({
+  currentValue,
+  comparisonValue,
+  comparison,
+  formatter = (value) => formatSignedNumber(value, precision),
+  precision = 2,
+  suffix = ''
+}) => {
+  const delta = getDelta(currentValue, comparisonValue);
+  const absoluteLabel = suffix
+    ? `${formatSignedNumber(delta.difference, precision)} ${suffix}`.trim()
+    : formatter(delta.difference);
+
+  return {
+    direction: delta.direction,
+    badgeLabel: `${delta.percentage > 0 ? '+' : ''}${formatNumber(delta.percentage, 1)}% vs ${comparison.referenceLabel}`,
+    detailLabel: comparison.hasComparison ? `Equivale a ${absoluteLabel}` : 'Sin periodo comparable cercano'
+  };
+};
+
+const buildCardData = ({ id, label, value, detail, delta }) => ({
+  id,
+  label,
+  value,
+  detail,
+  deltaDirection: delta.direction,
+  deltaLabel: delta.badgeLabel,
+  comparisonDetail: delta.detailLabel
+});
+
+const buildGasolinePrimaryCards = (metrics, comparison) => ([
+  buildCardData({
+    id: 'gasoline-total',
+    label: 'Gasto total',
+    value: formatCurrency(metrics.totalAmount),
+    detail: `${metrics.recordsCount} cargas registradas`,
+    delta: buildKpiDelta({
+      currentValue: metrics.totalAmount,
+      comparisonValue: comparison.metrics.totalAmount,
+      comparison,
+      formatter: formatSignedCurrency
+    })
+  }),
+  buildCardData({
+    id: 'gasoline-km-cost',
+    label: 'Costo por km',
+    value: `${formatCurrency(metrics.costPerKm)} / km`,
+    detail: `${formatNumber(metrics.totalKm)} km recorridos`,
+    delta: buildKpiDelta({
+      currentValue: metrics.costPerKm,
+      comparisonValue: comparison.metrics.costPerKm,
+      comparison,
+      suffix: '/km'
+    })
+  }),
+  buildCardData({
+    id: 'gasoline-efficiency',
+    label: 'Rendimiento promedio',
+    value: `${formatNumber(metrics.averageEfficiency)} km/L`,
+    detail: `${metrics.completeRecords} cargas completas`,
+    delta: buildKpiDelta({
+      currentValue: metrics.averageEfficiency,
+      comparisonValue: comparison.metrics.averageEfficiency,
+      comparison,
+      suffix: 'km/L'
+    })
+  }),
+  buildCardData({
+    id: 'gasoline-liters',
+    label: 'Litros cargados',
+    value: `${formatNumber(metrics.totalLiters)} L`,
+    detail: 'Consumo total del periodo',
+    delta: buildKpiDelta({
+      currentValue: metrics.totalLiters,
+      comparisonValue: comparison.metrics.totalLiters,
+      comparison,
+      suffix: 'L'
+    })
+  })
+]);
+
+const buildMaintenancePrimaryCards = (metrics, comparison) => ([
+  buildCardData({
+    id: 'maintenance-total',
+    label: 'Costo total',
+    value: formatCurrency(metrics.totalAmount),
+    detail: `${metrics.recordsCount} servicios registrados`,
+    delta: buildKpiDelta({
+      currentValue: metrics.totalAmount,
+      comparisonValue: comparison.metrics.totalAmount,
+      comparison,
+      formatter: formatSignedCurrency
+    })
+  }),
+  buildCardData({
+    id: 'maintenance-records',
+    label: 'Servicios registrados',
+    value: formatNumber(metrics.recordsCount, 0),
+    detail: `${metrics.uniqueVehicles} vehículos atendidos`,
+    delta: buildKpiDelta({
+      currentValue: metrics.recordsCount,
+      comparisonValue: comparison.metrics.recordsCount,
+      comparison,
+      precision: 0
+    })
+  }),
+  buildCardData({
+    id: 'maintenance-oil',
+    label: 'Cambios de aceite',
+    value: formatNumber(metrics.oilChanges, 0),
+    detail: `${formatPercentage(metrics.oilChangeRate)} del total`,
+    delta: buildKpiDelta({
+      currentValue: metrics.oilChanges,
+      comparisonValue: comparison.metrics.oilChanges,
+      comparison,
+      precision: 0
+    })
+  }),
+  buildCardData({
+    id: 'maintenance-average',
+    label: 'Costo promedio por servicio',
+    value: formatCurrency(metrics.averageTicket),
+    detail: `${metrics.uniqueProviders} proveedores distintos`,
+    delta: buildKpiDelta({
+      currentValue: metrics.averageTicket,
+      comparisonValue: comparison.metrics.averageTicket,
+      comparison,
+      formatter: formatSignedCurrency
+    })
+  })
+]);
+
+const buildGasolineSecondaryCards = ({ metrics, comparison, providerRows, vehicleRows, efficiencyRows }) => {
+  const bestEfficiency = efficiencyRows[0];
+  const worstEfficiency = efficiencyRows[efficiencyRows.length - 1];
+  const topVehicle = vehicleRows[0];
+  const topProvider = providerRows[0];
+
+  return [
+    buildCardData({
+      id: 'gasoline-secondary-km',
+      label: 'Km recorridos',
+      value: formatNumber(metrics.totalKm),
+      detail: 'Distancia registrada en el periodo',
+      delta: buildKpiDelta({
+        currentValue: metrics.totalKm,
+        comparisonValue: comparison.metrics.totalKm,
+        comparison
+      })
+    }),
+    buildCardData({
+      id: 'gasoline-secondary-loads',
+      label: 'Número de cargas',
+      value: formatNumber(metrics.recordsCount, 0),
+      detail: 'Total de tickets del filtro',
+      delta: buildKpiDelta({
+        currentValue: metrics.recordsCount,
+        comparisonValue: comparison.metrics.recordsCount,
+        comparison,
+        precision: 0
+      })
+    }),
+    buildCardData({
+      id: 'gasoline-secondary-ticket',
+      label: 'Ticket promedio',
+      value: formatCurrency(metrics.averageTicket),
+      detail: 'Promedio por carga',
+      delta: buildKpiDelta({
+        currentValue: metrics.averageTicket,
+        comparisonValue: comparison.metrics.averageTicket,
+        comparison,
+        formatter: formatSignedCurrency
+      })
+    }),
+    buildCardData({
+      id: 'gasoline-secondary-price',
+      label: 'Costo promedio por litro',
+      value: `${formatCurrency(metrics.averagePricePerLiter)} / L`,
+      detail: 'Monto medio por litro cargado',
+      delta: buildKpiDelta({
+        currentValue: metrics.averagePricePerLiter,
+        comparisonValue: comparison.metrics.averagePricePerLiter,
+        comparison,
+        suffix: '/L'
+      })
+    }),
+    {
+      id: 'gasoline-secondary-vehicles',
+      label: 'Vehículos con carga',
+      value: formatNumber(metrics.activeVehicles, 0),
+      detail: `${metrics.uniqueProviders} proveedor(es) distintos`,
+      deltaDirection: 'flat',
+      deltaLabel: 'Cobertura del periodo',
+      comparisonDetail: 'Mide cuántas unidades tuvieron actividad'
+    },
+    {
+      id: 'gasoline-secondary-provider',
+      label: 'Proveedor principal',
+      value: topProvider?.label || '-',
+      detail: topProvider ? formatCurrency(topProvider.totalAmount) : 'Sin datos en el filtro',
+      deltaDirection: 'flat',
+      deltaLabel: 'Mayor concentración de gasto',
+      comparisonDetail: topProvider ? `${topProvider.recordsCount} carga(s) en el periodo` : 'Sin registros'
+    },
+    {
+      id: 'gasoline-secondary-top-vehicle',
+      label: 'Vehículo con mayor gasto',
+      value: topVehicle?.label || '-',
+      detail: topVehicle ? formatCurrency(topVehicle.totalAmount) : 'Sin datos en el filtro',
+      deltaDirection: 'flat',
+      deltaLabel: 'Unidad con más consumo',
+      comparisonDetail: topVehicle ? `${topVehicle.recordsCount} carga(s) registradas` : 'Sin registros'
+    },
+    {
+      id: 'gasoline-secondary-worst',
+      label: 'Peor rendimiento',
+      value: worstEfficiency ? `${formatNumber(worstEfficiency.averageEfficiency)} km/L` : '-',
+      detail: worstEfficiency?.label || 'Sin datos en el filtro',
+      deltaDirection: 'flat',
+      deltaLabel: 'Unidad menos eficiente',
+      comparisonDetail: bestEfficiency ? `Mejor rendimiento: ${bestEfficiency.label} con ${formatNumber(bestEfficiency.averageEfficiency)} km/L` : 'Sin comparativo por unidad'
+    }
+  ];
+};
+
+const buildMaintenanceSecondaryCards = ({ metrics, providerRows, vehicleRows, typeRows }) => {
+  const topVehicle = vehicleRows[0];
+  const topProvider = providerRows[0];
+  const topType = typeRows[0];
+
+  return [
+    {
+      id: 'maintenance-secondary-vehicles',
+      label: 'Vehículos atendidos',
+      value: formatNumber(metrics.uniqueVehicles, 0),
+      detail: 'Unidades con mantenimiento en el periodo',
+      deltaDirection: 'flat',
+      deltaLabel: 'Cobertura del periodo',
+      comparisonDetail: `${metrics.recordsCount} servicio(s) aplicados`
+    },
+    {
+      id: 'maintenance-secondary-providers',
+      label: 'Proveedores distintos',
+      value: formatNumber(metrics.uniqueProviders, 0),
+      detail: 'Talleres o proveedores activos',
+      deltaDirection: 'flat',
+      deltaLabel: 'Cobertura de proveedores',
+      comparisonDetail: `${formatPercentage(metrics.providerCoverage)} de los registros traen proveedor`
+    },
+    {
+      id: 'maintenance-secondary-vehicle-cost',
+      label: 'Costo por vehículo atendido',
+      value: formatCurrency(metrics.costPerVehicle),
+      detail: 'Promedio por unidad con servicio',
+      deltaDirection: 'flat',
+      deltaLabel: 'Promedio del filtro',
+      comparisonDetail: `${metrics.uniqueTypes} tipo(s) distintos de mantenimiento`
+    },
+    {
+      id: 'maintenance-secondary-oil-rate',
+      label: 'Porcentaje cambios de aceite',
+      value: formatPercentage(metrics.oilChangeRate),
+      detail: `${metrics.oilChanges} servicio(s) de aceite`,
+      deltaDirection: 'flat',
+      deltaLabel: 'Participación del aceite',
+      comparisonDetail: 'Sirve para ver qué tanto pesa el mantenimiento preventivo'
+    },
+    {
+      id: 'maintenance-secondary-type',
+      label: 'Tipo más frecuente',
+      value: topType?.label || '-',
+      detail: topType ? `${topType.recordsCount} servicio(s)` : 'Sin datos en el filtro',
+      deltaDirection: 'flat',
+      deltaLabel: 'Mayor recurrencia',
+      comparisonDetail: topType ? `Costo acumulado ${formatCurrency(topType.totalAmount)}` : 'Sin registros'
+    },
+    {
+      id: 'maintenance-secondary-provider',
+      label: 'Proveedor con mayor costo',
+      value: topProvider?.label || '-',
+      detail: topProvider ? formatCurrency(topProvider.totalAmount) : 'Sin datos en el filtro',
+      deltaDirection: 'flat',
+      deltaLabel: 'Mayor concentración de gasto',
+      comparisonDetail: topProvider ? `${topProvider.recordsCount} servicio(s) capturados` : 'Sin registros'
+    },
+    {
+      id: 'maintenance-secondary-vehicle',
+      label: 'Vehículo con mayor costo',
+      value: topVehicle?.label || '-',
+      detail: topVehicle ? formatCurrency(topVehicle.totalAmount) : 'Sin datos en el filtro',
+      deltaDirection: 'flat',
+      deltaLabel: 'Unidad más costosa',
+      comparisonDetail: topVehicle ? `${topVehicle.recordsCount} servicio(s) registrados` : 'Sin registros'
+    }
+  ];
+};
+
+const buildDefaultDateFilters = (range) => ({
+  search: '',
+  vehicleId: 'todos',
+  dateFrom: range.from,
+  dateTo: range.to
+});
+
+const KpiCard = ({ card, compact = false }) => (
+  <div className={`analytics-kpi-card ${compact ? 'analytics-kpi-card-secondary' : ''}`}>
+    <span>{card.label}</span>
+    <strong>{card.value}</strong>
+    <small>{card.detail}</small>
+    <DeltaBadge direction={card.deltaDirection} label={card.deltaLabel} />
+    <p className='analytics-kpi-comparison'>{card.comparisonDetail}</p>
+  </div>
+);
 
 const DeltaBadge = ({ direction, label }) => (
   <span className={`analytics-delta-badge analytics-delta-${direction}`}>
@@ -485,7 +889,7 @@ const DeltaBadge = ({ direction, label }) => (
   </span>
 );
 
-const DetailTable = ({ title, subtitle, rows, emptyMessage, valueFormatter, metricKey, secondaryLabel }) => {
+const DetailTable = ({ title, subtitle, rows, emptyMessage, valueFormatter, metricKey, secondaryLabel, dateCaption }) => {
   const maxValue = Math.max(...rows.map((row) => Number(row[metricKey] || 0)), 0);
 
   return (
@@ -495,6 +899,7 @@ const DetailTable = ({ title, subtitle, rows, emptyMessage, valueFormatter, metr
           <h3>{title}</h3>
           <p>{subtitle}</p>
         </div>
+        <span className='analytics-panel-date'>{dateCaption}</span>
       </div>
 
       {rows.length === 0 ? (
@@ -515,7 +920,7 @@ const DetailTable = ({ title, subtitle, rows, emptyMessage, valueFormatter, metr
                     <span>{secondaryLabel(row)}</span>
                   </div>
                   <div className='analytics-ranking-bar'>
-                    <div style={{ width: `${percentage}%` }} />
+                    <div style={{ width: `${percentage}%`, background: `linear-gradient(90deg, ${row.color || CHART_PALETTE[0]} 0%, rgba(255,255,255,0.88) 160%)` }} />
                   </div>
                   <div className='analytics-ranking-value'>{valueFormatter(value)}</div>
                 </div>
@@ -528,7 +933,16 @@ const DetailTable = ({ title, subtitle, rows, emptyMessage, valueFormatter, metr
   );
 };
 
-const SimpleTrendChart = ({ data, granularityLabel, emptyMessage, tooltipLines, metricCards }) => {
+const MultiMetricTrendChart = ({
+  data,
+  granularityLabel,
+  emptyMessage,
+  seriesOptions,
+  activeSeries,
+  onToggleSeries,
+  tooltipLines,
+  metricCards
+}) => {
   const [selectedKey, setSelectedKey] = useState(data[data.length - 1]?.key || null);
   const [hoveredKey, setHoveredKey] = useState(null);
   const [tooltip, setTooltip] = useState(null);
@@ -536,6 +950,8 @@ const SimpleTrendChart = ({ data, granularityLabel, emptyMessage, tooltipLines, 
   useEffect(() => {
     setSelectedKey(data[data.length - 1]?.key || null);
   }, [data]);
+
+  const visibleSeries = seriesOptions.filter((series) => activeSeries.includes(series.key));
 
   if (!data.length) {
     return (
@@ -545,22 +961,24 @@ const SimpleTrendChart = ({ data, granularityLabel, emptyMessage, tooltipLines, 
     );
   }
 
-  const width = 640;
-  const height = 260;
+  const width = 760;
+  const height = 320;
   const padding = 28;
-  const leftPadding = 82;
-  const maxAmount = Math.max(...data.map((item) => Number(item.totalAmount || 0)), 1);
+  const leftPadding = 64;
+  const chartHeight = height - (padding * 2);
   const stepX = data.length > 1 ? (width - leftPadding - padding) / (data.length - 1) : 0;
-  const yTicks = [0, 0.25, 0.5, 0.75, 1].map((ratio) => ({
-    ratio,
-    value: maxAmount * (1 - ratio)
-  }));
-
-  const amountPoints = data.map((item, index) => {
-    const x = leftPadding + (index * stepX);
-    const y = height - padding - ((Number(item.totalAmount || 0) / maxAmount) * (height - padding * 2));
-    return `${x},${y}`;
-  }).join(' ');
+  const globalMaxValue = Math.max(
+    ...visibleSeries.flatMap((series) => data.map((item) => Number(item[series.key] || 0))),
+    1
+  );
+  const normalizedPoints = visibleSeries.map((series) => {
+    const points = data.map((item, index) => {
+      const x = leftPadding + (index * stepX);
+      const y = height - padding - ((Number(item[series.key] || 0) / globalMaxValue) * chartHeight);
+      return { x, y, item };
+    });
+    return { ...series, points };
+  });
 
   const activeKey = hoveredKey || selectedKey || data[data.length - 1]?.key;
   const activeItem = data.find((item) => item.key === activeKey) || data[data.length - 1];
@@ -568,78 +986,115 @@ const SimpleTrendChart = ({ data, granularityLabel, emptyMessage, tooltipLines, 
   return (
     <div className='analytics-chart-with-details'>
       <div className='analytics-trend-chart'>
-        <div className='analytics-chart-legend'>
-          <span><i className='analytics-legend-dot analytics-legend-amount' /> Gasto acumulado</span>
-        </div>
-
-        <div className='analytics-chart-surface'>
-          <svg viewBox={`0 0 ${width} ${height}`} role='img' aria-label='Tendencia de costos'>
-            {yTicks.map((tick) => {
-              const y = padding + ((height - padding * 2) * tick.ratio);
+        <div className='analytics-chart-controls'>
+          <div className='analytics-chart-legend analytics-chart-legend-interactive'>
+            {seriesOptions.map((series) => {
+              const enabled = activeSeries.includes(series.key);
               return (
-                <g key={tick.ratio}>
-                  <line x1={leftPadding} y1={y} x2={width - padding} y2={y} className='analytics-grid-line' />
-                  <text x={leftPadding - 10} y={y + 4} textAnchor='end' className='analytics-y-axis-label'>
-                    {formatCurrency(tick.value)}
-                  </text>
-                </g>
+                <button
+                  key={series.key}
+                  type='button'
+                  className={`analytics-legend-toggle ${enabled ? 'analytics-legend-toggle-active' : ''}`}
+                  onClick={() => onToggleSeries(series.key)}
+                >
+                  <i className='analytics-legend-dot' style={{ background: series.color }} />
+                  {series.label}
+                </button>
               );
             })}
-            <polyline fill='none' points={amountPoints} className='analytics-line-amount' />
-            {data.map((item, index) => {
-              const x = leftPadding + (index * stepX);
-              const y = height - padding - ((Number(item.totalAmount || 0) / maxAmount) * (height - padding * 2));
-              const isActive = item.key === activeKey;
+          </div>
+          <p className='analytics-chart-note'>Las líneas usan valores reales. Las métricas más pequeñas pueden verse abajo cuando se comparan contra montos más altos.</p>
+        </div>
 
-              return (
-                <g key={item.key}>
-                  <circle
-                    cx={x}
-                    cy={y}
-                    r={isActive ? '6' : '4.5'}
-                    className='analytics-point-amount analytics-point-clickable'
-                    onMouseEnter={(event) => {
-                      const rect = event.currentTarget.ownerSVGElement.getBoundingClientRect();
-                      setHoveredKey(item.key);
-                      setTooltip({
-                        x: event.clientX - rect.left + 14,
-                        y: event.clientY - rect.top - 10,
-                        item
-                      });
-                    }}
-                    onMouseMove={(event) => {
-                      const rect = event.currentTarget.ownerSVGElement.getBoundingClientRect();
-                      setTooltip({
-                        x: event.clientX - rect.left + 14,
-                        y: event.clientY - rect.top - 10,
-                        item
-                      });
-                    }}
-                    onMouseLeave={() => {
-                      setHoveredKey(null);
-                      setTooltip(null);
-                    }}
-                    onClick={() => setSelectedKey(item.key)}
+        {visibleSeries.length === 0 ? (
+          <div className='analytics-empty-panel'>
+            <p>Activa al menos una métrica para ver la tendencia.</p>
+          </div>
+        ) : (
+          <div className='analytics-chart-surface'>
+            <svg viewBox={`0 0 ${width} ${height}`} role='img' aria-label='Tendencia del periodo'>
+              {[0, 0.25, 0.5, 0.75, 1].map((ratio) => {
+                const y = padding + (chartHeight * ratio);
+                const valueLabel = formatAxisValue((1 - ratio) * globalMaxValue);
+                return (
+                  <g key={ratio}>
+                    <line x1={leftPadding} y1={y} x2={width - padding} y2={y} className='analytics-grid-line' />
+                    <text x={leftPadding - 10} y={y + 4} textAnchor='end' className='analytics-y-axis-label'>
+                      {valueLabel}
+                    </text>
+                  </g>
+                );
+              })}
+
+              {normalizedPoints.map((series) => (
+                <g key={series.key}>
+                  <polyline
+                    fill='none'
+                    points={series.points.map((point) => `${point.x},${point.y}`).join(' ')}
+                    className='analytics-trend-line'
+                    style={{ stroke: series.color }}
                   />
-                  <text x={x} y={height - 6} textAnchor='middle' className='analytics-axis-label'>{item.label}</text>
-                </g>
-              );
-            })}
-          </svg>
+                  {series.points.map((point) => {
+                    const isActive = point.item.key === activeKey;
 
-          {tooltip?.item ? (
-            <div className='analytics-hover-tooltip' style={{ left: tooltip.x, top: tooltip.y }}>
-              <strong>{tooltip.item.label}</strong>
-              {tooltipLines(tooltip.item).map((line) => <span key={line}>{line}</span>)}
-            </div>
-          ) : null}
-        </div>
+                    return (
+                      <circle
+                        key={`${series.key}-${point.item.key}`}
+                        cx={point.x}
+                        cy={point.y}
+                        r={isActive ? '6' : '4.5'}
+                        className='analytics-point-clickable'
+                        style={{ fill: series.color }}
+                        onMouseEnter={(event) => {
+                          const rect = event.currentTarget.ownerSVGElement.getBoundingClientRect();
+                          setHoveredKey(point.item.key);
+                          setTooltip({
+                            x: event.clientX - rect.left + 14,
+                            y: event.clientY - rect.top - 10,
+                            item: point.item
+                          });
+                        }}
+                        onMouseMove={(event) => {
+                          const rect = event.currentTarget.ownerSVGElement.getBoundingClientRect();
+                          setTooltip({
+                            x: event.clientX - rect.left + 14,
+                            y: event.clientY - rect.top - 10,
+                            item: point.item
+                          });
+                        }}
+                        onMouseLeave={() => {
+                          setHoveredKey(null);
+                          setTooltip(null);
+                        }}
+                        onClick={() => setSelectedKey(point.item.key)}
+                      />
+                    );
+                  })}
+                </g>
+              ))}
+
+              {data.map((item, index) => {
+                const x = leftPadding + (index * stepX);
+                return (
+                  <text key={item.key} x={x} y={height - 6} textAnchor='middle' className='analytics-axis-label'>{item.label}</text>
+                );
+              })}
+            </svg>
+
+            {tooltip?.item ? (
+              <div className='analytics-hover-tooltip' style={{ left: tooltip.x, top: tooltip.y }}>
+                <strong>{tooltip.item.rangeLabel || tooltip.item.label}</strong>
+                {tooltipLines(tooltip.item).map((line) => <span key={line}>{line}</span>)}
+              </div>
+            ) : null}
+          </div>
+        )}
       </div>
 
       <div className='analytics-selection-card'>
         <div>
           <span className='analytics-selection-tag'>Punto activo</span>
-          <h4>{activeItem.label}</h4>
+          <h4>{activeItem.rangeLabel || activeItem.label}</h4>
           <p>{activeItem.recordsCount} registros en ese {granularityLabel}.</p>
         </div>
         <div className='analytics-selection-metrics'>
@@ -655,7 +1110,7 @@ const SimpleTrendChart = ({ data, granularityLabel, emptyMessage, tooltipLines, 
   );
 };
 
-const SimpleBarChart = ({ data, emptyMessage, activeLabel, rowDetail, valueFormatter, activeCards, amountSuffix = '' }) => {
+const SimpleBarChart = ({ data, emptyMessage, activeLabel, rowDetail, valueFormatter, activeCards }) => {
   const [selectedKey, setSelectedKey] = useState(data[0]?.key || null);
   const [hoveredKey, setHoveredKey] = useState(null);
   const maxAmount = Math.max(...data.map((item) => Number(item.totalAmount || 0)), 0);
@@ -696,9 +1151,9 @@ const SimpleBarChart = ({ data, emptyMessage, activeLabel, rowDetail, valueForma
                   <span>{rowDetail(item)}</span>
                 </div>
                 <div className='analytics-bar-track'>
-                  <div style={{ width: `${percentage}%` }} />
+                  <div style={{ width: `${percentage}%`, background: `linear-gradient(90deg, ${item.color || CHART_PALETTE[0]} 0%, rgba(255,255,255,0.9) 160%)` }} />
                 </div>
-                <div className='analytics-bar-value'>{valueFormatter(item.totalAmount)}{amountSuffix}</div>
+                <div className='analytics-bar-value'>{valueFormatter(item.totalAmount)}</div>
               </button>
             );
           })}
@@ -724,96 +1179,114 @@ const SimpleBarChart = ({ data, emptyMessage, activeLabel, rowDetail, valueForma
   );
 };
 
-const buildGasolineOverviewCards = (metrics, comparison) => {
-  const totalAmountDelta = getDelta(metrics.totalAmount, comparison.metrics.totalAmount);
-  const costPerKmDelta = getDelta(metrics.costPerKm, comparison.metrics.costPerKm);
-  const efficiencyDelta = getDelta(metrics.averageEfficiency, comparison.metrics.averageEfficiency);
-  const litersDelta = getDelta(metrics.totalLiters, comparison.metrics.totalLiters);
+const DonutBreakdown = ({ title, subtitle, rows, emptyMessage, valueFormatter, metricKey = 'totalAmount', dateCaption }) => {
+  const [activeKey, setActiveKey] = useState(rows[0]?.key || null);
+  const total = rows.reduce((sum, row) => sum + Number(row[metricKey] || 0), 0);
 
-  return [
-    {
-      id: 'gasoline-total',
-      label: 'Gasto total',
-      value: formatCurrency(metrics.totalAmount),
-      detail: `${metrics.recordsCount} cargas registradas`,
-      deltaLabel: formatDeltaLabel(totalAmountDelta, comparison.label),
-      deltaDirection: totalAmountDelta.direction
-    },
-    {
-      id: 'gasoline-km',
-      label: 'Costo por km',
-      value: formatCurrency(metrics.costPerKm),
-      detail: `${formatNumber(metrics.totalKm)} km recorridos`,
-      deltaLabel: formatDeltaLabel(costPerKmDelta, comparison.label),
-      deltaDirection: costPerKmDelta.direction
-    },
-    {
-      id: 'gasoline-efficiency',
-      label: 'Rendimiento',
-      value: `${formatNumber(metrics.averageEfficiency)} km/L`,
-      detail: `${metrics.completeRecords} cargas completas`,
-      deltaLabel: formatDeltaLabel(efficiencyDelta, comparison.label),
-      deltaDirection: efficiencyDelta.direction
-    },
-    {
-      id: 'gasoline-liters',
-      label: 'Litros cargados',
-      value: `${formatNumber(metrics.totalLiters)} L`,
-      detail: 'Consumo total del periodo',
-      deltaLabel: formatDeltaLabel(litersDelta, comparison.label),
-      deltaDirection: litersDelta.direction
-    }
-  ];
+  useEffect(() => {
+    setActiveKey(rows[0]?.key || null);
+  }, [rows]);
+
+  if (!rows.length) {
+    return (
+      <div className='analytics-panel'>
+        <div className='analytics-panel-header'>
+          <div>
+            <h3>{title}</h3>
+            <p>{subtitle}</p>
+          </div>
+          <span className='analytics-panel-date'>{dateCaption}</span>
+        </div>
+        <div className='analytics-empty-panel'>
+          <p>{emptyMessage}</p>
+        </div>
+      </div>
+    );
+  }
+
+  const radius = 78;
+  const strokeWidth = 28;
+  const circumference = 2 * Math.PI * radius;
+  const activeRow = rows.find((row) => row.key === activeKey) || rows[0];
+  let offset = 0;
+
+  return (
+    <div className='analytics-panel'>
+      <div className='analytics-panel-header'>
+        <div>
+          <h3>{title}</h3>
+          <p>{subtitle}</p>
+        </div>
+        <span className='analytics-panel-date'>{dateCaption}</span>
+      </div>
+
+      <div className='analytics-donut-layout'>
+        <div className='analytics-chart-surface-center'>
+          <svg viewBox='0 0 220 220' className='analytics-donut-chart' role='img' aria-label={title}>
+            <circle cx='110' cy='110' r={radius} fill='none' stroke='#eef4f6' strokeWidth={strokeWidth} />
+            {rows.map((row) => {
+              const value = Number(row[metricKey] || 0);
+              const ratio = total > 0 ? value / total : 0;
+              const length = circumference * ratio;
+              const dashArray = `${length} ${circumference - length}`;
+              const dashOffset = -offset;
+              offset += length;
+              return (
+                <circle
+                  key={row.key}
+                  cx='110'
+                  cy='110'
+                  r={radius}
+                  fill='none'
+                  stroke={row.color}
+                  strokeWidth={row.key === activeRow.key ? strokeWidth + 4 : strokeWidth}
+                  strokeDasharray={dashArray}
+                  strokeDashoffset={dashOffset}
+                  strokeLinecap='round'
+                  transform='rotate(-90 110 110)'
+                  className='analytics-donut-slice'
+                  onMouseEnter={() => setActiveKey(row.key)}
+                  onClick={() => setActiveKey(row.key)}
+                />
+              );
+            })}
+            <text x='110' y='102' textAnchor='middle' className='analytics-donut-total-label'>Total</text>
+            <text x='110' y='126' textAnchor='middle' className='analytics-donut-total-value'>{valueFormatter(total)}</text>
+          </svg>
+        </div>
+
+        <div className='analytics-donut-legend analytics-panel-scroll analytics-panel-scroll-legend'>
+          {rows.map((row) => {
+            const value = Number(row[metricKey] || 0);
+            const ratio = total > 0 ? (value / total) * 100 : 0;
+            const isActive = row.key === activeRow.key;
+            return (
+              <button
+                key={row.key}
+                type='button'
+                className={`analytics-donut-legend-item ${isActive ? 'analytics-donut-legend-item-active' : ''}`}
+                onMouseEnter={() => setActiveKey(row.key)}
+                onClick={() => setActiveKey(row.key)}
+              >
+                <span><i style={{ background: row.color }} />{row.label}</span>
+                <strong>{valueFormatter(value)}</strong>
+                <small>{formatNumber(ratio, 1)}% · {row.recordsCount} registro(s)</small>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
 };
 
-const buildMaintenanceOverviewCards = (metrics, comparison) => {
-  const totalAmountDelta = getDelta(metrics.totalAmount, comparison.metrics.totalAmount);
-  const recordsDelta = getDelta(metrics.recordsCount, comparison.metrics.recordsCount);
-  const oilChangesDelta = getDelta(metrics.oilChanges, comparison.metrics.oilChanges);
-  const averageTicketDelta = getDelta(metrics.averageTicket, comparison.metrics.averageTicket);
-
-  return [
-    {
-      id: 'maintenance-total',
-      label: 'Costo total',
-      value: formatCurrency(metrics.totalAmount),
-      detail: `${metrics.recordsCount} servicios registrados`,
-      deltaLabel: formatDeltaLabel(totalAmountDelta, comparison.label),
-      deltaDirection: totalAmountDelta.direction
-    },
-    {
-      id: 'maintenance-records',
-      label: 'Servicios',
-      value: formatNumber(metrics.recordsCount, 0),
-      detail: `${metrics.uniqueVehicles} vehículo(s) atendido(s)`,
-      deltaLabel: formatDeltaLabel(recordsDelta, comparison.label),
-      deltaDirection: recordsDelta.direction
-    },
-    {
-      id: 'maintenance-oil',
-      label: 'Cambios de aceite',
-      value: formatNumber(metrics.oilChanges, 0),
-      detail: `${formatPercentage(metrics.oilChangeRate)} del total`,
-      deltaLabel: formatDeltaLabel(oilChangesDelta, comparison.label),
-      deltaDirection: oilChangesDelta.direction
-    },
-    {
-      id: 'maintenance-average',
-      label: 'Costo promedio',
-      value: formatCurrency(metrics.averageTicket),
-      detail: `${metrics.uniqueProviders} proveedor(es) distintos`,
-      deltaLabel: formatDeltaLabel(averageTicketDelta, comparison.label),
-      deltaDirection: averageTicketDelta.direction
-    }
-  ];
-};
-
-const buildDefaultDateFilters = (range) => ({
-  search: '',
-  vehicleId: 'todos',
-  dateFrom: range.from,
-  dateTo: range.to
-});
+const SecondaryKpiGrid = ({ cards }) => (
+  <div className='analytics-kpi-grid analytics-kpi-grid-secondary'>
+    {cards.map((card) => (
+      <KpiCard key={card.id} card={card} compact />
+    ))}
+  </div>
+);
 
 export default function AnalyticsDashboard() {
   const [loading, setLoading] = useState(true);
@@ -823,13 +1296,15 @@ export default function AnalyticsDashboard() {
   const [vehicles, setVehicles] = useState([]);
   const [gasolineRecords, setGasolineRecords] = useState([]);
   const [maintenanceRecords, setMaintenanceRecords] = useState([]);
+  const [gasolineTrendMetrics, setGasolineTrendMetrics] = useState(['totalAmount', 'totalLiters', 'averageEfficiency', 'totalKm']);
+  const [maintenanceTrendMetrics, setMaintenanceTrendMetrics] = useState(['totalAmount', 'recordsCount', 'oilChanges', 'averageTicket']);
   const [gasolineFilters, setGasolineFilters] = useState(() => ({
     ...buildDefaultDateFilters(getDateRangeByPreset('month')),
     provider: 'todos',
     operator: 'todos',
     fuelType: 'todos',
     onlyComplete: false,
-    includeFirstLoads: false
+    includeFirstLoads: true
   }));
   const [maintenanceFilters, setMaintenanceFilters] = useState(() => ({
     ...buildDefaultDateFilters(getDateRangeByPreset('month')),
@@ -930,6 +1405,27 @@ export default function AnalyticsDashboard() {
 
   const overviewRange = useMemo(() => getDateRangeByPreset(periodPreset), [periodPreset]);
 
+  const providerOptions = useMemo(
+    () => Array.from(new Set(gasolineRecords.map((record) => String(record.proveedor || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'es')),
+    [gasolineRecords]
+  );
+  const operatorOptions = useMemo(
+    () => Array.from(new Set(gasolineRecords.map((record) => String(record.operador || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'es')),
+    [gasolineRecords]
+  );
+  const fuelTypeOptions = useMemo(
+    () => Array.from(new Set(gasolineRecords.map((record) => normalizeFuelType(record.tipo_combustible)).filter(Boolean))),
+    [gasolineRecords]
+  );
+  const maintenanceProviderOptions = useMemo(
+    () => Array.from(new Set(maintenanceRecords.map((record) => String(record.proveedor || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'es')),
+    [maintenanceRecords]
+  );
+  const maintenanceTypeOptions = useMemo(
+    () => Array.from(new Set(maintenanceRecords.map((record) => String(record.tipo_mantenimiento || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'es')),
+    [maintenanceRecords]
+  );
+
   const gasolineOverviewRecords = useMemo(
     () => filterGasolineRecords({ records: gasolineRecords, filters: { ...gasolineFilters, ...overviewRange } }),
     [gasolineFilters, gasolineRecords, overviewRange]
@@ -948,11 +1444,11 @@ export default function AnalyticsDashboard() {
       operator: 'todos',
       fuelType: 'todos',
       onlyComplete: false,
-      includeFirstLoads: false
+      includeFirstLoads: true
     }
   }), [gasolineRecords, overviewRange, periodPreset]);
   const gasolineOverviewCards = useMemo(
-    () => buildGasolineOverviewCards(gasolineOverviewMetrics, gasolineOverviewComparison),
+    () => buildGasolinePrimaryCards(gasolineOverviewMetrics, gasolineOverviewComparison),
     [gasolineOverviewComparison, gasolineOverviewMetrics]
   );
 
@@ -976,7 +1472,7 @@ export default function AnalyticsDashboard() {
     }
   }), [maintenanceRecords, overviewRange, periodPreset]);
   const maintenanceOverviewCards = useMemo(
-    () => buildMaintenanceOverviewCards(maintenanceOverviewMetrics, maintenanceOverviewComparison),
+    () => buildMaintenancePrimaryCards(maintenanceOverviewMetrics, maintenanceOverviewComparison),
     [maintenanceOverviewComparison, maintenanceOverviewMetrics]
   );
 
@@ -1010,22 +1506,32 @@ export default function AnalyticsDashboard() {
       };
     }
   }), [gasolineDetailRecords, gasolineFilters.dateFrom, gasolineFilters.dateTo, periodPreset]);
+
   const gasolineVehicleRows = useMemo(() => (
     aggregateByKey(
       gasolineDetailRecords,
-      (record) => String(record.vehiculo_id || ''),
-      (record) => record.placa_snapshot || record.vehiculo_placa || 'Sin placa',
-      (record) => record.costo_total
-    ).sort((a, b) => b.totalAmount - a.totalAmount).slice(0, 8)
+      (record) => String(record.vehiculo_id || record.numero_economico_snapshot || record.vehiculo_numero_economico || ''),
+      (record) => getVehicleRecordLabel(record),
+      (record) => record.costo_total,
+      (current, record) => {
+        current.totalLiters = Number(current.totalLiters || 0) + Number(record.litros || 0);
+        current.totalKm = Number(current.totalKm || 0) + Number(record.kilometros_recorridos || 0);
+      }
+    ).map((row) => ({
+      ...row,
+      averageEfficiency: Number(row.totalLiters || 0) > 0 ? Number(row.totalKm || 0) / Number(row.totalLiters || 1) : 0
+    })).sort((a, b) => b.totalAmount - a.totalAmount)
   ), [gasolineDetailRecords]);
+
   const gasolineProviderRows = useMemo(() => (
     aggregateByKey(
       gasolineDetailRecords,
       (record) => String(record.proveedor || '').trim() || 'Sin proveedor',
       (record) => String(record.proveedor || '').trim() || 'Sin proveedor',
       (record) => record.costo_total
-    ).sort((a, b) => b.totalAmount - a.totalAmount).slice(0, 6)
+    ).sort((a, b) => b.totalAmount - a.totalAmount)
   ), [gasolineDetailRecords]);
+
   const gasolineFuelRows = useMemo(() => (
     aggregateByKey(
       gasolineDetailRecords,
@@ -1034,7 +1540,30 @@ export default function AnalyticsDashboard() {
       (record) => record.costo_total
     ).sort((a, b) => b.totalAmount - a.totalAmount)
   ), [gasolineDetailRecords]);
-  const gasolineRecentRecords = useMemo(() => gasolineDetailRecords, [gasolineDetailRecords]);
+
+  const gasolineEfficiencyRows = useMemo(
+    () => gasolineVehicleRows.filter((row) => Number(row.totalLiters || 0) > 0 && Number(row.totalKm || 0) > 0).sort((a, b) => b.averageEfficiency - a.averageEfficiency),
+    [gasolineVehicleRows]
+  );
+
+  const gasolinePrimaryCards = useMemo(
+    () => buildGasolinePrimaryCards(gasolineDetailMetrics, gasolineDetailComparison),
+    [gasolineDetailComparison, gasolineDetailMetrics]
+  );
+  const gasolineSecondaryCards = useMemo(
+    () => buildGasolineSecondaryCards({
+      metrics: gasolineDetailMetrics,
+      comparison: gasolineDetailComparison,
+      providerRows: gasolineProviderRows,
+      vehicleRows: gasolineVehicleRows,
+      efficiencyRows: gasolineEfficiencyRows
+    }),
+    [gasolineDetailComparison, gasolineDetailMetrics, gasolineEfficiencyRows, gasolineProviderRows, gasolineVehicleRows]
+  );
+  const gasolineRecentRecords = useMemo(
+    () => [...gasolineDetailRecords].sort((a, b) => new Date(b.fecha_carga || 0).getTime() - new Date(a.fecha_carga || 0).getTime()),
+    [gasolineDetailRecords]
+  );
 
   const maintenanceDetailRecords = useMemo(
     () => filterMaintenanceRecords({ records: maintenanceRecords, filters: maintenanceFilters }),
@@ -1064,52 +1593,81 @@ export default function AnalyticsDashboard() {
       };
     }
   }), [maintenanceDetailRecords, maintenanceFilters.dateFrom, maintenanceFilters.dateTo, periodPreset]);
+
   const maintenanceVehicleRows = useMemo(() => (
     aggregateByKey(
       maintenanceDetailRecords,
-      (record) => String(record.vehiculo_id || ''),
-      (record) => record.vehiculo_placa || record.vehiculo_numero_economico || 'Sin vehículo',
+      (record) => String(record.vehiculo_id || record.vehiculo_numero_economico || record.vehiculo_placa || ''),
+      (record) => getVehicleRecordLabel(record),
       (record) => record.costo
-    ).sort((a, b) => b.totalAmount - a.totalAmount).slice(0, 8)
+    ).sort((a, b) => b.totalAmount - a.totalAmount)
   ), [maintenanceDetailRecords]);
+
   const maintenanceProviderRows = useMemo(() => (
     aggregateByKey(
       maintenanceDetailRecords,
       (record) => String(record.proveedor || '').trim() || 'Sin proveedor',
       (record) => String(record.proveedor || '').trim() || 'Sin proveedor',
       (record) => record.costo
-    ).sort((a, b) => b.totalAmount - a.totalAmount).slice(0, 6)
+    ).sort((a, b) => b.totalAmount - a.totalAmount)
   ), [maintenanceDetailRecords]);
+
   const maintenanceTypeRows = useMemo(() => (
     aggregateByKey(
       maintenanceDetailRecords,
       (record) => String(record.tipo_mantenimiento || '').trim() || 'Sin tipo',
       (record) => String(record.tipo_mantenimiento || '').trim() || 'Sin tipo',
       (record) => record.costo
-    ).sort((a, b) => b.totalAmount - a.totalAmount).slice(0, 6)
+    ).sort((a, b) => b.totalAmount - a.totalAmount)
   ), [maintenanceDetailRecords]);
-  const maintenanceRecentRecords = useMemo(() => maintenanceDetailRecords.slice(0, 8), [maintenanceDetailRecords]);
 
-  const providerOptions = useMemo(
-    () => Array.from(new Set(gasolineRecords.map((record) => String(record.proveedor || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'es')),
-    [gasolineRecords]
+  const maintenancePrimaryCards = useMemo(
+    () => buildMaintenancePrimaryCards(maintenanceDetailMetrics, maintenanceDetailComparison),
+    [maintenanceDetailComparison, maintenanceDetailMetrics]
   );
-  const operatorOptions = useMemo(
-    () => Array.from(new Set(gasolineRecords.map((record) => String(record.operador || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'es')),
-    [gasolineRecords]
+  const maintenanceSecondaryCards = useMemo(
+    () => buildMaintenanceSecondaryCards({
+      metrics: maintenanceDetailMetrics,
+      providerRows: maintenanceProviderRows,
+      vehicleRows: maintenanceVehicleRows,
+      typeRows: maintenanceTypeRows
+    }),
+    [maintenanceDetailMetrics, maintenanceProviderRows, maintenanceTypeRows, maintenanceVehicleRows]
   );
-  const fuelTypeOptions = useMemo(
-    () => Array.from(new Set(gasolineRecords.map((record) => normalizeFuelType(record.tipo_combustible)).filter(Boolean))),
-    [gasolineRecords]
+  const maintenanceRecentRecords = useMemo(
+    () => [...maintenanceDetailRecords].sort((a, b) => new Date(b.fecha_servicio || 0).getTime() - new Date(a.fecha_servicio || 0).getTime()),
+    [maintenanceDetailRecords]
   );
-  const maintenanceProviderOptions = useMemo(
-    () => Array.from(new Set(maintenanceRecords.map((record) => String(record.proveedor || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'es')),
-    [maintenanceRecords]
+  const gasolineDateCaption = useMemo(
+    () => formatFilterDateCaption({ dateFrom: gasolineFilters.dateFrom, dateTo: gasolineFilters.dateTo }),
+    [gasolineFilters.dateFrom, gasolineFilters.dateTo]
   );
-  const maintenanceTypeOptions = useMemo(
-    () => Array.from(new Set(maintenanceRecords.map((record) => String(record.tipo_mantenimiento || '').trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b, 'es')),
-    [maintenanceRecords]
+  const maintenanceDateCaption = useMemo(
+    () => formatFilterDateCaption({ dateFrom: maintenanceFilters.dateFrom, dateTo: maintenanceFilters.dateTo }),
+    [maintenanceFilters.dateFrom, maintenanceFilters.dateTo]
   );
+
+  const toggleTrendMetric = (setter, current, key) => {
+    if (current.includes(key)) {
+      setter(current.length === 1 ? current : current.filter((item) => item !== key));
+      return;
+    }
+    setter([...current, key]);
+  };
+
+  const gasolineSeriesOptions = [
+    { key: 'totalAmount', label: 'Gasto (MXN)', color: CHART_PALETTE[0] },
+    { key: 'totalLiters', label: 'Litros (L)', color: CHART_PALETTE[4] },
+    { key: 'averageEfficiency', label: 'Rendimiento (km/L)', color: CHART_PALETTE[8] },
+    { key: 'totalKm', label: 'Km recorridos (km)', color: CHART_PALETTE[2] }
+  ];
+
+  const maintenanceSeriesOptions = [
+    { key: 'totalAmount', label: 'Costo (MXN)', color: CHART_PALETTE[6] },
+    { key: 'recordsCount', label: 'Servicios (registros)', color: CHART_PALETTE[1] },
+    { key: 'oilChanges', label: 'Cambios de aceite (registros)', color: CHART_PALETTE[9] },
+    { key: 'averageTicket', label: 'Costo promedio (MXN)', color: CHART_PALETTE[5] }
+  ];
 
   if (loading) {
     return (
@@ -1136,7 +1694,7 @@ export default function AnalyticsDashboard() {
       <div className='analytics-header'>
         <div>
           <h1>Análisis y Reportes</h1>
-          <p>Panel comparativo para gasolina y mantenimiento con KPIs, tendencia y ranking operativo.</p>
+          <p>Panel comparativo para gasolina y mantenimiento con KPIs, tendencia, distribución y rankings operativos.</p>
         </div>
 
         <label className='analytics-preset-field'>
@@ -1169,14 +1727,7 @@ export default function AnalyticsDashboard() {
             </div>
 
             <div className='analytics-kpi-grid'>
-              {gasolineOverviewCards.map((card) => (
-                <div key={card.id} className='analytics-kpi-card'>
-                  <span>{card.label}</span>
-                  <strong>{card.value}</strong>
-                  <small>{card.detail}</small>
-                  <DeltaBadge direction={card.deltaDirection} label={card.deltaLabel} />
-                </div>
-              ))}
+              {gasolineOverviewCards.map((card) => <KpiCard key={card.id} card={card} />)}
             </div>
           </button>
 
@@ -1190,14 +1741,7 @@ export default function AnalyticsDashboard() {
             </div>
 
             <div className='analytics-kpi-grid'>
-              {maintenanceOverviewCards.map((card) => (
-                <div key={card.id} className='analytics-kpi-card'>
-                  <span>{card.label}</span>
-                  <strong>{card.value}</strong>
-                  <small>{card.detail}</small>
-                  <DeltaBadge direction={card.deltaDirection} label={card.deltaLabel} />
-                </div>
-              ))}
+              {maintenanceOverviewCards.map((card) => <KpiCard key={card.id} card={card} />)}
             </div>
           </button>
         </div>
@@ -1209,7 +1753,7 @@ export default function AnalyticsDashboard() {
                 Volver al resumen
               </button>
               <h2>Detalle de KPIs de gasolina</h2>
-              <p>Comparativos de costo, litros, rendimiento y concentración por unidad, proveedor y combustible.</p>
+              <p>Comparativos de costo, litros, rendimiento, kilómetros y concentración por unidad, proveedor y combustible.</p>
             </div>
           </div>
 
@@ -1231,7 +1775,7 @@ export default function AnalyticsDashboard() {
                 <select value={gasolineFilters.vehicleId} onChange={(event) => setGasolineFilters((current) => ({ ...current, vehicleId: event.target.value }))}>
                   <option value='todos'>Todos</option>
                   {vehicles.map((vehicle) => (
-                    <option key={vehicle.id} value={vehicle.id}>{vehicle.placa} - {vehicle.descripcion || vehicle.propietario_nombre || 'Sin descripción'}</option>
+                    <option key={vehicle.id} value={vehicle.id}>{getVehicleOptionLabel(vehicle)}</option>
                   ))}
                 </select>
               </label>
@@ -1269,110 +1813,163 @@ export default function AnalyticsDashboard() {
                 Solo registros con km y litros válidos
               </label>
               <label className='analytics-toggle-field'>
-                <input type='checkbox' checked={gasolineFilters.includeFirstLoads} onChange={(event) => setGasolineFilters((current) => ({ ...current, includeFirstLoads: event.target.checked }))} />
-                Contar primeras cargas
+                <input type='checkbox' checked={!gasolineFilters.includeFirstLoads} onChange={(event) => setGasolineFilters((current) => ({ ...current, includeFirstLoads: !event.target.checked }))} />
+                Sin contar primeras cargas
               </label>
             </div>
           </div>
 
           <div className='analytics-kpi-grid analytics-kpi-grid-detail'>
-            {buildGasolineOverviewCards(gasolineDetailMetrics, gasolineDetailComparison).map((card) => (
-              <div key={card.id} className='analytics-kpi-card'>
-                <span>{card.label}</span>
-                <strong>{card.value}</strong>
-                <small>{card.detail}</small>
-                <DeltaBadge direction={card.deltaDirection} label={card.deltaLabel} />
-              </div>
-            ))}
+            {gasolinePrimaryCards.map((card) => <KpiCard key={card.id} card={card} />)}
           </div>
 
-          <div className='analytics-chart-grid analytics-chart-grid-single analytics-order-primary'>
+          <SecondaryKpiGrid cards={gasolineSecondaryCards} />
+
+          <div className='analytics-detail-grid analytics-order-primary'>
+            <DetailTable
+              title='Vehículos con más litros cargados'
+              subtitle='Top de unidades por volumen total de combustible dentro del rango actual.'
+              rows={[...gasolineVehicleRows].sort((a, b) => Number(b.totalLiters || 0) - Number(a.totalLiters || 0)).slice(0, 12)}
+              emptyMessage='No hay vehículos suficientes para mostrar litros cargados.'
+              metricKey='totalLiters'
+              valueFormatter={(value) => `${formatNumber(value)} L`}
+              secondaryLabel={(row) => `${row.recordsCount} carga(s) · ${formatCurrency(row.totalAmount)} invertidos`}
+            />
+            <DetailTable
+              title='Vehículos con más kilómetros recorridos'
+              subtitle='Top de unidades por distancia acumulada registrada dentro del filtro actual.'
+              rows={[...gasolineVehicleRows].sort((a, b) => Number(b.totalKm || 0) - Number(a.totalKm || 0)).slice(0, 12)}
+              emptyMessage='No hay vehículos suficientes para mostrar kilómetros recorridos.'
+              metricKey='totalKm'
+              valueFormatter={(value) => `${formatNumber(value)} km`}
+              secondaryLabel={(row) => `${row.recordsCount} carga(s) · ${formatNumber(row.totalLiters)} L cargados`}
+            />
+          </div>
+
+          <div className='analytics-detail-grid analytics-order-secondary'>
+            <DetailTable
+              title='Vehículos con mayor gasto'
+              subtitle='Top de unidades por monto invertido en el rango actual.'
+              rows={gasolineVehicleRows.slice(0, 12)}
+              emptyMessage='No hay vehículos suficientes para mostrar.'
+              metricKey='totalAmount'
+              valueFormatter={formatCurrency}
+              secondaryLabel={(row) => `${row.recordsCount} carga(s) · promedio ${formatCurrency(row.averageAmount)}`}
+              dateCaption={gasolineDateCaption}
+            />
+            <DetailTable
+              title='Proveedores con mayor gasto'
+              subtitle='Concentración de compra dentro del filtro actual.'
+              rows={gasolineProviderRows.slice(0, 12)}
+              emptyMessage='No hay proveedores dentro del filtro actual.'
+              metricKey='totalAmount'
+              valueFormatter={formatCurrency}
+              secondaryLabel={(row) => `${row.recordsCount} carga(s) · promedio ${formatCurrency(row.averageAmount)}`}
+              dateCaption={gasolineDateCaption}
+            />
+          </div>
+
+          <div className='analytics-detail-grid analytics-order-secondary'>
+            <DetailTable
+              title='Tipos con mayor gasto'
+              subtitle='Comparativo por mezcla de combustible dentro del rango actual.'
+              rows={gasolineFuelRows.slice(0, 12)}
+              emptyMessage='No hay tipos de combustible suficientes para comparar.'
+              metricKey='totalAmount'
+              valueFormatter={formatCurrency}
+              secondaryLabel={(row) => `${row.recordsCount} carga(s) · ${formatCurrency(row.totalAmount)}`}
+              dateCaption={gasolineDateCaption}
+            />
+            <DetailTable
+              title='Rendimiento por vehículo'
+              subtitle='Referencia rápida para detectar unidades más y menos eficientes.'
+              rows={gasolineEfficiencyRows.slice(0, 12)}
+              emptyMessage='No hay suficientes datos completos para calcular rendimiento por vehículo.'
+              metricKey='averageEfficiency'
+              valueFormatter={(value) => `${formatNumber(value)} km/L`}
+              secondaryLabel={(row) => `${formatNumber(row.totalKm)} km · ${formatNumber(row.totalLiters)} L`}
+              dateCaption={gasolineDateCaption}
+            />
+          </div>
+
+          <div className='analytics-chart-grid analytics-chart-grid-single analytics-order-tertiary'>
             <div className='analytics-panel analytics-chart-panel analytics-chart-panel-wide'>
               <div className='analytics-panel-header'>
                 <div>
                   <h3>Tendencia del periodo</h3>
-                  <p>El gasto se agrupa por día, semana o mes según el rango activo.</p>
+                  <p>Activa una o varias métricas para comparar gasto, litros, rendimiento y kilómetros dentro del mismo rango.</p>
                 </div>
               </div>
-              <SimpleTrendChart
+              <MultiMetricTrendChart
                 data={gasolineTrendSeries}
                 granularityLabel={getTrendGranularityLabel(getTrendGranularity({ preset: periodPreset, dateFrom: gasolineFilters.dateFrom, dateTo: gasolineFilters.dateTo }))}
                 emptyMessage='No hay suficiente histórico para construir la tendencia de gasolina.'
+                seriesOptions={gasolineSeriesOptions}
+                activeSeries={gasolineTrendMetrics}
+                onToggleSeries={(key) => toggleTrendMetric(setGasolineTrendMetrics, gasolineTrendMetrics, key)}
                 tooltipLines={(item) => [
                   `Gasto: ${formatCurrency(item.totalAmount)}`,
                   `Litros: ${formatNumber(item.totalLiters)} L`,
-                  `Rendimiento: ${formatNumber(item.averageEfficiency)} km/L`
+                  `Rendimiento: ${formatNumber(item.averageEfficiency)} km/L`,
+                  `Km recorridos: ${formatNumber(item.totalKm)} km`,
+                  `Costo por km: ${formatCurrency(item.costPerKm)} / km`
                 ]}
                 metricCards={(item) => [
                   { label: 'Gasto', value: formatCurrency(item.totalAmount) },
                   { label: 'Litros', value: `${formatNumber(item.totalLiters)} L` },
                   { label: 'Rendimiento', value: `${formatNumber(item.averageEfficiency)} km/L` },
-                  { label: 'Costo por km', value: formatCurrency(item.costPerKm) }
+                  { label: 'Km recorridos', value: `${formatNumber(item.totalKm)} km` }
                 ]}
               />
             </div>
           </div>
 
-          <div className='analytics-chart-grid analytics-order-tertiary'>
-            <div className='analytics-panel analytics-chart-panel analytics-chart-panel-wide'>
-              <div className='analytics-panel-header'>
-                <div>
-                  <h3>Gasto por vehículo</h3>
-                  <p>Selecciona una fila para ver la unidad con mayor demanda de combustible.</p>
-                </div>
-              </div>
-              <SimpleBarChart
-                data={gasolineVehicleRows}
-                emptyMessage='No hay vehículos suficientes para comparar.'
-                activeLabel='Vehículo activo'
-                rowDetail={(item) => `${item.recordsCount} carga(s)`}
-                valueFormatter={formatCurrency}
-                activeCards={(item) => [
-                  { label: 'Gasto', value: formatCurrency(item.totalAmount) },
-                  { label: 'Cargas', value: formatNumber(item.recordsCount, 0) },
-                  { label: 'Promedio', value: formatCurrency(item.averageAmount) }
-                ]}
-              />
-            </div>
-
-            <DetailTable
-              title='Tipos con mayor gasto'
-              subtitle='Comparativo por mezcla de combustible dentro del rango actual.'
-              rows={gasolineFuelRows}
-              emptyMessage='No hay tipos de combustible suficientes para comparar.'
-              metricKey='totalAmount'
+          <div className='analytics-chart-grid analytics-order-quaternary'>
+            <DonutBreakdown
+              title='Distribución del gasto por vehículo'
+              subtitle='Participación de cada unidad dentro del gasto del periodo.'
+              rows={gasolineVehicleRows.slice(0, 6)}
+              emptyMessage='No hay vehículos suficientes para mostrar la distribución.'
               valueFormatter={formatCurrency}
-              secondaryLabel={(row) => `${row.recordsCount} carga(s) · ${formatCurrency(row.totalAmount)}`}
+              dateCaption={gasolineDateCaption}
+            />
+            <DonutBreakdown
+              title='Distribución del gasto por proveedor'
+              subtitle='Cómo se reparte la compra de combustible entre proveedores.'
+              rows={gasolineProviderRows.slice(0, 6)}
+              emptyMessage='No hay proveedores suficientes para mostrar la distribución.'
+              valueFormatter={formatCurrency}
+              dateCaption={gasolineDateCaption}
             />
           </div>
 
-          <div className='analytics-detail-grid'>
-            <DetailTable
-              title='Vehículos con mayor gasto'
-              subtitle='Top de unidades por monto invertido en el rango actual.'
-              rows={gasolineVehicleRows}
-              emptyMessage='No hay vehículos suficientes para mostrar.'
-              metricKey='totalAmount'
-              valueFormatter={formatCurrency}
-              secondaryLabel={(row) => `${row.recordsCount} carga(s) · promedio ${formatCurrency(row.averageAmount)}`}
+          <div className='analytics-chart-grid analytics-order-quaternary'>
+            <DonutBreakdown
+              title='Distribución de litros consumidos'
+              subtitle='Participación por vehículo según el volumen total cargado en el periodo.'
+              rows={[...gasolineVehicleRows].sort((a, b) => Number(b.totalLiters || 0) - Number(a.totalLiters || 0)).slice(0, 6)}
+              emptyMessage='No hay vehículos suficientes para mostrar la distribución de litros.'
+              valueFormatter={(value) => `${formatNumber(value)} L`}
+              metricKey='totalLiters'
+              dateCaption={gasolineDateCaption}
             />
-            <DetailTable
-              title='Proveedores con mayor gasto'
-              subtitle='Concentración de compra dentro del filtro actual.'
-              rows={gasolineProviderRows}
-              emptyMessage='No hay proveedores dentro del filtro actual.'
-              metricKey='totalAmount'
+            <DonutBreakdown
+              title='Distribución por tipo de combustible'
+              subtitle='Peso relativo de cada tipo de combustible dentro del periodo.'
+              rows={gasolineFuelRows.slice(0, 6)}
+              emptyMessage='No hay tipos de combustible suficientes para mostrar la distribución.'
               valueFormatter={formatCurrency}
-              secondaryLabel={(row) => `${row.recordsCount} carga(s) · promedio ${formatCurrency(row.averageAmount)}`}
+              dateCaption={gasolineDateCaption}
             />
           </div>
 
-          <div className='analytics-panel'>
+          <div className='analytics-panel analytics-order-quinary'>
             <div className='analytics-panel-header'>
               <div>
                 <h3>Registros recientes del filtro</h3>
-                <p>Resumen operativo para validar facturas, rendimiento y costo unitario.</p>
+                <p>Resumen operativo para validar facturas, litros, rendimiento, monto y costo unitario.</p>
               </div>
+              <span className='analytics-panel-date'>{gasolineDateCaption}</span>
             </div>
 
             {gasolineRecentRecords.length === 0 ? (
@@ -1390,23 +1987,32 @@ export default function AnalyticsDashboard() {
                       <th>Proveedor</th>
                       <th>Operador</th>
                       <th>Litros</th>
+                      <th>Km recorridos</th>
                       <th>Monto</th>
+                      <th>Costo/L</th>
                       <th>Km/L</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {gasolineRecentRecords.map((record) => (
-                      <tr key={record.id}>
-                        <td>{record.placa_snapshot || record.vehiculo_placa || '-'}</td>
-                        <td>{formatDate(record.fecha_carga)}</td>
-                        <td>{getFuelTypeLabel(record.tipo_combustible)}</td>
-                        <td>{record.proveedor || '-'}</td>
-                        <td>{record.operador || '-'}</td>
-                        <td>{formatNumber(record.litros)} L</td>
-                        <td>{formatCurrency(record.costo_total)}</td>
-                        <td>{formatNumber(Number(record.litros || 0) > 0 ? Number(record.kilometros_recorridos || 0) / Number(record.litros || 1) : 0)} km/L</td>
-                      </tr>
-                    ))}
+                    {gasolineRecentRecords.map((record) => {
+                      const liters = Number(record.litros || 0);
+                      const km = Number(record.kilometros_recorridos || 0);
+                      const amount = Number(record.costo_total || 0);
+                      return (
+                        <tr key={record.id}>
+                          <td>{getVehicleRecordLabel(record, '-')}</td>
+                          <td>{formatDate(record.fecha_carga)}</td>
+                          <td>{getFuelTypeLabel(record.tipo_combustible)}</td>
+                          <td>{record.proveedor || '-'}</td>
+                          <td>{record.operador || '-'}</td>
+                          <td>{formatNumber(liters)} L</td>
+                          <td>{formatNumber(km)} km</td>
+                          <td>{formatCurrency(amount)}</td>
+                          <td>{liters > 0 ? `${formatCurrency(amount / liters)} / L` : '-'}</td>
+                          <td>{liters > 0 ? `${formatNumber(km / liters)} km/L` : '-'}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1421,7 +2027,7 @@ export default function AnalyticsDashboard() {
                 Volver al resumen
               </button>
               <h2>Detalle de KPIs de mantenimiento</h2>
-              <p>Comparativos de costo, cambios de aceite y concentración por unidad, tipo y proveedor.</p>
+              <p>Comparativos de costo, servicios, cambios de aceite y concentración por unidad, tipo y proveedor.</p>
             </div>
           </div>
 
@@ -1443,7 +2049,7 @@ export default function AnalyticsDashboard() {
                 <select value={maintenanceFilters.vehicleId} onChange={(event) => setMaintenanceFilters((current) => ({ ...current, vehicleId: event.target.value }))}>
                   <option value='todos'>Todos</option>
                   {vehicles.map((vehicle) => (
-                    <option key={vehicle.id} value={vehicle.id}>{vehicle.placa} - {vehicle.descripcion || vehicle.propietario_nombre || 'Sin descripción'}</option>
+                    <option key={vehicle.id} value={vehicle.id}>{getVehicleOptionLabel(vehicle)}</option>
                   ))}
                 </select>
               </label>
@@ -1477,44 +2083,70 @@ export default function AnalyticsDashboard() {
           </div>
 
           <div className='analytics-kpi-grid analytics-kpi-grid-detail'>
-            {buildMaintenanceOverviewCards(maintenanceDetailMetrics, maintenanceDetailComparison).map((card) => (
-              <div key={card.id} className='analytics-kpi-card'>
-                <span>{card.label}</span>
-                <strong>{card.value}</strong>
-                <small>{card.detail}</small>
-                <DeltaBadge direction={card.deltaDirection} label={card.deltaLabel} />
-              </div>
-            ))}
+            {maintenancePrimaryCards.map((card) => <KpiCard key={card.id} card={card} />)}
           </div>
+
+          <SecondaryKpiGrid cards={maintenanceSecondaryCards} />
 
           <div className='analytics-chart-grid analytics-chart-grid-single analytics-order-primary'>
             <div className='analytics-panel analytics-chart-panel analytics-chart-panel-wide'>
               <div className='analytics-panel-header'>
                 <div>
                   <h3>Tendencia del periodo</h3>
-                  <p>El costo de mantenimiento se agrupa por día, semana o mes según el rango activo.</p>
+                  <p>Activa una o varias métricas para comparar costo, servicios, cambios de aceite y costo promedio.</p>
                 </div>
               </div>
-              <SimpleTrendChart
+              <MultiMetricTrendChart
                 data={maintenanceTrendSeries}
                 granularityLabel={getTrendGranularityLabel(getTrendGranularity({ preset: periodPreset, dateFrom: maintenanceFilters.dateFrom, dateTo: maintenanceFilters.dateTo }))}
                 emptyMessage='No hay suficiente histórico para construir la tendencia de mantenimiento.'
+                seriesOptions={maintenanceSeriesOptions}
+                activeSeries={maintenanceTrendMetrics}
+                onToggleSeries={(key) => toggleTrendMetric(setMaintenanceTrendMetrics, maintenanceTrendMetrics, key)}
                 tooltipLines={(item) => [
                   `Costo: ${formatCurrency(item.totalAmount)}`,
                   `Servicios: ${formatNumber(item.recordsCount, 0)}`,
-                  `Cambios de aceite: ${formatNumber(item.oilChanges, 0)}`
+                  `Cambios de aceite: ${formatNumber(item.oilChanges, 0)}`,
+                  `Costo promedio: ${formatCurrency(item.averageTicket)}`
                 ]}
                 metricCards={(item) => [
                   { label: 'Costo', value: formatCurrency(item.totalAmount) },
                   { label: 'Servicios', value: formatNumber(item.recordsCount, 0) },
                   { label: 'Cambios de aceite', value: formatNumber(item.oilChanges, 0) },
-                  { label: 'Promedio', value: formatCurrency(item.averageTicket) }
+                  { label: 'Costo promedio', value: formatCurrency(item.averageTicket) }
                 ]}
               />
             </div>
           </div>
 
-          <div className='analytics-chart-grid analytics-order-tertiary'>
+          <div className='analytics-chart-grid analytics-order-secondary'>
+            <DonutBreakdown
+              title='Distribución del costo por tipo'
+              subtitle='Cómo se reparte el gasto entre los tipos de mantenimiento.'
+              rows={maintenanceTypeRows.slice(0, 6)}
+              emptyMessage='No hay tipos de mantenimiento suficientes para mostrar la distribución.'
+              valueFormatter={formatCurrency}
+              dateCaption={maintenanceDateCaption}
+            />
+            <DonutBreakdown
+              title='Distribución del costo por proveedor'
+              subtitle='Participación de cada proveedor dentro del costo total.'
+              rows={maintenanceProviderRows.slice(0, 6)}
+              emptyMessage='No hay proveedores suficientes para mostrar la distribución.'
+              valueFormatter={formatCurrency}
+              dateCaption={maintenanceDateCaption}
+            />
+          </div>
+
+          <div className='analytics-chart-grid analytics-order-secondary'>
+            <DonutBreakdown
+              title='Distribución del costo por vehículo'
+              subtitle='Peso relativo de cada unidad dentro del mantenimiento del periodo.'
+              rows={maintenanceVehicleRows.slice(0, 6)}
+              emptyMessage='No hay vehículos suficientes para mostrar la distribución.'
+              valueFormatter={formatCurrency}
+              dateCaption={maintenanceDateCaption}
+            />
             <div className='analytics-panel analytics-chart-panel analytics-chart-panel-wide'>
               <div className='analytics-panel-header'>
                 <div>
@@ -1523,7 +2155,7 @@ export default function AnalyticsDashboard() {
                 </div>
               </div>
               <SimpleBarChart
-                data={maintenanceVehicleRows}
+                data={maintenanceVehicleRows.slice(0, 10)}
                 emptyMessage='No hay vehículos suficientes para comparar mantenimiento.'
                 activeLabel='Vehículo activo'
                 rowDetail={(item) => `${item.recordsCount} servicio(s)`}
@@ -1535,45 +2167,61 @@ export default function AnalyticsDashboard() {
                 ]}
               />
             </div>
-
-            <DetailTable
-              title='Tipos con mayor costo'
-              subtitle='Comparativo por tipo de mantenimiento dentro del rango actual.'
-              rows={maintenanceTypeRows}
-              emptyMessage='No hay tipos de mantenimiento suficientes para comparar.'
-              metricKey='totalAmount'
-              valueFormatter={formatCurrency}
-              secondaryLabel={(row) => `${row.recordsCount} servicio(s) · promedio ${formatCurrency(row.averageAmount)}`}
-            />
           </div>
 
-          <div className='analytics-detail-grid'>
+          <div className='analytics-detail-grid analytics-order-tertiary'>
             <DetailTable
               title='Vehículos con mayor costo'
               subtitle='Top de unidades por monto invertido en mantenimiento.'
-              rows={maintenanceVehicleRows}
+              rows={maintenanceVehicleRows.slice(0, 12)}
               emptyMessage='No hay vehículos suficientes para mostrar.'
               metricKey='totalAmount'
               valueFormatter={formatCurrency}
               secondaryLabel={(row) => `${row.recordsCount} servicio(s) · promedio ${formatCurrency(row.averageAmount)}`}
+              dateCaption={maintenanceDateCaption}
             />
             <DetailTable
               title='Proveedores con mayor costo'
               subtitle='Concentración de gasto por proveedor dentro del filtro actual.'
-              rows={maintenanceProviderRows}
+              rows={maintenanceProviderRows.slice(0, 12)}
               emptyMessage='No hay proveedores dentro del filtro actual.'
               metricKey='totalAmount'
               valueFormatter={formatCurrency}
               secondaryLabel={(row) => `${row.recordsCount} servicio(s) · promedio ${formatCurrency(row.averageAmount)}`}
+              dateCaption={maintenanceDateCaption}
             />
           </div>
 
-          <div className='analytics-panel'>
+          <div className='analytics-detail-grid analytics-order-tertiary'>
+            <DetailTable
+              title='Tipos con mayor costo'
+              subtitle='Comparativo por tipo de mantenimiento dentro del rango actual.'
+              rows={maintenanceTypeRows.slice(0, 12)}
+              emptyMessage='No hay tipos de mantenimiento suficientes para comparar.'
+              metricKey='totalAmount'
+              valueFormatter={formatCurrency}
+              secondaryLabel={(row) => `${row.recordsCount} servicio(s) · promedio ${formatCurrency(row.averageAmount)}`}
+              dateCaption={maintenanceDateCaption}
+            />
+            <DetailTable
+              title='Tipos más frecuentes'
+              subtitle='Ayuda a detectar los servicios más recurrentes del periodo.'
+              rows={[...maintenanceTypeRows].sort((a, b) => b.recordsCount - a.recordsCount).slice(0, 12)}
+              emptyMessage='No hay suficientes registros para mostrar frecuencia.'
+              metricKey='recordsCount'
+              valueFormatter={(value) => formatNumber(value, 0)}
+              secondaryLabel={(row) => `${formatCurrency(row.totalAmount)} acumulados`}
+              dateCaption={maintenanceDateCaption}
+            />
+          </div>
+
+          <div className='analytics-panel analytics-order-quaternary'>
             <div className='analytics-panel-header'>
               <div>
                 <h3>Registros recientes del filtro</h3>
                 <p>Resumen operativo para validar tipo, proveedor, fecha, costo y cambios de aceite.</p>
               </div>
+              <span className='analytics-panel-date'>{maintenanceDateCaption}</span>
             </div>
 
             {maintenanceRecentRecords.length === 0 ? (
@@ -1581,7 +2229,7 @@ export default function AnalyticsDashboard() {
                 <p>No hay mantenimientos que coincidan con los filtros actuales.</p>
               </div>
             ) : (
-              <div className='analytics-records-table-wrapper'>
+              <div className='analytics-records-table-wrapper analytics-records-table-wrapper-scroll'>
                 <table className='analytics-records-table'>
                   <thead>
                     <tr>
@@ -1597,7 +2245,7 @@ export default function AnalyticsDashboard() {
                   <tbody>
                     {maintenanceRecentRecords.map((record) => (
                       <tr key={record.id}>
-                        <td>{record.vehiculo_placa || record.vehiculo_numero_economico || '-'}</td>
+                        <td>{getVehicleRecordLabel(record, '-')}</td>
                         <td>{formatDate(record.fecha_servicio)}</td>
                         <td>{record.tipo_mantenimiento || '-'}</td>
                         <td>{record.proveedor || '-'}</td>
