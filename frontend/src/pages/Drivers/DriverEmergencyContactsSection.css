@@ -1,0 +1,30 @@
+@import '../Vehicles/Sections/VehicleMaintenanceSection.css';
+@import '../Vehicles/Sections/MaintenanceRecordModal.css';
+
+.driver-emergency-section {
+  padding: 0;
+}
+
+.driver-emergency-section .records-filter-grid {
+  grid-template-columns: minmax(240px, 2fr) minmax(180px, 1fr);
+}
+
+.driver-emergency-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.driver-contact-modal .maintenance-modal-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.driver-contact-modal .maintenance-modal-grid .full-width {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 900px) {
+  .driver-emergency-grid,
+  .driver-contact-modal .maintenance-modal-grid,
+  .driver-emergency-section .records-filter-grid {
+    grid-template-columns: 1fr;
+  }
+}

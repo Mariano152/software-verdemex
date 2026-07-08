@@ -1,177 +1,180 @@
 import { useState } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import NotificationModal from '../../components/Notifications/NotificationModal';
+import { createDriver } from './driverApi';
 import './DriverCreate.css';
 
 export default function DriverCreate() {
   const navigate = useNavigate();
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    license: '',
-    licenseExpiry: '',
-    birthDate: '',
-    address: '',
-    experience: ''
+    nombre: '',
+    telefono: '',
+    numero_seguro_social: '',
+    domicilio: '',
+    descripcion: '',
+    imagen: null,
+    imagenPreview: null
   });
+  const [notification, setNotification] = useState(null);
 
-  const [submitted, setSubmitted] = useState(false);
-
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setFormData((prev) => ({
-      ...prev,
+  const handleChange = (event) => {
+    const { name, value } = event.target;
+    setFormData((current) => ({
+      ...current,
       [name]: value
     }));
   };
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    setSubmitted(true);
+  const handleImageChange = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
 
-    setTimeout(() => {
-      navigate('/drivers');
-    }, 800);
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setFormData((current) => ({
+        ...current,
+        imagen: file,
+        imagenPreview: reader.result
+      }));
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+    setLoading(true);
+    setNotification(null);
+
+    try {
+      await createDriver(formData);
+
+      setNotification({
+        type: 'success',
+        title: 'Conductor registrado',
+        message: `${formData.nombre} fue agregado correctamente`
+      });
+
+      setTimeout(() => {
+        navigate('/drivers');
+      }, 1200);
+    } catch (error) {
+      setNotification({
+        type: 'error',
+        title: 'Error al registrar',
+        message: error.message || 'No se pudo guardar el conductor'
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className='driver-create'>
-      <div className='form-header'>
-        <Link to='/drivers' className='btn btn-outline'>← Volver</Link>
+    <div className="driver-form-page">
+      <div className="driver-form-header">
+        <Link to="/drivers" className="btn btn-outline">Volver</Link>
+        <div className="driver-create-tabs" aria-label="Tipo de alta">
+          <Link to="/vehicles/create" className="driver-create-tab">Vehiculo</Link>
+          <span className="driver-create-tab active">Conductor</span>
+        </div>
         <div>
           <h1>Registro de Nuevo Conductor</h1>
-          <p className='subtitle'>Completa los datos del conductor a registrar</p>
+          <p>Captura la informacion principal del conductor</p>
         </div>
       </div>
 
-      {submitted && (
+      {notification && (
         <NotificationModal
-          type='success'
-          title='Exito'
-          message='Conductor registrado correctamente. Redirigiendo...'
-          onClose={() => setSubmitted(false)}
+          type={notification.type}
+          title={notification.title}
+          message={notification.message}
+          onClose={() => setNotification(null)}
         />
       )}
 
-      <div className='card'>
+      <div className="card">
         <form onSubmit={handleSubmit}>
-          <div className='form-section'>
-            <h3>Informacion Personal</h3>
-            <div className='form-row'>
-              <div className='form-group'>
-                <label htmlFor='name'>Nombre Completo *</label>
+          <div className="form-section">
+            <h3>Informacion Base</h3>
+            <div className="driver-form-grid">
+              <div className="full-width">
+                <label htmlFor="imagen">Imagen del conductor</label>
+                <div className="driver-image-upload">
+                  {formData.imagenPreview ? (
+                    <img src={formData.imagenPreview} alt="Vista previa del conductor" className="driver-image-preview" />
+                  ) : (
+                    <div className="driver-image-placeholder">Imagen opcional</div>
+                  )}
+                  <input id="imagen" type="file" accept="image/*" onChange={handleImageChange} />
+                </div>
+              </div>
+              <div>
+                <label htmlFor="nombre">Nombre Completo *</label>
                 <input
-                  id='name'
-                  type='text'
-                  name='name'
-                  value={formData.name}
+                  id="nombre"
+                  type="text"
+                  name="nombre"
+                  value={formData.nombre}
                   onChange={handleChange}
-                  placeholder='Juan Rodriguez Garcia'
+                  placeholder="Juan Rodriguez Garcia"
                   required
                 />
               </div>
-              <div className='form-group'>
-                <label htmlFor='birthDate'>Fecha de Nacimiento</label>
+              <div>
+                <label htmlFor="telefono">Telefono *</label>
                 <input
-                  id='birthDate'
-                  type='date'
-                  name='birthDate'
-                  value={formData.birthDate}
+                  id="telefono"
+                  type="tel"
+                  name="telefono"
+                  value={formData.telefono}
                   onChange={handleChange}
-                />
-              </div>
-            </div>
-
-            <div className='form-row'>
-              <div className='form-group'>
-                <label htmlFor='email'>Correo Electronico *</label>
-                <input
-                  id='email'
-                  type='email'
-                  name='email'
-                  value={formData.email}
-                  onChange={handleChange}
-                  placeholder='juan@verdemex.com'
+                  placeholder="+52 55 1234 5678"
                   required
                 />
               </div>
-              <div className='form-group'>
-                <label htmlFor='phone'>Telefono *</label>
+              <div>
+                <label htmlFor="numero_seguro_social">Numero de Seguro Social *</label>
                 <input
-                  id='phone'
-                  type='tel'
-                  name='phone'
-                  value={formData.phone}
+                  id="numero_seguro_social"
+                  type="text"
+                  name="numero_seguro_social"
+                  value={formData.numero_seguro_social}
                   onChange={handleChange}
-                  placeholder='+52 55 1234 5678'
+                  placeholder="NSS-00012345"
                   required
                 />
               </div>
-            </div>
-
-            <div className='form-group'>
-              <label htmlFor='address'>Direccion</label>
-              <input
-                id='address'
-                type='text'
-                name='address'
-                value={formData.address}
-                onChange={handleChange}
-                placeholder='Calle Principal 123, Apt. 4B'
-              />
-            </div>
-          </div>
-
-          <div className='form-section'>
-            <h3>Documentacion de Conduccion</h3>
-            <div className='form-row'>
-              <div className='form-group'>
-                <label htmlFor='license'>Licencia de Conducir *</label>
+              <div>
+                <label htmlFor="domicilio">Domicilio</label>
                 <input
-                  id='license'
-                  type='text'
-                  name='license'
-                  value={formData.license}
+                  id="domicilio"
+                  type="text"
+                  name="domicilio"
+                  value={formData.domicilio}
                   onChange={handleChange}
-                  placeholder='DL-12345'
-                  required
+                  placeholder="Calle, numero, colonia, ciudad"
                 />
               </div>
-              <div className='form-group'>
-                <label htmlFor='licenseExpiry'>Vencimiento Licencia *</label>
-                <input
-                  id='licenseExpiry'
-                  type='date'
-                  name='licenseExpiry'
-                  value={formData.licenseExpiry}
+              <div className="full-width">
+                <label htmlFor="descripcion">Descripcion</label>
+                <textarea
+                  id="descripcion"
+                  name="descripcion"
+                  value={formData.descripcion}
                   onChange={handleChange}
-                  required
+                  placeholder="Notas generales del conductor, experiencia, disponibilidad o contexto operativo"
+                  rows="4"
                 />
               </div>
-            </div>
-
-            <div className='form-group'>
-              <label htmlFor='experience'>Anos de Experiencia</label>
-              <input
-                id='experience'
-                type='number'
-                name='experience'
-                value={formData.experience}
-                onChange={handleChange}
-                placeholder='5'
-                min='0'
-                max='50'
-              />
             </div>
           </div>
 
-          <div className='form-actions'>
-            <Link to='/drivers' className='btn btn-outline'>
+          <div className="form-actions">
+            <Link to="/drivers" className="btn btn-outline">
               Cancelar
             </Link>
-            <button type='submit' className='btn btn-primary btn-lg'>
-              Registrar Conductor
+            <button type="submit" className="btn btn-primary btn-lg" disabled={loading}>
+              {loading ? 'Guardando...' : 'Registrar Conductor'}
             </button>
           </div>
         </form>

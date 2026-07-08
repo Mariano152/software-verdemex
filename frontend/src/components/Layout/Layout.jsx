@@ -9,6 +9,7 @@ const SECTION_METADATA = [
   { match: '/maintenance', section: 'Mantenimiento', caption: 'Bitacora global de servicios y proximos cambios de aceite' },
   { match: '/vehicles', section: 'Vehiculos', caption: 'Gestion de flotilla, documentos y operacion diaria' },
   { match: '/drivers', section: 'Conductores', caption: 'Control de perfiles, desempeno y asignaciones' },
+  { match: '/calificar', section: 'Calificar', caption: 'Seguimiento semanal de ratings para todos los conductores' },
   { match: '/orders', section: 'Pedidos', caption: 'Seguimiento operativo y trazabilidad de entregas' },
   { match: '/analytics', section: 'Analytics', caption: 'Indicadores y visibilidad del negocio' },
   { match: '/users', section: 'Usuarios', caption: 'Administracion de accesos y perfiles internos' },
@@ -34,6 +35,7 @@ export default function Layout({ children }) {
     { path: '/maintenance', label: 'Mantenimiento', icon: '🛠️' },
     { path: '/vehicles', label: 'Vehiculos', icon: '🚚' },
     { path: '/drivers', label: 'Conductores', icon: '👨‍✈️' },
+    { path: '/calificar', label: 'Calificar', icon: '📝' },
     { path: '/orders', label: 'Pedidos', icon: '📦' },
     { path: '/analytics', label: 'Analytics', icon: '📈' },
     { path: '/users', label: 'Usuarios', icon: '👥' }

@@ -144,6 +144,10 @@ export default function VehicleCreate() {
         <Link to="/vehicles" className="btn btn-outline">
           Volver
         </Link>
+        <div className="entity-create-tabs" aria-label="Tipo de alta">
+          <span className="entity-create-tab active">Vehiculo</span>
+          <Link to="/drivers/create" className="entity-create-tab">Conductor</Link>
+        </div>
         <div>
           <h1>Registro de Nuevo Vehiculo</h1>
           <p className="subtitle">Informacion basica del vehiculo</p>
@@ -337,6 +341,16 @@ export default function VehicleCreate() {
                 onChange={handleImageChange}
                 style={{ display: 'none' }}
               />
+            </div>
+          </div>
+
+          <div className="form-section">
+            <h3>Conductores</h3>
+            <div className="entity-create-helper">
+              <p>Tambien puedes dar de alta conductores desde aqui y despues continuar con la asignacion.</p>
+              <Link to="/drivers/create" className="btn btn-outline">
+                Ir a Crear Conductor
+              </Link>
             </div>
           </div>
 

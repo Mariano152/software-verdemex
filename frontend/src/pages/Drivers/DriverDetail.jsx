@@ -1,250 +1,314 @@
-import React, { useState } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { mockDrivers } from '../../data/mockData';
+import { useEffect, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import {
+  createEmergencyContact,
+  createDriverDocument,
+  createDriverHistory,
+  createDriverRating,
+  deleteEmergencyContact,
+  deleteDriverDocument,
+  deleteDriverHistory,
+  deleteDriverRating,
+  fetchDriverById,
+  updateDriverDocument,
+  updateDriverHistory,
+  updateDriverRating,
+  updateEmergencyContact
+} from './driverApi';
+import DriverEmergencyContactsSection from './DriverEmergencyContactsSection';
+import DriverDocumentsSection from './DriverDocumentsSection';
+import DriverHistorySection from './DriverHistorySection';
+import DriverRatingSection from './DriverRatingSection';
+import { buildDriverStars, formatDriverDate, formatDriverRating } from './driverFormatting';
 import './DriverDetail.css';
 
-const DriverDetail = () => {
+const TABS = [
+  { id: 'descripcion', label: 'Descripcion' },
+  { id: 'contacto', label: 'Contacto de emergencia' },
+  { id: 'documentacion', label: 'Documentacion' },
+  { id: 'historial', label: 'Historial' },
+  { id: 'rating', label: 'Rating' }
+];
+
+const calculateAverageRating = (ratings = []) => {
+  if (!ratings.length) return 0;
+  const total = ratings.reduce((sum, item) => sum + Number(item.calificacion || 0), 0);
+  return Number((total / ratings.length).toFixed(1));
+};
+
+export default function DriverDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const driver = mockDrivers.find(v => v.id === id);
-  const [activeTab, setActiveTab] = useState('info');
+  const [driver, setDriver] = useState(null);
+  const [activeTab, setActiveTab] = useState('descripcion');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  if (!driver) {
+  useEffect(() => {
+    const loadDriver = async () => {
+      try {
+        setLoading(true);
+        const data = await fetchDriverById(id);
+        setDriver(data);
+        setError(null);
+      } catch (loadError) {
+        setError(loadError.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadDriver();
+  }, [id]);
+
+  if (loading) {
     return (
-      <div className="driver-detail error">
-        <div className="error-message">
-          🚫 Conductor no encontrado
-          <Link to="/drivers" className="btn">
-            Volver a la lista
-          </Link>
+      <div className="driver-detail-page">
+        <div className="card">
+          <div className="driver-empty">
+            <p>Cargando conductor...</p>
+          </div>
         </div>
       </div>
     );
   }
 
-  const getRatingStars = (rating) => {
-    const stars = [];
-    for (let i = 0; i < 5; i++) {
-      stars.push(
-        <span key={i} className={`star ${i < Math.floor(rating) ? 'filled' : 'empty'}`}>
-          ★
-        </span>
-      );
-    }
-    return stars;
-  };
+  if (error || !driver) {
+    return (
+      <div className="driver-detail-page">
+        <div className="card">
+          <div className="driver-empty">
+            <p>{error || 'Conductor no encontrado'}</p>
+            <Link to="/drivers" className="btn btn-primary">Volver a conductores</Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="driver-detail">
-      {/* HERO SECTION */}
-      <section className="detail-hero">
-        <div className="hero-content">
-          <div className="driver-avatar-large">{driver.name.charAt(0)}</div>
-          <div className="hero-info">
-            <h1>{driver.name}</h1>
-            <p className="hero-subtitle">{driver.email}</p>
-            <div className="rating-display">
-              <div className="stars">
-                {getRatingStars(driver.rating)}
-              </div>
-              <span className="rating-value">{driver.rating.toFixed(1)}/5.0</span>
+    <div className="driver-detail-page">
+      <div className="driver-detail-hero">
+        <div>
+          <Link to="/drivers" className="btn btn-outline">Volver</Link>
+          <div className="driver-hero-identity">
+            {driver.imagen_url ? (
+              <img src={driver.imagen_url} alt={driver.nombre} className="driver-hero-image" />
+            ) : (
+              <div className="driver-hero-avatar">{driver.nombre?.charAt(0) || 'C'}</div>
+            )}
+            <div>
+              <h1>{driver.nombre}</h1>
+              <p>{driver.telefono}</p>
             </div>
-            <div className="status-badge" style={{ backgroundColor: driver.status === 'Activo' ? '#2d7a3e' : driver.status === 'Vacaciones' ? '#f59e0b' : '#6b7280' }}>
-              {driver.status}
+          </div>
+          <div className="driver-hero-stats">
+            <div className="driver-stat-chip">
+              <span className="driver-stat-label">NSS</span>
+              <span className="driver-stat-value">{driver.numero_seguro_social}</span>
+            </div>
+            <div className="driver-stat-chip">
+              <span className="driver-stat-label">Rating</span>
+              <span className="driver-stat-value">{formatDriverRating(driver.rating)}</span>
+            </div>
+            <div className="driver-stat-chip">
+              <span className="driver-stat-label">Estrellas</span>
+              <span className="driver-stat-value">{buildDriverStars(driver.rating)}</span>
             </div>
           </div>
         </div>
-        <div className="hero-actions">
-          <button className="btn btn-primary" onClick={() => navigate(`/drivers/${id}/edit`)}>
-            ✏️ Editar
-          </button>
-          <button className="btn btn-secondary" onClick={() => navigate(`/drivers/${id}/assignments`)}>
-            🚗 Asignaciones
-          </button>
-          <button className="btn btn-secondary" onClick={() => navigate(`/drivers/${id}/ratings`)}>
-            ⭐ Calificaciones
+
+        <div className="driver-detail-actions">
+          <button type="button" className="btn btn-primary" onClick={() => navigate(`/drivers/${id}/edit`)}>
+            Editar
           </button>
         </div>
-      </section>
-
-      {/* TAB NAVIGATION */}
-      <div className="tabs-navigation">
-        <button
-          className={`tab-btn ${activeTab === 'info' ? 'active' : ''}`}
-          onClick={() => setActiveTab('info')}
-        >
-          📋 Información
-        </button>
-        <button
-          className={`tab-btn ${activeTab === 'contact' ? 'active' : ''}`}
-          onClick={() => setActiveTab('contact')}
-        >
-          📞 Contacto
-        </button>
-        <button
-          className={`tab-btn ${activeTab === 'docs' ? 'active' : ''}`}
-          onClick={() => setActiveTab('docs')}
-        >
-          📄 Documentos
-        </button>
-        <button
-          className={`tab-btn ${activeTab === 'stats' ? 'active' : ''}`}
-          onClick={() => setActiveTab('stats')}
-        >
-          📊 Estadísticas
-        </button>
       </div>
 
-      {/* TAB CONTENT */}
-      <div className="tabs-content">
-        {/* INFO TAB */}
-        {activeTab === 'info' && (
-          <section className="tab-panel info-panel">
-            <div className="info-grid">
-              <div className="info-card">
-                <label>Nombre Completo</label>
-                <p className="info-value">{driver.name}</p>
-              </div>
-              <div className="info-card">
-                <label>Documento de Identidad</label>
-                <p className="info-value">{driver.licenseNumber}</p>
-              </div>
-              <div className="info-card">
-                <label>Fecha de Nacimiento</label>
-                <p className="info-value">{driver.birthDate}</p>
-              </div>
-              <div className="info-card">
-                <label>Experiencia</label>
-                <p className="info-value">{driver.experience} años</p>
-              </div>
-              <div className="info-card">
-                <label>Viajes Totales</label>
-                <p className="info-value">{driver.totalTrips} viajes</p>
-              </div>
-              <div className="info-card">
-                <label>Calificación Promedio</label>
-                <p className="info-value">{driver.rating.toFixed(1)} ⭐</p>
-              </div>
-              <div className="info-card">
-                <label>Licencia Expira</label>
-                <p className="info-value">{driver.licenseExpiry}</p>
-              </div>
-              <div className="info-card">
-                <label>Dirección</label>
-                <p className="info-value">{driver.address || 'No especificada'}</p>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* CONTACT TAB */}
-        {activeTab === 'contact' && (
-          <section className="tab-panel contact-panel">
-            <div className="contact-cards">
-              <a href={`mailto:${driver.email}`} className="contact-card">
-                <span className="contact-icon">✉️</span>
-                <div>
-                  <label>Email</label>
-                  <p>{driver.email}</p>
-                </div>
-              </a>
-              <a href={`tel:${driver.phone}`} className="contact-card">
-                <span className="contact-icon">📱</span>
-                <div>
-                  <label>Teléfono</label>
-                  <p>{driver.phone}</p>
-                </div>
-              </a>
-              <div className="contact-card">
-                <span className="contact-icon">📍</span>
-                <div>
-                  <label>Dirección</label>
-                  <p>{driver.address || 'No especificada'}</p>
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* DOCUMENTS TAB */}
-        {activeTab === 'docs' && (
-          <section className="tab-panel docs-panel">
-            <div className="docs-grid">
-              <div className="doc-card">
-                <div className="doc-icon">📋</div>
-                <h4>Licencia de Conducir</h4>
-                <p className="doc-number">{driver.licenseNumber}</p>
-                <p className="doc-status" style={{ color: '#2d7a3e' }}>✓ Vigente</p>
-                <p className="doc-expiry">Vence: {driver.licenseExpiry}</p>
-              </div>
-              <div className="doc-card">
-                <div className="doc-icon">🆔</div>
-                <h4>Documento de Identidad</h4>
-                <p className="doc-number">{driver.id}</p>
-                <p className="doc-status" style={{ color: '#2d7a3e' }}>✓ Verificado</p>
-              </div>
-              <div className="doc-card">
-                <div className="doc-icon">🎓</div>
-                <h4>Certificación de Experiencia</h4>
-                <p className="doc-number">{driver.experience} años</p>
-                <p className="doc-status" style={{ color: '#2d7a3e' }}>✓ Actualizado</p>
-              </div>
-            </div>
-          </section>
-        )}
-
-        {/* STATS TAB */}
-        {activeTab === 'stats' && (
-          <section className="tab-panel stats-panel">
-            <div className="stats-grid">
-              <div className="stat-card">
-                <div className="stat-number">{driver.totalTrips}</div>
-                <div className="stat-label">Viajes Completados</div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-number">{driver.rating.toFixed(1)}</div>
-                <div className="stat-label">Calificación Promedio</div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-number">{driver.experience}</div>
-                <div className="stat-label">Años de Experiencia</div>
-              </div>
-              <div className="stat-card">
-                <div className="stat-number">{driver.status === 'Activo' ? '100%' : '0%'}</div>
-                <div className="stat-label">Disponibilidad</div>
-              </div>
-            </div>
-
-            <div className="recent-activity">
-              <h3>Actividad Reciente</h3>
-              <div className="activity-list">
-                <div className="activity-item">
-                  <div className="activity-time">Hace 2 horas</div>
-                  <div className="activity-info">Completó un viaje a Bogotá</div>
-                </div>
-                <div className="activity-item">
-                  <div className="activity-time">Hace 1 día</div>
-                  <div className="activity-info">Recibió calificación de 5 estrellas</div>
-                </div>
-                <div className="activity-item">
-                  <div className="activity-time">Hace 3 días</div>
-                  <div className="activity-info">Completó 3 viajes locales</div>
-                </div>
-              </div>
-            </div>
-          </section>
-        )}
+      <div className="driver-tabs">
+        {TABS.map((tab) => (
+          <button
+            key={tab.id}
+            type="button"
+            className={`driver-tab ${activeTab === tab.id ? 'active' : ''}`}
+            onClick={() => setActiveTab(tab.id)}
+          >
+            {tab.label}
+          </button>
+        ))}
       </div>
 
-      {/* ACTION BUTTONS */}
-      <div className="detail-actions">
-        <button className="btn btn-secondary" onClick={() => navigate('/drivers')}>
-          ← Volver
-        </button>
-        <button className="btn btn-danger">🗑️ Desactivar</button>
-      </div>
+      {activeTab === 'descripcion' && (
+        <div className="driver-info-grid">
+          <div className="driver-info-card">
+            <label>Nombre completo</label>
+            <p>{driver.nombre}</p>
+          </div>
+          <div className="driver-info-card">
+            <label>Telefono</label>
+            <p>{driver.telefono}</p>
+          </div>
+          <div className="driver-info-card">
+            <label>Numero de seguro social</label>
+            <p>{driver.numero_seguro_social}</p>
+          </div>
+          <div className="driver-info-card">
+            <label>Domicilio</label>
+            <p>{driver.domicilio || 'Sin domicilio capturado por ahora.'}</p>
+          </div>
+          <div className="driver-info-card">
+            <label>Rating actual</label>
+            <p>{formatDriverRating(driver.rating)} ({buildDriverStars(driver.rating)})</p>
+          </div>
+          <div className="driver-info-card">
+            <label>Descripcion</label>
+            <p>{driver.descripcion || 'Sin descripcion capturada por ahora.'}</p>
+          </div>
+          <div className="driver-info-card">
+            <label>Imagen</label>
+            <p>{driver.imagen_url ? 'Imagen registrada' : 'Sin imagen capturada por ahora.'}</p>
+            {driver.imagen_url ? (
+              <img src={driver.imagen_url} alt={driver.nombre} className="driver-detail-image" />
+            ) : null}
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'contacto' && (
+        <DriverEmergencyContactsSection
+          contacts={driver.emergencyContacts || []}
+          onCreateContact={async (payload) => {
+            const contact = await createEmergencyContact(id, payload);
+            setDriver((current) => ({
+              ...current,
+              emergencyContacts: [contact, ...(current?.emergencyContacts || [])]
+            }));
+            return contact;
+          }}
+          onUpdateContact={async (contactId, payload) => {
+            const contact = await updateEmergencyContact(id, contactId, payload);
+            setDriver((current) => ({
+              ...current,
+              emergencyContacts: (current?.emergencyContacts || []).map((item) =>
+                item.id === contact.id ? contact : item
+              )
+            }));
+            return contact;
+          }}
+          onDeleteContact={async (contactId) => {
+            await deleteEmergencyContact(id, contactId);
+            setDriver((current) => ({
+              ...current,
+              emergencyContacts: (current?.emergencyContacts || []).filter((item) => item.id !== contactId)
+            }));
+          }}
+        />
+      )}
+
+      {activeTab === 'documentacion' && (
+        <DriverDocumentsSection
+          driverId={id}
+          documents={driver.documents || []}
+          onCreateDocument={async (payload, files) => {
+            const document = await createDriverDocument(id, payload, files);
+            setDriver((current) => ({
+              ...current,
+              documents: [document, ...(current?.documents || [])]
+            }));
+            return document;
+          }}
+          onUpdateDocument={async (documentId, payload, files) => {
+            const document = await updateDriverDocument(id, documentId, payload, files);
+            setDriver((current) => ({
+              ...current,
+              documents: (current?.documents || []).map((item) =>
+                item.id === document.id ? document : item
+              )
+            }));
+            return document;
+          }}
+          onDeleteDocument={async (documentId) => {
+            await deleteDriverDocument(id, documentId);
+            setDriver((current) => ({
+              ...current,
+              documents: (current?.documents || []).filter((item) => item.id !== documentId)
+            }));
+          }}
+        />
+      )}
+
+      {activeTab === 'historial' && (
+        <DriverHistorySection
+          driverId={id}
+          records={driver.historyRecords || []}
+          onCreateHistory={async (payload, files) => {
+            const history = await createDriverHistory(id, payload, files);
+            setDriver((current) => ({
+              ...current,
+              historyRecords: [history, ...(current?.historyRecords || [])]
+            }));
+            return history;
+          }}
+          onUpdateHistory={async (historyId, payload, files) => {
+            const history = await updateDriverHistory(id, historyId, payload, files);
+            setDriver((current) => ({
+              ...current,
+              historyRecords: (current?.historyRecords || []).map((item) =>
+                item.id === history.id ? history : item
+              )
+            }));
+            return history;
+          }}
+          onDeleteHistory={async (historyId) => {
+            await deleteDriverHistory(id, historyId);
+            setDriver((current) => ({
+              ...current,
+              historyRecords: (current?.historyRecords || []).filter((item) => item.id !== historyId)
+            }));
+          }}
+        />
+      )}
+
+      {activeTab === 'rating' && (
+        <DriverRatingSection
+          driverId={id}
+          ratings={driver.weeklyRatings || []}
+          onCreateRating={async (payload, files) => {
+            const rating = await createDriverRating(id, payload, files);
+            setDriver((current) => ({
+              ...current,
+              weeklyRatings: [rating, ...(current?.weeklyRatings || [])],
+              rating: calculateAverageRating([rating, ...(current?.weeklyRatings || [])])
+            }));
+            return rating;
+          }}
+          onUpdateRating={async (ratingId, payload, files) => {
+            const rating = await updateDriverRating(id, ratingId, payload, files);
+            setDriver((current) => ({
+              ...current,
+              weeklyRatings: (current?.weeklyRatings || []).map((item) =>
+                item.id === rating.id ? rating : item
+              ),
+              rating: calculateAverageRating(
+                (current?.weeklyRatings || []).map((item) =>
+                  item.id === rating.id ? rating : item
+                )
+              )
+            }));
+            return rating;
+          }}
+          onDeleteRating={async (ratingId) => {
+            await deleteDriverRating(id, ratingId);
+            setDriver((current) => ({
+              ...current,
+              weeklyRatings: (current?.weeklyRatings || []).filter((item) => item.id !== ratingId),
+              rating: calculateAverageRating(
+                (current?.weeklyRatings || []).filter((item) => item.id !== ratingId)
+              )
+            }));
+          }}
+        />
+      )}
     </div>
   );
-};
-
-export default DriverDetail;
+}

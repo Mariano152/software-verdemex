@@ -4,6 +4,7 @@ import dotenv from 'dotenv';
 import { logRequest } from './middleware/requestLogger.js';
 import { errorHandler } from './middleware/errorHandler.js';
 import authRoutes from './routes/authRoutes.js';
+import driverRoutes from './routes/driverRoutes.js';
 import vehicleRoutes from './routes/vehicleRoutes.js';
 import gasolineRoutes from './routes/gasolineRoutes.js';
 import maintenanceRoutes from './routes/maintenanceRoutes.js';
@@ -64,6 +65,7 @@ app.get('/health', (req, res) => {
 
 // Rutas
 app.use('/api/auth', authRoutes);
+app.use('/api/drivers', driverRoutes);
 app.use('/api/vehicles', vehicleRoutes);
 app.use('/api/gasoline-records', gasolineRoutes);
 app.use('/api/maintenance-records', maintenanceRoutes);
@@ -72,7 +74,6 @@ app.use('/api/expedientes', expedienteRoutes);
 app.use('/api/uploads', uploadRoutes);
 
 // Rutas futuras (RF3+)
-// app.use('/api/drivers', driversRoutes);
 // app.use('/api/orders', ordersRoutes);
 
 // Error handler (DEBE SER AL FINAL)

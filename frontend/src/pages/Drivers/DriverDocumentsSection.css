@@ -1,0 +1,30 @@
+@import '../Vehicles/Sections/VehicleDocumentsSection.css';
+@import '../Vehicles/Sections/DocumentModal.css';
+
+.driver-documents-section {
+  padding: 0;
+}
+
+.driver-documents-section .documents-filters {
+  grid-template-columns: minmax(240px, 2fr) repeat(2, minmax(180px, 1fr));
+}
+
+.driver-documents-section .document-record-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.driver-document-modal-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.driver-document-modal-grid .full-width {
+  grid-column: 1 / -1;
+}
+
+@media (max-width: 900px) {
+  .driver-documents-section .documents-filters,
+  .driver-documents-section .document-record-grid,
+  .driver-document-modal-grid {
+    grid-template-columns: 1fr;
+  }
+}

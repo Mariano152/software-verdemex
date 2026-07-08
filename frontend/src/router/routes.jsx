@@ -21,6 +21,7 @@ import DriverEdit from '../pages/Drivers/DriverEdit';
 import DriverDetail from '../pages/Drivers/DriverDetail';
 import DriverAssignments from '../pages/Drivers/DriverAssignments';
 import DriverRatings from '../pages/Drivers/DriverRatings';
+import DriverGlobalRatingPage from '../pages/Drivers/DriverGlobalRatingPage';
 
 import OrdersList from '../pages/Orders/OrdersList';
 import OrderCreate from '../pages/Orders/OrderCreate';
@@ -97,6 +98,10 @@ export const routes = [
   {
     path: '/drivers',
     element: <ProtectedRoute element={<DriversList />} />
+  },
+  {
+    path: '/calificar',
+    element: <ProtectedRoute element={<DriverGlobalRatingPage />} />
   },
   {
     path: '/drivers/create',

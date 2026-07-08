@@ -1,0 +1,21 @@
+@import '../Vehicles/Sections/VehicleMaintenanceSection.css';
+@import './DriverDocumentsSection.css';
+
+.driver-rating-section .driver-rating-filters {
+  grid-template-columns: minmax(260px, 2fr) repeat(3, minmax(180px, 1fr));
+}
+
+.driver-rating-section .driver-rating-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.driver-rating-section .driver-rating-card {
+  border-left: 4px solid rgba(67, 176, 42, 0.35);
+}
+
+@media (max-width: 900px) {
+  .driver-rating-section .driver-rating-grid,
+  .driver-rating-section .driver-rating-filters {
+    grid-template-columns: 1fr;
+  }
+}

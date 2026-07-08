@@ -1,0 +1,17 @@
+@import '../Vehicles/Sections/VehicleMaintenanceSection.css';
+@import './DriverDocumentsSection.css';
+
+.driver-history-section .driver-history-filters {
+  grid-template-columns: minmax(260px, 1fr) repeat(2, minmax(180px, 220px));
+}
+
+.driver-history-section .driver-history-grid {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+@media (max-width: 900px) {
+  .driver-history-section .driver-history-filters,
+  .driver-history-section .driver-history-grid {
+    grid-template-columns: 1fr;
+  }
+}
