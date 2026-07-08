@@ -16,6 +16,7 @@ export const AuthProvider = ({ children }) => {
       if (token) {
         try {
           const response = await fetch(`${API_URL}/auth/verify`, {
+            method: 'POST',
             headers: { Authorization: `Bearer ${token}` }
           });
 
@@ -37,20 +38,20 @@ export const AuthProvider = ({ children }) => {
     verifyToken();
   }, [API_URL]);
 
-  const login = async (email, password) => {
+  const login = async (identifier, password) => {
     setError(null);
     try {
       const response = await fetch(`${API_URL}/auth/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password })
+        body: JSON.stringify({ identifier, password })
       });
 
       const data = await response.json();
 
       if (!response.ok) {
         setError(data.error || 'Login failed');
-        return false;
+        return null;
       }
 
       localStorage.setItem('authToken', data.token);
@@ -58,21 +59,21 @@ export const AuthProvider = ({ children }) => {
 
       setUser(data.user);
       setIsAuthenticated(true);
-      return true;
+      return data.user;
     } catch (err) {
       setError('Network error during login');
       console.error('Login error:', err);
-      return false;
+      return null;
     }
   };
 
-  const register = async (email, password, firstName, lastName) => {
+  const register = async (email, username, password, firstName, lastName) => {
     setError(null);
     try {
       const response = await fetch(`${API_URL}/auth/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password, firstName, lastName })
+        body: JSON.stringify({ email, username, password, firstName, lastName })
       });
 
       const data = await response.json();

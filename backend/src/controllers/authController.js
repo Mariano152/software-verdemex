@@ -5,17 +5,35 @@ import { userModel } from '../models/userModel.js';
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 const JWT_EXPIRY = process.env.JWT_EXPIRY || '7d';
 
+const buildAuthUser = (user) => ({
+  id: user.id,
+  email: user.email,
+  username: user.username,
+  firstName: user.first_name,
+  lastName: user.last_name,
+  name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
+  role: user.role,
+  driverId: user.driver_id || null
+});
+
+const buildToken = (user) => jwt.sign(
+  {
+    id: user.id,
+    email: user.email,
+    username: user.username,
+    role: user.role,
+    driverId: user.driver_id || null
+  },
+  JWT_SECRET,
+  { expiresIn: JWT_EXPIRY }
+);
+
 export const authController = {
-  /**
-   * POST /api/auth/register
-   * Crear nuevo usuario
-   */
   async register(req, res) {
     try {
-      const { email, password, firstName, lastName } = req.body;
+      const { email, username, password, firstName, lastName } = req.body;
 
-      // Validaciones
-      if (!email || !password || !firstName || !lastName) {
+      if (!email || !username || !password || !firstName || !lastName) {
         return res.status(400).json({ error: 'Missing required fields' });
       }
 
@@ -23,34 +41,30 @@ export const authController = {
         return res.status(400).json({ error: 'Password must be at least 6 characters' });
       }
 
-      // Verificar si email ya existe
-      const existingUser = await userModel.findByEmail(email);
-      if (existingUser) {
+      if (await userModel.findByEmail(email)) {
         return res.status(409).json({ error: 'Email already registered' });
       }
 
-      // Hash de contraseña
+      if (await userModel.findByUsername(username)) {
+        return res.status(409).json({ error: 'Username already registered' });
+      }
+
       const hashedPassword = await bcrypt.hash(password, 10);
+      const newUser = await userModel.create({
+        email,
+        username,
+        firstName,
+        lastName,
+        hashedPassword,
+        role: 'operador'
+      });
 
-      // Crear usuario
-      const newUser = await userModel.create(email, firstName, lastName, hashedPassword);
-
-      // Generar token
-      const token = jwt.sign(
-        { id: newUser.id, email: newUser.email },
-        JWT_SECRET,
-        { expiresIn: JWT_EXPIRY }
-      );
+      const token = buildToken(newUser);
 
       res.status(201).json({
         message: 'User registered successfully',
         token,
-        user: {
-          id: newUser.id,
-          email: newUser.email,
-          firstName: newUser.first_name,
-          lastName: newUser.last_name
-        }
+        user: buildAuthUser(newUser)
       });
     } catch (error) {
       console.error('Register error:', error);
@@ -58,50 +72,33 @@ export const authController = {
     }
   },
 
-  /**
-   * POST /api/auth/login
-   * Autenticar usuario
-   */
   async login(req, res) {
     try {
-      const { email, password } = req.body;
+      const { identifier, email, username, password } = req.body;
+      const loginIdentifier = identifier || username || email;
 
-      // Validaciones
-      if (!email || !password) {
-        return res.status(400).json({ error: 'Email and password are required' });
+      if (!loginIdentifier || !password) {
+        return res.status(400).json({ error: 'Username/email and password are required' });
       }
 
-      // Buscar usuario
-      const user = await userModel.findByEmail(email);
+      const user = await userModel.findByIdentifier(loginIdentifier);
       if (!user) {
         return res.status(401).json({ error: 'Invalid credentials' });
       }
 
-      // Verificar contraseña
       const isPasswordValid = await bcrypt.compare(password, user.password);
       if (!isPasswordValid) {
         return res.status(401).json({ error: 'Invalid credentials' });
       }
 
-      // Actualizar último login
       await userModel.updateLastLogin(user.id);
 
-      // Generar token
-      const token = jwt.sign(
-        { id: user.id, email: user.email },
-        JWT_SECRET,
-        { expiresIn: JWT_EXPIRY }
-      );
+      const token = buildToken(user);
 
       res.json({
         message: 'Login successful',
         token,
-        user: {
-          id: user.id,
-          email: user.email,
-          firstName: user.first_name,
-          lastName: user.last_name
-        }
+        user: buildAuthUser(user)
       });
     } catch (error) {
       console.error('Login error:', error);
@@ -109,16 +106,9 @@ export const authController = {
     }
   },
 
-  /**
-   * POST /api/auth/logout
-   * Cerrar sesión (frontend borra token)
-   */
   async logout(req, res) {
     try {
-      // En JWT, el logout es solo del lado del cliente
-      // Pero podemos registrar el logout en logs
       console.log(`User ${req.user?.id} logged out`);
-
       res.json({ message: 'Logout successful' });
     } catch (error) {
       console.error('Logout error:', error);
@@ -126,10 +116,6 @@ export const authController = {
     }
   },
 
-  /**
-   * GET /api/auth/me
-   * Obtener perfil del usuario autenticado
-   */
   async getProfile(req, res) {
     try {
       if (!req.user) {
@@ -141,24 +127,25 @@ export const authController = {
         return res.status(404).json({ error: 'User not found' });
       }
 
-      res.json({ user });
+      res.json({ user: buildAuthUser(user) });
     } catch (error) {
       console.error('Get profile error:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   },
 
-  /**
-   * POST /api/auth/verify
-   * Verificar si token es válido
-   */
   async verifyToken(req, res) {
     try {
       if (!req.user) {
         return res.status(401).json({ error: 'Not authenticated' });
       }
 
-      res.json({ valid: true, user: req.user });
+      const user = await userModel.findById(req.user.id);
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      res.json({ valid: true, user: buildAuthUser(user) });
     } catch (error) {
       res.status(401).json({ error: 'Invalid token' });
     }

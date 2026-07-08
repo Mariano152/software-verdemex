@@ -161,15 +161,15 @@ export const routes = [
   },
   {
     path: '/users',
-    element: <ProtectedRoute element={<UsersList />} />
+    element: <ProtectedRoute element={<UsersList />} allowedRoles={['admin']} />
   },
   {
     path: '/users/create',
-    element: <ProtectedRoute element={<UserCreate />} />
+    element: <ProtectedRoute element={<UserCreate />} allowedRoles={['admin']} />
   },
   {
     path: '/users/:id/edit',
-    element: <ProtectedRoute element={<UserEdit />} />
+    element: <ProtectedRoute element={<UserEdit />} allowedRoles={['admin']} />
   },
   {
     path: '/profile',

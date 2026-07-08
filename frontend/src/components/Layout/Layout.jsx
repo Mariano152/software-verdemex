@@ -39,7 +39,7 @@ export default function Layout({ children }) {
     { path: '/orders', label: 'Pedidos', icon: '📦' },
     { path: '/analytics', label: 'Analytics', icon: '📈' },
     { path: '/users', label: 'Usuarios', icon: '👥' }
-  ];
+  ].filter((item) => (item.path === '/users' ? user?.role === 'admin' : true));
 
   const currentSection = SECTION_METADATA.find(({ match }) => location.pathname.startsWith(match)) || {
     section: 'Panel',
