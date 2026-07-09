@@ -1,6 +1,8 @@
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import { userModel } from '../models/userModel.js';
+import { driverModel } from '../models/driverModel.js';
+import { vehicleModel } from '../models/vehicleModel.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 const JWT_EXPIRY = process.env.JWT_EXPIRY || '7d';
@@ -130,6 +132,45 @@ export const authController = {
       res.json({ user: buildAuthUser(user) });
     } catch (error) {
       console.error('Get profile error:', error);
+      res.status(500).json({ error: 'Internal server error' });
+    }
+  },
+
+  async getDriverProfile(req, res) {
+    try {
+      if (!req.user) {
+        return res.status(401).json({ error: 'Not authenticated' });
+      }
+
+      if (!req.user.driverId) {
+        return res.status(404).json({ error: 'Driver account is not linked to a conductor' });
+      }
+
+      const [user, driver, weeklyRatings, gasolineSignatureRecords] = await Promise.all([
+        userModel.findById(req.user.id),
+        driverModel.getDriverById(req.user.driverId),
+        driverModel.listDriverRatings(req.user.driverId),
+        vehicleModel.listGasolineRecordsByDriver(req.user.driverId)
+      ]);
+
+      if (!user) {
+        return res.status(404).json({ error: 'User not found' });
+      }
+
+      if (!driver) {
+        return res.status(404).json({ error: 'Conductor no encontrado' });
+      }
+
+      res.json({
+        user: buildAuthUser(user),
+        driver: {
+          ...driver,
+          weeklyRatings,
+          gasolineSignatureRecords
+        }
+      });
+    } catch (error) {
+      console.error('Get driver profile error:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   },

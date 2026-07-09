@@ -39,6 +39,9 @@ const formatTimeForInput = (value) => {
 
 const EMPTY_FORM = {
   vehiculo_id: '',
+  conductor_id: '',
+  conductor_nombre_snapshot: '',
+  conductor_imagen_url_snapshot: '',
   titulo: '',
   origen_carga: 'gasolinera',
   pipa_id: '',
@@ -174,6 +177,7 @@ const calculateFifoPreview = ({ inventoryRecords = [], pipaId, liters, date }) =
 
 export default function GlobalGasolineRecordModal({
   vehicles = [],
+  drivers = [],
   records = [],
   pipas = [],
   inventoryRecords = [],
@@ -213,6 +217,9 @@ export default function GlobalGasolineRecordModal({
 
     setFormData({
       vehiculo_id: record.vehiculo_id || '',
+      conductor_id: record.conductor_id || '',
+      conductor_nombre_snapshot: record.conductor_nombre_snapshot || record.conductor_nombre_actual || '',
+      conductor_imagen_url_snapshot: record.conductor_imagen_url_snapshot || record.conductor_imagen_url_actual || '',
       titulo: record.titulo || '',
       origen_carga: record.origen_carga || 'gasolinera',
       pipa_id: matchedInventoryRecord?.pipa_id || '',
@@ -261,6 +268,9 @@ export default function GlobalGasolineRecordModal({
   const selectedVehicle = useMemo(() => (
     vehicles.find((vehicle) => String(vehicle.id) === String(formData.vehiculo_id)) || null
   ), [formData.vehiculo_id, vehicles]);
+  const selectedDriver = useMemo(() => (
+    drivers.find((driver) => String(driver.id) === String(formData.conductor_id)) || null
+  ), [drivers, formData.conductor_id]);
   const isViewMode = mode === 'view';
   const selectedPipa = useMemo(() => (
     pipas.find((item) => String(item.id) === String(formData.pipa_id)) || null
@@ -355,6 +365,12 @@ export default function GlobalGasolineRecordModal({
         ...current,
         [field]: value
       };
+
+      if (field === 'conductor_id') {
+        const matchedDriver = drivers.find((driver) => String(driver.id) === String(value)) || null;
+        next.conductor_nombre_snapshot = matchedDriver?.nombre || '';
+        next.conductor_imagen_url_snapshot = matchedDriver?.imagen_url || '';
+      }
 
       if (field === 'origen_carga' && value === 'gasolinera') {
         next.pipa_id = '';
@@ -619,9 +635,43 @@ export default function GlobalGasolineRecordModal({
           </label>
 
           <label>
+            <span>Conductor asignado</span>
+            {isViewMode ? (
+              <input value={formData.conductor_nombre_snapshot || 'Sin asignar'} readOnly />
+            ) : (
+              <select value={formData.conductor_id} onChange={(event) => handleChange('conductor_id', event.target.value)}>
+                <option value=''>Sin asignar</option>
+                {drivers.map((driver) => (
+                  <option key={driver.id} value={driver.id}>{driver.nombre}</option>
+                ))}
+              </select>
+            )}
+          </label>
+
+          <label>
             <span>Nombre de la carga</span>
             <input value={formData.titulo} onChange={(event) => handleChange('titulo', event.target.value)} readOnly={isViewMode} />
           </label>
+
+          {selectedDriver ? (
+            <div className='full-width global-gasoline-toggle-row'>
+              {selectedDriver.imagen_url ? (
+                <img
+                  src={selectedDriver.imagen_url}
+                  alt={selectedDriver.nombre}
+                  className='driver-list-image'
+                  style={{ width: 64, height: 64 }}
+                />
+              ) : (
+                <div className='driver-list-image driver-list-image-placeholder' style={{ width: 64, height: 64 }}>
+                  {selectedDriver.nombre?.charAt(0) || 'C'}
+                </div>
+              )}
+              <p>
+                Conductor asignado: <strong>{selectedDriver.nombre}</strong>
+              </p>
+            </div>
+          ) : null}
 
           <label>
             <span>Tipo de combustible</span>

@@ -81,8 +81,29 @@ const extractFiles = (record) => {
   }
 };
 
+const extractSignatureFiles = (record) => {
+  if (!record?.firma_archivos_json) return [];
+
+  try {
+    const parsed = typeof record.firma_archivos_json === 'string'
+      ? JSON.parse(record.firma_archivos_json)
+      : record.firma_archivos_json;
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+};
+
+const SIGNATURE_STATUS_LABELS = {
+  sin_asignar: 'Sin asignar',
+  pendiente: 'Pendiente',
+  firmado: 'Firmado'
+};
+
 export default function GasolineDashboard() {
+  const [activeSection, setActiveSection] = useState('records');
   const [vehicles, setVehicles] = useState([]);
+  const [drivers, setDrivers] = useState([]);
   const [records, setRecords] = useState([]);
   const [inventoryPipas, setInventoryPipas] = useState([]);
   const [inventoryRecords, setInventoryRecords] = useState([]);
@@ -92,6 +113,8 @@ export default function GasolineDashboard() {
   const [filters, setFilters] = useState({
     search: '',
     vehicleId: 'todos',
+    conductorId: 'todos',
+    signatureStatus: 'todos',
     dateFrom: '',
     dateTo: ''
   });
@@ -106,8 +129,14 @@ export default function GasolineDashboard() {
         setLoading(true);
         const token = localStorage.getItem('authToken');
 
-        const [vehiclesResponse, recordsResponse, pipasResponse, inventoryResponse] = await Promise.all([
+        const [vehiclesResponse, driversResponse, recordsResponse, pipasResponse, inventoryResponse] = await Promise.all([
           fetch('/api/vehicles', {
+            headers: {
+              Authorization: `Bearer ${token}`,
+              'Content-Type': 'application/json'
+            }
+          }),
+          fetch('/api/drivers', {
             headers: {
               Authorization: `Bearer ${token}`,
               'Content-Type': 'application/json'
@@ -134,6 +163,7 @@ export default function GasolineDashboard() {
         ]);
 
         const vehiclesData = await vehiclesResponse.json().catch(() => ({}));
+        const driversData = await driversResponse.json().catch(() => ({}));
         const recordsData = await recordsResponse.json().catch(() => ({}));
         const pipasData = await pipasResponse.json().catch(() => ({}));
         const inventoryData = await inventoryResponse.json().catch(() => ({}));
@@ -147,6 +177,7 @@ export default function GasolineDashboard() {
         }
 
         setVehicles(vehiclesData.vehicles || []);
+        setDrivers(driversResponse.ok ? (driversData.drivers || []) : []);
         setRecords(sortRecordsByDateTimeDesc(recordsData.gasolineRecords || []));
         setInventoryPipas(pipasResponse.ok ? (pipasData.pipas || []) : []);
         setInventoryRecords(inventoryResponse.ok ? (inventoryData.inventoryRecords || []) : []);
@@ -169,6 +200,12 @@ export default function GasolineDashboard() {
       const matchesVehicle = filters.vehicleId === 'todos'
         ? true
         : String(record.vehiculo_id) === String(filters.vehicleId);
+      const matchesDriver = filters.conductorId === 'todos'
+        ? true
+        : String(record.conductor_id || '') === String(filters.conductorId);
+      const matchesSignatureStatus = filters.signatureStatus === 'todos'
+        ? true
+        : String(record.firma_estatus || 'sin_asignar') === String(filters.signatureStatus);
       const matchesDateFrom = filters.dateFrom ? record.fecha_carga >= filters.dateFrom : true;
       const matchesDateTo = filters.dateTo ? record.fecha_carga <= filters.dateTo : true;
 
@@ -179,6 +216,7 @@ export default function GasolineDashboard() {
         record.operador,
         record.tipo_combustible,
         record.pipa_nombre_snapshot,
+        record.conductor_nombre_snapshot,
         record.numero_economico_snapshot,
         record.vehiculo_placa,
         record.placa_snapshot,
@@ -191,9 +229,14 @@ export default function GasolineDashboard() {
 
       const matchesSearch = normalizedSearch ? searchableText.includes(normalizedSearch) : true;
 
-      return matchesVehicle && matchesDateFrom && matchesDateTo && matchesSearch;
+      return matchesVehicle && matchesDriver && matchesSignatureStatus && matchesDateFrom && matchesDateTo && matchesSearch;
     });
   }, [filters, records]);
+
+  const signatureFocusedRecords = useMemo(
+    () => filteredRecords.filter((record) => record.conductor_id || extractSignatureFiles(record).length > 0),
+    [filteredRecords]
+  );
 
   const totals = useMemo(() => filteredRecords.reduce((acc, record) => ({
     totalAmount: acc.totalAmount + Number(record.costo_total || 0),
@@ -208,15 +251,11 @@ export default function GasolineDashboard() {
   }), [filteredRecords]);
 
   const vehicleParametersMap = useMemo(() => (
-    new Map(
-      vehicles.map((vehicle) => [String(vehicle.id), vehicle.operationParameters || null])
-    )
+    new Map(vehicles.map((vehicle) => [String(vehicle.id), vehicle.operationParameters || null]))
   ), [vehicles]);
 
   const vehiclesMap = useMemo(() => (
-    new Map(
-      vehicles.map((vehicle) => [String(vehicle.id), vehicle])
-    )
+    new Map(vehicles.map((vehicle) => [String(vehicle.id), vehicle]))
   ), [vehicles]);
 
   const openNewRecordModal = () => {
@@ -358,6 +397,7 @@ export default function GasolineDashboard() {
     const rows = filteredRecords.map((record) => {
       const vehicle = vehiclesMap.get(String(record.vehiculo_id)) || null;
       const files = extractFiles(record);
+      const signatureFiles = extractSignatureFiles(record);
       const liters = Number(record.litros || 0);
       const amount = Number(record.costo_total || 0);
       const kilometers = Number(record.kilometros_recorridos || 0);
@@ -391,6 +431,8 @@ export default function GasolineDashboard() {
         Hora: record.hora_carga?.slice(0, 5) || '',
         'M3 Enviados': m3Sent,
         Operador: record.operador || '',
+        Conductor: record.conductor_nombre_snapshot || record.conductor_nombre_actual || '',
+        'Estatus firma': SIGNATURE_STATUS_LABELS[record.firma_estatus] || 'Sin asignar',
         'rend km x lt': Number(performance.toFixed(4)),
         'precio x km reco': Number(pricePerKm.toFixed(4)),
         'precio x m3': Number(pricePerM3.toFixed(4)),
@@ -398,7 +440,8 @@ export default function GasolineDashboard() {
         DescripcionRegistro: record.descripcion || '',
         'Primera carga': record.primera_carga ? 'Si' : 'No',
         'Estatus rendimiento': performanceStatus.label,
-        'Documentos adjuntos': files.map((file) => file.nombre_original).join(', ')
+        'Documentos adjuntos': files.map((file) => file.nombre_original).join(', '),
+        'Firmas de gasolina': signatureFiles.map((file) => file.nombre_original).join(', ')
       };
     });
 
@@ -523,6 +566,32 @@ export default function GasolineDashboard() {
           </label>
 
           <label>
+            Conductor
+            <select
+              value={filters.conductorId}
+              onChange={(event) => setFilters((current) => ({ ...current, conductorId: event.target.value }))}
+            >
+              <option value='todos'>Todos</option>
+              {drivers.map((driver) => (
+                <option key={driver.id} value={driver.id}>{driver.nombre}</option>
+              ))}
+            </select>
+          </label>
+
+          <label>
+            Firma
+            <select
+              value={filters.signatureStatus}
+              onChange={(event) => setFilters((current) => ({ ...current, signatureStatus: event.target.value }))}
+            >
+              <option value='todos'>Todas</option>
+              <option value='sin_asignar'>Sin asignar</option>
+              <option value='pendiente'>Pendiente</option>
+              <option value='firmado'>Firmado</option>
+            </select>
+          </label>
+
+          <label>
             Fecha inicial
             <input
               type='date'
@@ -542,122 +611,240 @@ export default function GasolineDashboard() {
         </div>
       </div>
 
-      <div className='maintenance-history-section'>
-        <div className='maintenance-history-header'>
-          <div>
-            <h3>Registros</h3>
-            <p>Se muestran del mas reciente al mas antiguo considerando fecha y hora.</p>
-          </div>
-          <button type='button' className='maintenance-add-btn' onClick={openNewRecordModal}>
-            Agregar carga
+      <div className='maintenance-history-section gasoline-section-switcher'>
+        <div className='gasoline-section-toggle'>
+          <button
+            type='button'
+            className={`gasoline-section-tab ${activeSection === 'records' ? 'active' : ''}`}
+            onClick={() => setActiveSection('records')}
+          >
+            Registros
           </button>
-        </div>
-
-        <div className='maintenance-records-list'>
-          {records.length === 0 ? (
-            <div className='maintenance-empty-state'>
-              <p>Aun no hay cargas globales registradas.</p>
-              <button type='button' className='maintenance-add-btn maintenance-add-btn-inline' onClick={openNewRecordModal}>
-                Registrar primera carga
-              </button>
-            </div>
-          ) : filteredRecords.length === 0 ? (
-            <div className='maintenance-empty-state'>
-              <p>No hay registros que coincidan con los filtros actuales.</p>
-            </div>
-          ) : (
-            filteredRecords.map((record) => {
-              const files = extractFiles(record);
-              const pricePerLiter = Number(record.litros || 0) > 0
-                ? Number(record.costo_total || 0) / Number(record.litros || 1)
-                : 0;
-              const performance = Number(record.litros || 0) > 0
-                ? Number(record.kilometros_recorridos || 0) / Number(record.litros || 1)
-                : 0;
-              const pricePerKm = Number(record.kilometros_recorridos || 0) > 0
-                ? Number(record.costo_total || 0) / Number(record.kilometros_recorridos || 1)
-                : 0;
-              const pricePerM3 = Number(record.m3_enviados || 0) > 0
-                ? Number(record.costo_total || 0) / Number(record.m3_enviados || 1)
-                : 0;
-              const performanceStatus = getGasolinePerformanceStatus({
-                record,
-                parameters: vehicleParametersMap.get(String(record.vehiculo_id)) || null
-              });
-
-              return (
-                <div key={record.id} className={`maintenance-record-card gasoline-global-card gasoline-performance-card ${performanceStatus.className}`}>
-                  <div className='maintenance-record-top'>
-                    <div>
-                      <h4>{record.titulo || 'Sin nombre de carga'}</h4>
-                      <p className='maintenance-record-type'>
-                        {record.placa_snapshot || record.vehiculo_placa || '-'} · {record.descripcion_snapshot || record.vehiculo_descripcion || 'Sin descripcion'}
-                      </p>
-                      <p className='maintenance-record-type'>{record.origen_carga === 'pipa' ? `Carga desde pipa${record.pipa_nombre_snapshot ? `: ${record.pipa_nombre_snapshot}` : ''}` : 'Carga desde gasolinera'}</p>
-                      <p className='maintenance-record-type'>{getFuelTypeLabel(record.tipo_combustible)}</p>
-                      <div className={`gasoline-performance-badge ${performanceStatus.className}`}>
-                        <strong>{performanceStatus.label}</strong>
-                        <span>{performanceStatus.detail}</span>
-                      </div>
-                    </div>
-                    <div className='maintenance-record-actions'>
-                      <button type='button' className='ghost-btn' onClick={() => openViewRecordModal(record)}>Ver</button>
-                      <button type='button' className='ghost-btn' onClick={() => openEditRecordModal(record)}>Editar</button>
-                      <button type='button' className='danger-btn' onClick={() => handleDeleteRecord(record.id)}>Eliminar</button>
-                    </div>
-                  </div>
-
-                  <div className='gasoline-global-grid'>
-                    <div><span className='record-label'>Factura</span><strong>{record.factura || '-'}</strong></div>
-                    <div><span className='record-label'>Numero economico</span><strong>{record.numero_economico_snapshot || record.vehiculo_numero_economico || '-'}</strong></div>
-                    <div><span className='record-label'>Fecha</span><strong>{formatDate(record.fecha_carga)}</strong></div>
-                    <div><span className='record-label'>Hora</span><strong>{record.hora_carga?.slice(0, 5) || '-'}</strong></div>
-                    <div><span className='record-label'>Proveedor</span><strong>{record.proveedor || '-'}</strong></div>
-                    <div><span className='record-label'>Origen</span><strong>{record.origen_carga === 'pipa' ? 'Pipa' : 'Gasolinera'}</strong></div>
-                    <div><span className='record-label'>Pipa</span><strong>{record.pipa_nombre_snapshot || '-'}</strong></div>
-                    <div><span className='record-label'>Combustible</span><strong>{getFuelTypeLabel(record.tipo_combustible)}</strong></div>
-                    <div><span className='record-label'>Operador</span><strong>{record.operador || '-'}</strong></div>
-                    <div><span className='record-label'>Km actual</span><strong>{formatNumber(record.kilometraje_actual)}</strong></div>
-                    <div><span className='record-label'>Km anterior</span><strong>{formatNumber(record.kilometraje_anterior)}</strong></div>
-                    <div><span className='record-label'>Km recorridos</span><strong>{formatNumber(record.kilometros_recorridos)}</strong></div>
-                    <div><span className='record-label'>Litros</span><strong>{formatNumber(record.litros)} L</strong></div>
-                    <div><span className='record-label'>Monto</span><strong>{formatCurrency(record.costo_total)}</strong></div>
-                    <div><span className='record-label'>Precio por litro</span><strong>{formatCurrency(pricePerLiter)}</strong></div>
-                    <div><span className='record-label'>M3 enviados</span><strong>{formatNumber(record.m3_enviados)}</strong></div>
-                    <div><span className='record-label'>Rendimiento</span><strong>{formatNumber(performance)} km/L</strong></div>
-                    <div><span className='record-label'>Precio por km</span><strong>{formatCurrency(pricePerKm)}</strong></div>
-                    <div><span className='record-label'>Precio por m3</span><strong>{formatCurrency(pricePerM3)}</strong></div>
-                    <div><span className='record-label'>Primera carga</span><strong>{record.primera_carga ? 'Si' : 'No'}</strong></div>
-                  </div>
-
-                  <div className='maintenance-files-inline'>
-                    <span className='record-label'>Documentos adjuntos</span>
-                    {files.length === 0 ? (
-                      <p>Sin adjuntos</p>
-                    ) : (
-                      <div className='maintenance-inline-files'>
-                        {files.map((fileInfo, index) => (
-                          <button
-                            key={fileInfo.id || index}
-                            type='button'
-                            className='file-chip'
-                            onClick={() => handleDownloadFile(fileInfo)}
-                          >
-                            {fileInfo.nombre_original}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                </div>
-              );
-            })
-          )}
+          <button
+            type='button'
+            className={`gasoline-section-tab ${activeSection === 'signatures' ? 'active' : ''}`}
+            onClick={() => setActiveSection('signatures')}
+          >
+            Firmas de gasolina
+          </button>
         </div>
       </div>
 
+      {activeSection === 'records' ? (
+        <div className='maintenance-history-section'>
+          <div className='maintenance-history-header'>
+            <div>
+              <h3>Registros</h3>
+              <p>Se muestran del mas reciente al mas antiguo considerando fecha y hora.</p>
+            </div>
+            <button type='button' className='maintenance-add-btn' onClick={openNewRecordModal}>
+              Agregar carga
+            </button>
+          </div>
+
+          <div className='maintenance-records-list'>
+            {records.length === 0 ? (
+              <div className='maintenance-empty-state'>
+                <p>Aun no hay cargas globales registradas.</p>
+                <button type='button' className='maintenance-add-btn maintenance-add-btn-inline' onClick={openNewRecordModal}>
+                  Registrar primera carga
+                </button>
+              </div>
+            ) : filteredRecords.length === 0 ? (
+              <div className='maintenance-empty-state'>
+                <p>No hay registros que coincidan con los filtros actuales.</p>
+              </div>
+            ) : (
+              filteredRecords.map((record) => {
+                const files = extractFiles(record);
+                const signatureFiles = extractSignatureFiles(record);
+                const pricePerLiter = Number(record.litros || 0) > 0
+                  ? Number(record.costo_total || 0) / Number(record.litros || 1)
+                  : 0;
+                const performance = Number(record.litros || 0) > 0
+                  ? Number(record.kilometros_recorridos || 0) / Number(record.litros || 1)
+                  : 0;
+                const pricePerKm = Number(record.kilometros_recorridos || 0) > 0
+                  ? Number(record.costo_total || 0) / Number(record.kilometros_recorridos || 1)
+                  : 0;
+                const pricePerM3 = Number(record.m3_enviados || 0) > 0
+                  ? Number(record.costo_total || 0) / Number(record.m3_enviados || 1)
+                  : 0;
+                const performanceStatus = getGasolinePerformanceStatus({
+                  record,
+                  parameters: vehicleParametersMap.get(String(record.vehiculo_id)) || null
+                });
+
+                return (
+                  <div key={record.id} className={`maintenance-record-card gasoline-global-card gasoline-performance-card ${performanceStatus.className}`}>
+                    <div className='maintenance-record-top'>
+                      <div>
+                        <h4>{record.titulo || 'Sin nombre de carga'}</h4>
+                        <p className='maintenance-record-type'>
+                          {record.placa_snapshot || record.vehiculo_placa || '-'} · {record.descripcion_snapshot || record.vehiculo_descripcion || 'Sin descripcion'}
+                        </p>
+                        <p className='maintenance-record-type'>{record.origen_carga === 'pipa' ? `Carga desde pipa${record.pipa_nombre_snapshot ? `: ${record.pipa_nombre_snapshot}` : ''}` : 'Carga desde gasolinera'}</p>
+                        <p className='maintenance-record-type'>{getFuelTypeLabel(record.tipo_combustible)}</p>
+                        <p className='maintenance-record-type'>
+                          Conductor: {record.conductor_nombre_snapshot || record.conductor_nombre_actual || 'Sin asignar'} · Firma: {SIGNATURE_STATUS_LABELS[record.firma_estatus] || 'Sin asignar'}
+                        </p>
+                        <div className={`gasoline-performance-badge ${performanceStatus.className}`}>
+                          <strong>{performanceStatus.label}</strong>
+                          <span>{performanceStatus.detail}</span>
+                        </div>
+                      </div>
+                      <div className='maintenance-record-actions'>
+                        <button type='button' className='ghost-btn' onClick={() => openViewRecordModal(record)}>Ver</button>
+                        <button type='button' className='ghost-btn' onClick={() => openEditRecordModal(record)}>Editar</button>
+                        <button type='button' className='danger-btn' onClick={() => handleDeleteRecord(record.id)}>Eliminar</button>
+                      </div>
+                    </div>
+
+                    <div className='gasoline-global-grid'>
+                      <div><span className='record-label'>Factura</span><strong>{record.factura || '-'}</strong></div>
+                      <div><span className='record-label'>Numero economico</span><strong>{record.numero_economico_snapshot || record.vehiculo_numero_economico || '-'}</strong></div>
+                      <div><span className='record-label'>Fecha</span><strong>{formatDate(record.fecha_carga)}</strong></div>
+                      <div><span className='record-label'>Hora</span><strong>{record.hora_carga?.slice(0, 5) || '-'}</strong></div>
+                      <div><span className='record-label'>Proveedor</span><strong>{record.proveedor || '-'}</strong></div>
+                      <div><span className='record-label'>Origen</span><strong>{record.origen_carga === 'pipa' ? 'Pipa' : 'Gasolinera'}</strong></div>
+                      <div><span className='record-label'>Pipa</span><strong>{record.pipa_nombre_snapshot || '-'}</strong></div>
+                      <div><span className='record-label'>Combustible</span><strong>{getFuelTypeLabel(record.tipo_combustible)}</strong></div>
+                      <div><span className='record-label'>Operador</span><strong>{record.operador || '-'}</strong></div>
+                      <div><span className='record-label'>Conductor</span><strong>{record.conductor_nombre_snapshot || record.conductor_nombre_actual || '-'}</strong></div>
+                      <div><span className='record-label'>Estatus firma</span><strong>{SIGNATURE_STATUS_LABELS[record.firma_estatus] || '-'}</strong></div>
+                      <div><span className='record-label'>Fecha firma</span><strong>{record.firma_fecha ? formatDate(record.firma_fecha) : '-'}</strong></div>
+                      <div><span className='record-label'>Km actual</span><strong>{formatNumber(record.kilometraje_actual)}</strong></div>
+                      <div><span className='record-label'>Km anterior</span><strong>{formatNumber(record.kilometraje_anterior)}</strong></div>
+                      <div><span className='record-label'>Km recorridos</span><strong>{formatNumber(record.kilometros_recorridos)}</strong></div>
+                      <div><span className='record-label'>Litros</span><strong>{formatNumber(record.litros)} L</strong></div>
+                      <div><span className='record-label'>Monto</span><strong>{formatCurrency(record.costo_total)}</strong></div>
+                      <div><span className='record-label'>Precio por litro</span><strong>{formatCurrency(pricePerLiter)}</strong></div>
+                      <div><span className='record-label'>M3 enviados</span><strong>{formatNumber(record.m3_enviados)}</strong></div>
+                      <div><span className='record-label'>Rendimiento</span><strong>{formatNumber(performance)} km/L</strong></div>
+                      <div><span className='record-label'>Precio por km</span><strong>{formatCurrency(pricePerKm)}</strong></div>
+                      <div><span className='record-label'>Precio por m3</span><strong>{formatCurrency(pricePerM3)}</strong></div>
+                      <div><span className='record-label'>Primera carga</span><strong>{record.primera_carga ? 'Si' : 'No'}</strong></div>
+                    </div>
+
+                    <div className='maintenance-files-inline'>
+                      <span className='record-label'>Documentos adjuntos</span>
+                      {files.length === 0 ? (
+                        <p>Sin adjuntos</p>
+                      ) : (
+                        <div className='maintenance-inline-files'>
+                          {files.map((fileInfo, index) => (
+                            <button
+                              key={fileInfo.id || index}
+                              type='button'
+                              className='file-chip'
+                              onClick={() => handleDownloadFile(fileInfo)}
+                            >
+                              {fileInfo.nombre_original}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className='maintenance-files-inline'>
+                      <span className='record-label'>Firmas de gasolina</span>
+                      {signatureFiles.length === 0 ? (
+                        <p>Sin evidencia</p>
+                      ) : (
+                        <div className='maintenance-inline-files'>
+                          {signatureFiles.map((fileInfo, index) => (
+                            <button
+                              key={fileInfo.id || index}
+                              type='button'
+                              className='file-chip'
+                              onClick={() => handleDownloadFile(fileInfo)}
+                            >
+                              {fileInfo.nombre_original}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className='maintenance-history-section'>
+          <div className='maintenance-history-header'>
+            <div>
+              <h3>Firmas de gasolina</h3>
+              <p>Vista concentrada de cargas asignadas a conductor y su evidencia fotografica.</p>
+            </div>
+          </div>
+
+          <div className='maintenance-records-list'>
+            {signatureFocusedRecords.length === 0 ? (
+              <div className='maintenance-empty-state'>
+                <p>No hay firmas de gasolina con los filtros actuales.</p>
+              </div>
+            ) : (
+              signatureFocusedRecords.map((record) => {
+                const signatureFiles = extractSignatureFiles(record);
+                const driverImage = record.conductor_imagen_url_snapshot || record.conductor_imagen_url_actual;
+
+                return (
+                  <div key={`signature-${record.id}`} className='maintenance-record-card gasoline-global-card'>
+                    <div className='maintenance-record-top'>
+                      <div>
+                        <h4>{record.conductor_nombre_snapshot || record.conductor_nombre_actual || 'Sin asignar'}</h4>
+                        <p className='maintenance-record-type'>
+                          {record.placa_snapshot || record.vehiculo_placa || '-'} · {record.factura || record.titulo || 'Carga'}
+                        </p>
+                      </div>
+                      {driverImage ? (
+                        <img src={driverImage} alt={record.conductor_nombre_snapshot || 'Conductor'} className='driver-list-image' />
+                      ) : (
+                        <div className='driver-list-image driver-list-image-placeholder'>
+                          {(record.conductor_nombre_snapshot || 'C').charAt(0)}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className='gasoline-global-grid'>
+                      <div><span className='record-label'>Conductor</span><strong>{record.conductor_nombre_snapshot || record.conductor_nombre_actual || '-'}</strong></div>
+                      <div><span className='record-label'>Firma</span><strong>{SIGNATURE_STATUS_LABELS[record.firma_estatus] || '-'}</strong></div>
+                      <div><span className='record-label'>Fecha firma</span><strong>{record.firma_fecha ? formatDate(record.firma_fecha) : '-'}</strong></div>
+                      <div><span className='record-label'>Vehiculo</span><strong>{record.numero_economico_snapshot || record.vehiculo_numero_economico || '-'}</strong></div>
+                    </div>
+
+                    <div className='maintenance-files-inline'>
+                      <span className='record-label'>Evidencia</span>
+                      {signatureFiles.length === 0 ? (
+                        <p>Sin evidencia</p>
+                      ) : (
+                        <div className='maintenance-inline-files'>
+                          {signatureFiles.map((fileInfo, index) => (
+                            <button
+                              key={fileInfo.id || index}
+                              type='button'
+                              className='file-chip'
+                              onClick={() => handleDownloadFile(fileInfo)}
+                            >
+                              {fileInfo.nombre_original}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      )}
+
       <GlobalGasolineRecordModal
         vehicles={vehicles}
+        drivers={drivers}
         records={records}
         pipas={inventoryPipas}
         inventoryRecords={inventoryRecords}

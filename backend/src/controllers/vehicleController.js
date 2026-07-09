@@ -1,6 +1,7 @@
 import { vehicleModel } from '../models/vehicleModel.js';
 import { vehicleHistoryModel } from '../models/vehicleHistoryModel.js';
 import { inventoryModel } from '../models/inventoryModel.js';
+import { driverModel } from '../models/driverModel.js';
 import { cloudinaryService } from '../services/cloudinaryService.js';
 import { VALID_FUEL_TYPES, normalizeFuelType } from '../constants/fuelTypes.js';
 
@@ -97,6 +98,12 @@ const normalizeLoadSource = (value) => {
   const normalized = normalizeText(value).toLowerCase();
   return normalized === 'pipa' ? 'pipa' : 'gasolinera';
 };
+const normalizeSignatureStatus = (value) => {
+  const normalized = normalizeText(value).toLowerCase();
+  if (normalized === 'firmado') return 'firmado';
+  if (normalized === 'pendiente') return 'pendiente';
+  return 'sin_asignar';
+};
 const buildGasolineRecordTitle = ({ factura, fecha_carga, placa }) => {
   if (factura) return `Factura ${factura}`;
   if (fecha_carga && placa) return `Carga ${placa} ${fecha_carga}`;
@@ -146,7 +153,13 @@ const buildGlobalGasolineData = (body, vehicle, previousMileage = null, options 
     precio_litro_referencia: normalizeNumber(body.precio_litro_referencia),
     placa_snapshot: normalizeNullableText(vehicle?.placa),
     descripcion_snapshot: normalizeNullableText(vehicle?.descripcion || vehicle?.propietario_nombre),
-    numero_economico_snapshot: normalizeNullableText(vehicle?.numero_economico || body.numero_economico_snapshot)
+    numero_economico_snapshot: normalizeNullableText(vehicle?.numero_economico || body.numero_economico_snapshot),
+    conductor_id: normalizeNullableText(body.conductor_id),
+    conductor_nombre_snapshot: normalizeNullableText(body.conductor_nombre_snapshot),
+    conductor_imagen_url_snapshot: normalizeNullableText(body.conductor_imagen_url_snapshot),
+    firma_estatus: normalizeSignatureStatus(body.firma_estatus),
+    firma_fecha: normalizeNullableText(body.firma_fecha),
+    firma_observaciones: normalizeNullableText(body.firma_observaciones)
   };
 };
 const validateGlobalGasolineData = (gasolineData, operationParameters = null) => {
@@ -278,6 +291,38 @@ const applyPipaPricingIfNeeded = async (body, gasolineData, options = {}) => {
     fifo_allocations: fifoPricing.allocations
   };
 };
+
+const resolveGasolineDriverAssignment = async (gasolineData) => {
+  if (!gasolineData.conductor_id) {
+    return {
+      ...gasolineData,
+      conductor_id: null,
+      conductor_nombre_snapshot: null,
+      conductor_imagen_url_snapshot: null,
+      firma_estatus: 'sin_asignar',
+      firma_fecha: null,
+      firma_observaciones: null
+    };
+  }
+
+  const driver = await driverModel.getDriverById(gasolineData.conductor_id);
+  if (!driver) {
+    const error = new Error('El conductor asignado no existe');
+    error.statusCode = 400;
+    throw error;
+  }
+
+  return {
+    ...gasolineData,
+    conductor_id: driver.id,
+    conductor_nombre_snapshot: driver.nombre || gasolineData.conductor_nombre_snapshot || null,
+    conductor_imagen_url_snapshot: driver.imagen_url || null,
+    firma_estatus: 'pendiente',
+    firma_fecha: null,
+    firma_observaciones: null
+  };
+};
+
 const buildVehicleParametersData = (body = {}) => ({
   capacidad_tanque_litros: normalizeNumber(body.capacidad_tanque_litros),
   rendimiento_objetivo_km_l: normalizeNumber(body.rendimiento_objetivo_km_l),
@@ -1645,6 +1690,7 @@ export const vehicleController = {
       });
       let gasolineData = buildGlobalGasolineData(req.body, vehicle, latestMileage);
       gasolineData = await applyPipaPricingIfNeeded(req.body, gasolineData);
+      gasolineData = await resolveGasolineDriverAssignment(gasolineData);
       const validationError = validateGlobalGasolineData(gasolineData, vehicle.parametros_operativos);
 
       if (validationError) {
@@ -1677,6 +1723,9 @@ export const vehicleController = {
           kilometraje_actual: gasolineData.kilometraje_actual,
           kilometraje_anterior: gasolineData.kilometraje_anterior,
           m3_enviados: gasolineData.m3_enviados,
+          conductor_id: gasolineData.conductor_id,
+          conductor_nombre: gasolineData.conductor_nombre_snapshot,
+          firma_estatus: gasolineData.firma_estatus,
           archivos_adjuntos: req.files?.length || 0
         }
       });
@@ -1731,6 +1780,15 @@ export const vehicleController = {
       gasolineData = await applyPipaPricingIfNeeded(req.body, gasolineData, {
         excludeGasolineId: gasolineId
       });
+      gasolineData = await resolveGasolineDriverAssignment(gasolineData);
+
+      const signatureAssignmentChanged = String(existingRecord.conductor_id || '') !== String(gasolineData.conductor_id || '');
+      if (!signatureAssignmentChanged) {
+        gasolineData.firma_estatus = existingRecord.firma_estatus || gasolineData.firma_estatus;
+        gasolineData.firma_fecha = existingRecord.firma_fecha || null;
+        gasolineData.firma_observaciones = existingRecord.firma_observaciones || null;
+      }
+
       const validationError = validateGlobalGasolineData(gasolineData, vehicle.parametros_operativos);
 
       if (validationError) {
@@ -1738,6 +1796,11 @@ export const vehicleController = {
       }
 
       await vehicleModel.updateGlobalGasolineRecord(gasolineId, gasolineData);
+
+      if (signatureAssignmentChanged) {
+        await vehicleModel.clearGasolineSignatureFiles(gasolineId);
+      }
+
       await syncPipaFifoConsumption(gasolineId, req.body, gasolineData);
 
       if (req.files && req.files.length > 0) {
@@ -1761,7 +1824,9 @@ export const vehicleController = {
           kilometros_recorridos: 'Km recorridos',
           m3_enviados: 'M3 enviados',
           operador: 'Operador',
-          primera_carga: 'Primera carga'
+          primera_carga: 'Primera carga',
+          conductor_id: 'Conductor asignado',
+          firma_estatus: 'Estatus de firma'
         },
         {
           vehiculo_id: normalizeNullableText(existingRecord.vehiculo_id),
@@ -1778,7 +1843,9 @@ export const vehicleController = {
           kilometros_recorridos: normalizeNumber(existingRecord.kilometros_recorridos),
           m3_enviados: normalizeNumber(existingRecord.m3_enviados),
           operador: normalizeNullableText(existingRecord.operador),
-          primera_carga: Boolean(existingRecord.primera_carga)
+          primera_carga: Boolean(existingRecord.primera_carga),
+          conductor_id: normalizeNullableText(existingRecord.conductor_id),
+          firma_estatus: normalizeNullableText(existingRecord.firma_estatus)
         },
         {
           vehiculo_id: normalizeNullableText(gasolineData.vehiculo_id),
@@ -1795,7 +1862,9 @@ export const vehicleController = {
           kilometros_recorridos: normalizeNumber(gasolineData.kilometros_recorridos),
           m3_enviados: normalizeNumber(gasolineData.m3_enviados),
           operador: normalizeNullableText(gasolineData.operador),
-          primera_carga: Boolean(gasolineData.primera_carga)
+          primera_carga: Boolean(gasolineData.primera_carga),
+          conductor_id: normalizeNullableText(gasolineData.conductor_id),
+          firma_estatus: normalizeNullableText(gasolineData.firma_estatus)
         }
       );
 
@@ -1807,7 +1876,8 @@ export const vehicleController = {
         description: `Actualizo carga global de gasolina para ${vehicle.placa}`,
         details: {
           changes,
-          archivos_nuevos: req.files?.length || 0
+          archivos_nuevos: req.files?.length || 0,
+          reinicio_firma: signatureAssignmentChanged
         }
       });
 
@@ -1954,6 +2024,108 @@ export const vehicleController = {
       console.error('Error eliminando archivo global de gasolina:', error);
       res.status(500).json({
         message: 'Error al eliminar archivo global de gasolina',
+        error: error.message
+      });
+    }
+  },
+
+  async submitGlobalGasolineSignature(req, res) {
+    try {
+      const { gasolineId } = req.params;
+      const gasolineRecord = await vehicleModel.getGlobalGasolineRecordById(gasolineId);
+
+      if (!gasolineRecord) {
+        return res.status(404).json({
+          message: 'Registro global de gasolina no encontrado'
+        });
+      }
+
+      if (req.user?.role !== 'conductor') {
+        return res.status(403).json({
+          message: 'Solo los conductores pueden firmar una carga de gasolina'
+        });
+      }
+
+      if (!req.user?.driverId) {
+        return res.status(403).json({
+          message: 'Tu usuario no esta vinculado a un conductor'
+        });
+      }
+
+      if (!gasolineRecord.conductor_id || String(gasolineRecord.conductor_id) !== String(req.user.driverId)) {
+        return res.status(403).json({
+          message: 'Esta carga no esta asignada a tu cuenta de conductor'
+        });
+      }
+
+      if (!req.files?.length) {
+        return res.status(400).json({
+          message: 'Debes subir al menos una foto como evidencia de la firma'
+        });
+      }
+
+      await vehicleModel.clearGasolineSignatureFiles(gasolineId);
+      await vehicleModel.addGasolineSignatureFiles(gasolineId, req.files);
+      await vehicleModel.updateGlobalGasolineSignature(gasolineId, {
+        firma_estatus: 'firmado',
+        firma_fecha: new Date().toISOString(),
+        firma_observaciones: normalizeNullableText(req.body.firma_observaciones)
+      });
+
+      const updatedRecord = await vehicleModel.getGlobalGasolineRecordPayload(gasolineId);
+
+      await vehicleController.logHistory(req, gasolineRecord.vehiculo_id, {
+        module: 'gasolina',
+        action: 'firma_conductor',
+        entityType: 'gasoline_signature',
+        entityId: gasolineId,
+        description: `Conductor firmo la carga global ${gasolineRecord.factura || gasolineRecord.titulo || gasolineId}`,
+        details: {
+          conductor_id: req.user.driverId,
+          archivos_firma: req.files.length
+        }
+      });
+
+      res.json({
+        message: 'Firma de gasolina registrada correctamente',
+        gasolineRecord: updatedRecord
+      });
+    } catch (error) {
+      console.error('Error registrando firma global de gasolina:', error);
+      res.status(500).json({
+        message: 'Error al registrar la firma de gasolina',
+        error: error.message
+      });
+    }
+  },
+
+  async downloadGlobalGasolineSignatureFile(req, res) {
+    try {
+      const { gasolineId } = req.params;
+      const parsedIndex = Number.parseInt(req.query.fileIndex ?? '0', 10);
+      const fileIndex = Number.isNaN(parsedIndex) || parsedIndex < 0 ? 0 : parsedIndex;
+
+      const selectedFile = await vehicleModel.getGlobalGasolineSignatureFileByIndex(gasolineId, fileIndex);
+      if (!selectedFile?.archivo_data) {
+        return res.status(404).json({
+          message: 'Archivo de firma no encontrado'
+        });
+      }
+
+      const fileName = selectedFile.nombre_original || 'firma-gasolina.bin';
+      const fileSize = Buffer.isBuffer(selectedFile.archivo_data)
+        ? selectedFile.archivo_data.length
+        : selectedFile.tamano_bytes || 0;
+      const dispositionType = req.query.inline === '1' ? 'inline' : 'attachment';
+
+      res.setHeader('Content-Type', selectedFile.tipo_mime || 'application/octet-stream');
+      res.setHeader('Content-Disposition', `${dispositionType}; filename="${fileName}"`);
+      res.setHeader('Content-Length', fileSize);
+      return res.send(selectedFile.archivo_data);
+    } catch (error) {
+      console.error('Error descargando archivo de firma global de gasolina:', error);
+      res.status(500).json({
+        message: 'Error al descargar archivo de firma',
         error: error.message
       });
     }

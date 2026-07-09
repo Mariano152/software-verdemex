@@ -73,6 +73,16 @@ const mapGlobalGasolineFileRow = (fileRow, gasolineId, index) => ({
   download_url: `/api/gasoline-records/${gasolineId}/download?fileIndex=${index}`
 });
 
+const mapGlobalGasolineSignatureFileRow = (fileRow, gasolineId, index) => ({
+  id: fileRow.id,
+  nombre_original: fileRow.nombre_original,
+  tipo_mime: fileRow.tipo_mime,
+  tamano: Number(fileRow.tamano_bytes || 0),
+  tamano_bytes: Number(fileRow.tamano_bytes || 0),
+  orden: fileRow.orden ?? index + 1,
+  download_url: `/api/gasoline-records/${gasolineId}/signature-download?fileIndex=${index}`
+});
+
 const mapGlobalMaintenanceFileRow = (fileRow, maintenanceId, index) => ({
   id: fileRow.id,
   nombre_original: fileRow.nombre_original,
@@ -722,6 +732,12 @@ export const vehicleModel = {
       placa_snapshot,
       descripcion_snapshot,
       numero_economico_snapshot,
+      conductor_id,
+      conductor_nombre_snapshot,
+      conductor_imagen_url_snapshot,
+      firma_estatus,
+      firma_fecha,
+      firma_observaciones,
       proveedor,
       descripcion,
       observaciones
@@ -735,9 +751,11 @@ export const vehicleModel = {
          kilometros_recorridos, m3_enviados, operador, primera_carga,
          origen_carga, inventario_pipa_registro_id, pipa_nombre_snapshot, precio_litro_referencia,
          placa_snapshot, descripcion_snapshot, numero_economico_snapshot,
+         conductor_id, conductor_nombre_snapshot, conductor_imagen_url_snapshot,
+         firma_estatus, firma_fecha, firma_observaciones,
          proveedor, descripcion, observaciones
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27, $28, $29, $30)
        RETURNING *`,
       [
         vehicleId,
@@ -761,6 +779,12 @@ export const vehicleModel = {
         placa_snapshot,
         descripcion_snapshot,
         numero_economico_snapshot,
+        conductor_id,
+        conductor_nombre_snapshot,
+        conductor_imagen_url_snapshot,
+        firma_estatus,
+        firma_fecha,
+        firma_observaciones,
         proveedor,
         descripcion,
         observaciones
@@ -792,6 +816,12 @@ export const vehicleModel = {
       placa_snapshot,
       descripcion_snapshot,
       numero_economico_snapshot,
+      conductor_id,
+      conductor_nombre_snapshot,
+      conductor_imagen_url_snapshot,
+      firma_estatus,
+      firma_fecha,
+      firma_observaciones,
       proveedor,
       descripcion,
       observaciones
@@ -819,11 +849,17 @@ export const vehicleModel = {
            placa_snapshot = $18,
            descripcion_snapshot = $19,
            numero_economico_snapshot = $20,
-           proveedor = $21,
-           descripcion = $22,
-           observaciones = $23,
+           conductor_id = $21,
+           conductor_nombre_snapshot = $22,
+           conductor_imagen_url_snapshot = $23,
+           firma_estatus = $24,
+           firma_fecha = $25,
+           firma_observaciones = $26,
+           proveedor = $27,
+           descripcion = $28,
+           observaciones = $29,
            updated_at = NOW()
-       WHERE id = $24 AND vehiculo_id = $25 AND deleted_at IS NULL
+       WHERE id = $30 AND vehiculo_id = $31 AND deleted_at IS NULL
        RETURNING *`,
       [
         titulo,
@@ -846,6 +882,12 @@ export const vehicleModel = {
         placa_snapshot,
         descripcion_snapshot,
         numero_economico_snapshot,
+        conductor_id,
+        conductor_nombre_snapshot,
+        conductor_imagen_url_snapshot,
+        firma_estatus,
+        firma_fecha,
+        firma_observaciones,
         proveedor,
         descripcion,
         observaciones,
@@ -880,6 +922,12 @@ export const vehicleModel = {
       placa_snapshot,
       descripcion_snapshot,
       numero_economico_snapshot,
+      conductor_id,
+      conductor_nombre_snapshot,
+      conductor_imagen_url_snapshot,
+      firma_estatus,
+      firma_fecha,
+      firma_observaciones,
       proveedor,
       descripcion,
       observaciones
@@ -908,11 +956,17 @@ export const vehicleModel = {
            placa_snapshot = $19,
            descripcion_snapshot = $20,
            numero_economico_snapshot = $21,
-           proveedor = $22,
-           descripcion = $23,
-           observaciones = $24,
+           conductor_id = $22,
+           conductor_nombre_snapshot = $23,
+           conductor_imagen_url_snapshot = $24,
+           firma_estatus = $25,
+           firma_fecha = $26,
+           firma_observaciones = $27,
+           proveedor = $28,
+           descripcion = $29,
+           observaciones = $30,
            updated_at = NOW()
-       WHERE id = $25 AND deleted_at IS NULL
+       WHERE id = $31 AND deleted_at IS NULL
        RETURNING *`,
       [
         vehiculo_id,
@@ -936,6 +990,12 @@ export const vehicleModel = {
         placa_snapshot,
         descripcion_snapshot,
         numero_economico_snapshot,
+        conductor_id,
+        conductor_nombre_snapshot,
+        conductor_imagen_url_snapshot,
+        firma_estatus,
+        firma_fecha,
+        firma_observaciones,
         proveedor,
         descripcion,
         observaciones,
@@ -993,9 +1053,12 @@ export const vehicleModel = {
            v.descripcion AS vehiculo_descripcion,
            v.propietario_nombre AS vehiculo_nombre,
            v.numero_economico AS vehiculo_numero_economico,
-           v.tipo_carro AS vehiculo_tipo_carro
+           v.tipo_carro AS vehiculo_tipo_carro,
+           c.nombre AS conductor_nombre_actual,
+           c.imagen_url AS conductor_imagen_url_actual
          FROM vehiculo_gasolina_registros g
          JOIN vehiculos v ON v.id = g.vehiculo_id
+         LEFT JOIN conductores c ON c.id = g.conductor_id AND c.deleted_at IS NULL
          WHERE g.id = $1
            AND g.deleted_at IS NULL
            AND v.deleted_at IS NULL
@@ -1090,9 +1153,12 @@ export const vehicleModel = {
            v.descripcion AS vehiculo_descripcion,
            v.propietario_nombre AS vehiculo_nombre,
            v.numero_economico AS vehiculo_numero_economico,
-           v.tipo_carro AS vehiculo_tipo_carro
+           v.tipo_carro AS vehiculo_tipo_carro,
+           c.nombre AS conductor_nombre_actual,
+           c.imagen_url AS conductor_imagen_url_actual
          FROM vehiculo_gasolina_registros g
          JOIN vehiculos v ON v.id = g.vehiculo_id
+         LEFT JOIN conductores c ON c.id = g.conductor_id AND c.deleted_at IS NULL
          WHERE ${conditions.join(' AND ')}
          ORDER BY g.fecha_carga DESC, g.hora_carga DESC NULLS LAST, g.created_at DESC`,
         params
@@ -1144,11 +1210,67 @@ export const vehicleModel = {
     }
   },
 
+  async addGasolineSignatureFiles(gasolineId, files = []) {
+    if (!files.length) return [];
+
+    const client = await pool.connect();
+    try {
+      await client.query('BEGIN');
+
+      const insertedFiles = [];
+      for (const [index, file] of files.entries()) {
+        const result = await client.query(
+          `INSERT INTO vehiculo_gasolina_firma_archivos
+           (vehiculo_gasolina_registro_id, nombre_original, tipo_mime, tamano_bytes, archivo_data, orden)
+           VALUES ($1, $2, $3, $4, $5, $6)
+           RETURNING *`,
+          [
+            gasolineId,
+            file.originalname,
+            file.mimetype,
+            file.size,
+            file.buffer,
+            index + 1
+          ]
+        );
+
+        insertedFiles.push(result.rows[0]);
+      }
+
+      await client.query('COMMIT');
+      return insertedFiles;
+    } catch (error) {
+      await client.query('ROLLBACK');
+      throw error;
+    } finally {
+      client.release();
+    }
+  },
+
   async getGasolineFilesMetadata(gasolineId) {
     try {
       const result = await query(
         `SELECT id, vehiculo_gasolina_registro_id, nombre_original, tipo_mime, tamano_bytes, orden, created_at
          FROM vehiculo_gasolina_archivos
+         WHERE vehiculo_gasolina_registro_id = $1 AND deleted_at IS NULL
+         ORDER BY orden ASC, created_at ASC`,
+        [gasolineId]
+      );
+
+      return result.rows;
+    } catch (error) {
+      if (error.code === '42P01') {
+        return [];
+      }
+      throw error;
+    }
+  },
+
+  async getGasolineSignatureFilesMetadata(gasolineId) {
+    try {
+      const result = await query(
+        `SELECT id, vehiculo_gasolina_registro_id, nombre_original, tipo_mime, tamano_bytes, orden, created_at
+         FROM vehiculo_gasolina_firma_archivos
          WHERE vehiculo_gasolina_registro_id = $1 AND deleted_at IS NULL
          ORDER BY orden ASC, created_at ASC`,
         [gasolineId]
@@ -1215,6 +1337,32 @@ export const vehicleModel = {
     return result.rows[0] || null;
   },
 
+  async getGlobalGasolineSignatureFileByIndex(gasolineId, fileIndex = 0) {
+    const safeIndex = Number.isInteger(fileIndex) && fileIndex >= 0 ? fileIndex : 0;
+    const result = await query(
+      `SELECT
+         g.id AS gasoline_id,
+         g.vehiculo_id,
+         f.id,
+         f.nombre_original,
+         f.tipo_mime,
+         f.tamano_bytes,
+         f.archivo_data,
+         f.orden
+       FROM vehiculo_gasolina_registros g
+       LEFT JOIN vehiculo_gasolina_firma_archivos f
+         ON f.vehiculo_gasolina_registro_id = g.id
+        AND f.deleted_at IS NULL
+       WHERE g.id = $1
+         AND g.deleted_at IS NULL
+       ORDER BY f.orden ASC NULLS LAST, f.created_at ASC NULLS LAST
+       LIMIT 1 OFFSET $2`,
+      [gasolineId, safeIndex]
+    );
+
+    return result.rows[0] || null;
+  },
+
   async deleteGasolineFile(gasolineId, fileId) {
     const result = await query(
       `UPDATE vehiculo_gasolina_archivos
@@ -1222,6 +1370,36 @@ export const vehicleModel = {
        WHERE id = $1 AND vehiculo_gasolina_registro_id = $2 AND deleted_at IS NULL
        RETURNING *`,
       [fileId, gasolineId]
+    );
+
+    return result.rows[0] || null;
+  },
+
+  async clearGasolineSignatureFiles(gasolineId) {
+    await query(
+      `UPDATE vehiculo_gasolina_firma_archivos
+       SET deleted_at = NOW(), updated_at = NOW()
+       WHERE vehiculo_gasolina_registro_id = $1 AND deleted_at IS NULL`,
+      [gasolineId]
+    );
+  },
+
+  async updateGlobalGasolineSignature(gasolineId, signatureData) {
+    const result = await query(
+      `UPDATE vehiculo_gasolina_registros
+       SET firma_estatus = $1,
+           firma_fecha = $2,
+           firma_observaciones = $3,
+           updated_at = NOW()
+       WHERE id = $4
+         AND deleted_at IS NULL
+       RETURNING *`,
+      [
+        signatureData.firma_estatus,
+        signatureData.firma_fecha,
+        signatureData.firma_observaciones,
+        gasolineId
+      ]
     );
 
     return result.rows[0] || null;
@@ -1257,6 +1435,13 @@ export const vehicleModel = {
 
     await query(
       `UPDATE vehiculo_gasolina_archivos
+       SET deleted_at = NOW(), updated_at = NOW()
+       WHERE vehiculo_gasolina_registro_id = $1 AND deleted_at IS NULL`,
+      [gasolineId]
+    );
+
+    await query(
+      `UPDATE vehiculo_gasolina_firma_archivos
        SET deleted_at = NOW(), updated_at = NOW()
        WHERE vehiculo_gasolina_registro_id = $1 AND deleted_at IS NULL`,
       [gasolineId]
@@ -1501,14 +1686,21 @@ export const vehicleModel = {
 
     const gasolineRecords = await Promise.all(
       gasolineRows.map(async (record) => {
-        const fileRows = await vehicleModel.getGasolineFilesMetadata(record.id);
+        const [fileRows, signatureFileRows] = await Promise.all([
+          vehicleModel.getGasolineFilesMetadata(record.id),
+          vehicleModel.getGasolineSignatureFilesMetadata(record.id)
+        ]);
         const normalizedFiles = fileRows.map((fileRow, fileIndex) =>
           mapGasolineFileRow(fileRow, vehicleId, record.id, fileIndex)
+        );
+        const normalizedSignatureFiles = signatureFileRows.map((fileRow, fileIndex) =>
+          mapGlobalGasolineSignatureFileRow(fileRow, record.id, fileIndex)
         );
 
         return {
           ...record,
-          archivos_json: JSON.stringify(normalizedFiles)
+          archivos_json: JSON.stringify(normalizedFiles),
+          firma_archivos_json: JSON.stringify(normalizedSignatureFiles)
         };
       })
     );
@@ -1528,14 +1720,50 @@ export const vehicleModel = {
     const gasolineRecord = await vehicleModel.getGlobalGasolineRecordById(gasolineId);
     if (!gasolineRecord) return null;
 
-    const fileRows = await vehicleModel.getGasolineFilesMetadata(gasolineId);
+    const [fileRows, signatureFileRows] = await Promise.all([
+      vehicleModel.getGasolineFilesMetadata(gasolineId),
+      vehicleModel.getGasolineSignatureFilesMetadata(gasolineId)
+    ]);
 
     return {
       ...gasolineRecord,
       archivos_json: JSON.stringify(fileRows.map((fileRow, index) =>
         mapGlobalGasolineFileRow(fileRow, gasolineId, index)
+      )),
+      firma_archivos_json: JSON.stringify(signatureFileRows.map((fileRow, index) =>
+        mapGlobalGasolineSignatureFileRow(fileRow, gasolineId, index)
       ))
     };
+  },
+
+  async listGasolineRecordsByDriver(driverId) {
+    try {
+      const result = await query(
+        `SELECT
+           g.*,
+           v.placa AS vehiculo_placa,
+           v.descripcion AS vehiculo_descripcion,
+           v.propietario_nombre AS vehiculo_nombre,
+           v.numero_economico AS vehiculo_numero_economico,
+           v.tipo_carro AS vehiculo_tipo_carro
+         FROM vehiculo_gasolina_registros g
+         JOIN vehiculos v ON v.id = g.vehiculo_id
+         WHERE g.conductor_id = $1
+           AND g.deleted_at IS NULL
+           AND v.deleted_at IS NULL
+         ORDER BY g.fecha_carga DESC, g.hora_carga DESC NULLS LAST, g.created_at DESC`,
+        [driverId]
+      );
+
+      return Promise.all(
+        result.rows.map(async (record) => vehicleModel.getGlobalGasolineRecordPayload(record.id))
+      );
+    } catch (error) {
+      if (error.code === '42P01' || error.code === '42703') {
+        return [];
+      }
+      throw error;
+    }
   },
 
   async getGlobalMaintenanceRecordPayload(maintenanceId) {

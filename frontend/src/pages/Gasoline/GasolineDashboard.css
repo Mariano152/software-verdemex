@@ -33,6 +33,33 @@
   margin-top: 16px;
 }
 
+.gasoline-section-switcher {
+  padding: 16px 24px;
+}
+
+.gasoline-section-toggle {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.gasoline-section-tab {
+  padding: 0.8rem 1.15rem;
+  border: 1px solid #d9e6d7;
+  border-radius: 999px;
+  background: #f7faf7;
+  color: #29443b;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 700;
+}
+
+.gasoline-section-tab.active {
+  background: #246c33;
+  border-color: #246c33;
+  color: #ffffff;
+}
+
 @media (max-width: 900px) {
   .gasoline-global-grid {
     grid-template-columns: 1fr;

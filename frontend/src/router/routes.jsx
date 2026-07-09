@@ -42,6 +42,8 @@ import Profile from '../pages/Users/Profile';
 import NotFound from '../pages/Errors/NotFound';
 import Unauthorized from '../pages/Errors/Unauthorized';
 
+const APP_ADMIN_ROLES = ['admin', 'operador'];
+
 export const routes = [
   {
     path: '/',
@@ -49,115 +51,115 @@ export const routes = [
   },
   {
     path: '/dashboard',
-    element: <ProtectedRoute element={<Dashboard />} />
+    element: <ProtectedRoute element={<Dashboard />} allowedRoles={APP_ADMIN_ROLES} />
   },
   {
     path: '/gasoline',
-    element: <ProtectedRoute element={<GasolineDashboard />} />
+    element: <ProtectedRoute element={<GasolineDashboard />} allowedRoles={APP_ADMIN_ROLES} />
   },
   {
     path: '/inventory',
-    element: <ProtectedRoute element={<InventoryDashboard />} />
+    element: <ProtectedRoute element={<InventoryDashboard />} allowedRoles={APP_ADMIN_ROLES} />
   },
   {
     path: '/maintenance',
-    element: <ProtectedRoute element={<MaintenanceDashboard />} />
+    element: <ProtectedRoute element={<MaintenanceDashboard />} allowedRoles={APP_ADMIN_ROLES} />
   },
   {
     path: '/vehicles',
-    element: <ProtectedRoute element={<VehiclesList />} />
+    element: <ProtectedRoute element={<VehiclesList />} allowedRoles={APP_ADMIN_ROLES} />
   },
   {
     path: '/vehicles/create',
-    element: <ProtectedRoute element={<VehicleCreate />} />
+    element: <ProtectedRoute element={<VehicleCreate />} allowedRoles={APP_ADMIN_ROLES} />
   },
   {
     path: '/vehicles/:id',
-    element: <ProtectedRoute element={<VehicleDetail />} />
+    element: <ProtectedRoute element={<VehicleDetail />} allowedRoles={APP_ADMIN_ROLES} />
   },
   {
     path: '/vehicles/:id/edit',
-    element: <ProtectedRoute element={<VehicleEdit />} />
+    element: <ProtectedRoute element={<VehicleEdit />} allowedRoles={APP_ADMIN_ROLES} />
   },
   {
     path: '/vehicles/:id/file',
-    element: <ProtectedRoute element={<VehicleFile />} />
+    element: <ProtectedRoute element={<VehicleFile />} allowedRoles={APP_ADMIN_ROLES} />
   },
   {
     path: '/vehicles/:id/event',
-    element: <ProtectedRoute element={<VehicleEventCreate />} />
+    element: <ProtectedRoute element={<VehicleEventCreate />} allowedRoles={APP_ADMIN_ROLES} />
   },
   {
     path: '/vehicles/:id/history',
-    element: <ProtectedRoute element={<VehicleStatusHistory />} />
+    element: <ProtectedRoute element={<VehicleStatusHistory />} allowedRoles={APP_ADMIN_ROLES} />
   },
   {
     path: '/vehicles/:id/qr',
-    element: <ProtectedRoute element={<VehicleQRView />} />
+    element: <ProtectedRoute element={<VehicleQRView />} allowedRoles={APP_ADMIN_ROLES} />
   },
   {
     path: '/drivers',
-    element: <ProtectedRoute element={<DriversList />} />
+    element: <ProtectedRoute element={<DriversList />} allowedRoles={APP_ADMIN_ROLES} />
   },
   {
     path: '/calificar',
-    element: <ProtectedRoute element={<DriverGlobalRatingPage />} />
+    element: <ProtectedRoute element={<DriverGlobalRatingPage />} allowedRoles={APP_ADMIN_ROLES} />
   },
   {
     path: '/drivers/create',
-    element: <ProtectedRoute element={<DriverCreate />} />
+    element: <ProtectedRoute element={<DriverCreate />} allowedRoles={APP_ADMIN_ROLES} />
   },
   {
     path: '/drivers/:id',
-    element: <ProtectedRoute element={<DriverDetail />} />
+    element: <ProtectedRoute element={<DriverDetail />} allowedRoles={APP_ADMIN_ROLES} />
   },
   {
     path: '/drivers/:id/edit',
-    element: <ProtectedRoute element={<DriverEdit />} />
+    element: <ProtectedRoute element={<DriverEdit />} allowedRoles={APP_ADMIN_ROLES} />
   },
   {
     path: '/drivers/:id/assignments',
-    element: <ProtectedRoute element={<DriverAssignments />} />
+    element: <ProtectedRoute element={<DriverAssignments />} allowedRoles={APP_ADMIN_ROLES} />
   },
   {
     path: '/drivers/:id/ratings',
-    element: <ProtectedRoute element={<DriverRatings />} />
+    element: <ProtectedRoute element={<DriverRatings />} allowedRoles={APP_ADMIN_ROLES} />
   },
   {
     path: '/orders',
-    element: <ProtectedRoute element={<OrdersList />} />
+    element: <ProtectedRoute element={<OrdersList />} allowedRoles={APP_ADMIN_ROLES} />
   },
   {
     path: '/orders/create',
-    element: <ProtectedRoute element={<OrderCreate />} />
+    element: <ProtectedRoute element={<OrderCreate />} allowedRoles={APP_ADMIN_ROLES} />
   },
   {
     path: '/orders/:id',
-    element: <ProtectedRoute element={<OrderDetail />} />
+    element: <ProtectedRoute element={<OrderDetail />} allowedRoles={APP_ADMIN_ROLES} />
   },
   {
     path: '/orders/:id/edit',
-    element: <ProtectedRoute element={<OrderEdit />} />
+    element: <ProtectedRoute element={<OrderEdit />} allowedRoles={APP_ADMIN_ROLES} />
   },
   {
     path: '/orders/board',
-    element: <ProtectedRoute element={<OrdersBoard />} />
+    element: <ProtectedRoute element={<OrdersBoard />} allowedRoles={APP_ADMIN_ROLES} />
   },
   {
     path: '/analytics',
-    element: <ProtectedRoute element={<AnalyticsDashboard />} />
+    element: <ProtectedRoute element={<AnalyticsDashboard />} allowedRoles={APP_ADMIN_ROLES} />
   },
   {
     path: '/reports/vehicles',
-    element: <ProtectedRoute element={<VehicleReports />} />
+    element: <ProtectedRoute element={<VehicleReports />} allowedRoles={APP_ADMIN_ROLES} />
   },
   {
     path: '/reports/drivers',
-    element: <ProtectedRoute element={<DriverReports />} />
+    element: <ProtectedRoute element={<DriverReports />} allowedRoles={APP_ADMIN_ROLES} />
   },
   {
     path: '/reports/orders',
-    element: <ProtectedRoute element={<OrderReports />} />
+    element: <ProtectedRoute element={<OrderReports />} allowedRoles={APP_ADMIN_ROLES} />
   },
   {
     path: '/users',
@@ -173,7 +175,7 @@ export const routes = [
   },
   {
     path: '/profile',
-    element: <ProtectedRoute element={<Profile />} />
+    element: <ProtectedRoute element={<Profile />} allowedRoles={['admin', 'operador', 'conductor']} />
   },
   {
     path: '/unauthorized',

@@ -1,6 +1,6 @@
 import express from 'express';
 import { authController } from '../controllers/authController.js';
-import { verifyToken } from '../middleware/auth.js';
+import { requireRole, verifyToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -27,6 +27,8 @@ router.post('/logout', verifyToken, authController.logout);
  * Obtener perfil del usuario autenticado
  */
 router.get('/me', verifyToken, authController.getProfile);
+
+router.get('/driver-profile', verifyToken, requireRole('conductor'), authController.getDriverProfile);
 
 /**
  * POST /api/auth/verify
