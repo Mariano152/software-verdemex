@@ -8,36 +8,36 @@ function NotFound() {
   return (
     <div className="error-page not-found">
       <div className="error-container">
-        <div className="error-icon">🔍</div>
+        <div className="error-icon">?</div>
         <h1>404</h1>
-        <h2>Página No Encontrada</h2>
-        <p>Lo sentimos, la página que buscas no existe o ha sido removida.</p>
+        <h2>Pagina No Encontrada</h2>
+        <p>Lo sentimos, la pagina que buscas no existe o ha sido removida.</p>
         <p className="error-subtext">
-          Verifica la URL y asegúrate de que sea correcta.
+          Verifica la URL y asegurate de que sea correcta.
         </p>
-        
+
         <div className="error-actions">
-          <button 
+          <button
             className="btn btn-primary"
             onClick={() => navigate('/')}
           >
-            🏠 Volver al Inicio
+            Volver al Inicio
           </button>
-          <button 
+          <button
             className="btn btn-default"
             onClick={() => navigate(-1)}
           >
-            ← Atrás
+            Atras
           </button>
         </div>
 
         <div className="error-suggestions">
           <p><strong>Sitios frecuentes:</strong></p>
           <ul>
-            <li><a href="#" onClick={() => navigate('/vehicles')}>📦 Vehículos</a></li>
-            <li><a href="#" onClick={() => navigate('/drivers')}>👥 Conductores</a></li>
-            <li><a href="#" onClick={() => navigate('/orders')}>📋 Órdenes</a></li>
-            <li><a href="#" onClick={() => navigate('/analytics')}>📊 Análisis</a></li>
+            <li><a href="#" onClick={() => navigate('/vehicles')}>Vehiculos</a></li>
+            <li><a href="#" onClick={() => navigate('/drivers')}>Conductores</a></li>
+            <li><a href="#" onClick={() => navigate('/routes')}>Rutas</a></li>
+            <li><a href="#" onClick={() => navigate('/analytics')}>Analisis</a></li>
           </ul>
         </div>
       </div>

@@ -2,34 +2,33 @@ import './Dashboard.css';
 
 export default function Dashboard() {
   const stats = [
-    { label: 'Vehículos Activos', value: '42', icon: '🚚', color: 'primary' },
-    { label: 'Conductores', value: '28', icon: '👨‍✈️', color: 'accent' },
-    { label: 'Pedidos en Ruta', value: '15', icon: '📦', color: 'warning' },
-    { label: 'Combustible Ahorrado', value: '1,250L', icon: '⛽', color: 'success' },
+    { label: 'Vehiculos Activos', value: '42', icon: 'V', color: 'primary' },
+    { label: 'Conductores', value: '28', icon: 'C', color: 'accent' },
+    { label: 'Rutas Activas', value: '15', icon: 'R', color: 'warning' },
+    { label: 'Combustible Ahorrado', value: '1,250L', icon: 'G', color: 'success' }
   ];
 
   const recentActivities = [
-    { id: 1, type: 'Vehículo', message: 'Mantenimiento realizado a Unidad #001', time: 'Hace 30 min' },
-    { id: 2, type: 'Pedido', message: 'Pedido #5412 entregado correctamente', time: 'Hace 1 hora' },
-    { id: 3, type: 'Conductor', message: 'Carlos López marcó entrada a turno', time: 'Hace 2 horas' },
-    { id: 4, type: 'Sistema', message: 'Reporte mensual disponible', time: 'Hace 4 horas' },
+    { id: 1, type: 'Vehiculo', message: 'Mantenimiento realizado a Unidad #001', time: 'Hace 30 min' },
+    { id: 2, type: 'Ruta', message: 'Ruta a Planta Norte entregada correctamente', time: 'Hace 1 hora' },
+    { id: 3, type: 'Conductor', message: 'Carlos Lopez marco entrada a turno', time: 'Hace 2 horas' },
+    { id: 4, type: 'Sistema', message: 'Reporte mensual disponible', time: 'Hace 4 horas' }
   ];
 
   const vehicleStatus = [
     { status: 'En ruta', count: 15, percentage: 35, color: '#27ae60' },
     { status: 'Disponible', count: 20, percentage: 47, color: '#52b788' },
     { status: 'Mantenimiento', count: 5, percentage: 12, color: '#f39c12' },
-    { status: 'Inactivo', count: 2, percentage: 5, color: '#e74c3c' },
+    { status: 'Inactivo', count: 2, percentage: 5, color: '#e74c3c' }
   ];
 
   return (
     <div className="dashboard">
       <div className="dashboard-header">
         <h1>Dashboard Principal</h1>
-        <p className="subtitle">Bienvenido al Sistema de Gestión de Flotilla</p>
+        <p className="subtitle">Bienvenido al Sistema de Gestion de Flotilla</p>
       </div>
 
-      {/* Stats Cards */}
       <div className="stats-grid">
         {stats.map((stat) => (
           <div key={stat.label} className={`stat-card stat-${stat.color}`}>
@@ -42,11 +41,9 @@ export default function Dashboard() {
         ))}
       </div>
 
-      {/* Main Content Grid */}
       <div className="dashboard-grid">
-        {/* Vehicle Status */}
         <div className="card">
-          <div className="card-header">Estado de Vehículos</div>
+          <div className="card-header">Estado de Vehiculos</div>
           <div className="card-body">
             {vehicleStatus.map((item) => (
               <div key={item.status} className="status-item">
@@ -66,31 +63,29 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Quick Actions */}
         <div className="card">
-          <div className="card-header">Acciones Rápidas</div>
+          <div className="card-header">Acciones Rapidas</div>
           <div className="card-body actions-list">
             <a href="/vehicles/create" className="action-btn">
-              <span className="action-icon">➕</span>
-              <span className="action-text">Añadir Vehículo</span>
+              <span className="action-icon">+</span>
+              <span className="action-text">Anadir Vehiculo</span>
             </a>
             <a href="/drivers/create" className="action-btn">
-              <span className="action-icon">👤</span>
+              <span className="action-icon">C</span>
               <span className="action-text">Registrar Conductor</span>
             </a>
-            <a href="/orders/create" className="action-btn">
-              <span className="action-icon">📝</span>
-              <span className="action-text">Crear Pedido</span>
+            <a href="/routes/create" className="action-btn">
+              <span className="action-icon">R</span>
+              <span className="action-text">Crear Ruta</span>
             </a>
             <a href="/analytics" className="action-btn">
-              <span className="action-icon">📊</span>
+              <span className="action-icon">A</span>
               <span className="action-text">Ver Reportes</span>
             </a>
           </div>
         </div>
       </div>
 
-      {/* Recent Activity */}
       <div className="card mt-3">
         <div className="card-header">Actividad Reciente</div>
         <div className="card-body">

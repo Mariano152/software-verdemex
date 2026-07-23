@@ -1,275 +1,228 @@
-.orders-list {
-  animation: fadeIn 0.3s ease;
+@import '../Drivers/DriversModule.css';
+
+.routes-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-}
-
-/* ============================================
-   PAGE HEADER
-   ============================================ */
-
-.page-header {
+.routes-header-card {
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  gap: 2rem;
-  margin-bottom: 2rem;
+  align-items: flex-end;
+  gap: 1rem;
+  padding: 1.75rem;
+  border-radius: 20px;
+  background:
+    radial-gradient(circle at top left, rgba(152, 211, 91, 0.2), transparent 22%),
+    linear-gradient(135deg, #f7fbf2 0%, #edf6e7 45%, #ffffff 100%);
+  border: 1px solid rgba(64, 122, 54, 0.1);
+  box-shadow: var(--shadow-sm);
 }
 
-.header-content h1 {
-  margin: 0 0 0.5rem;
-  color: var(--color-primary-dark);
-  font-size: 2rem;
-}
-
-.subtitle {
+.routes-header-card h1 {
   margin: 0;
+  color: var(--color-primary-dark);
+}
+
+.routes-subtitle {
+  margin: 0.35rem 0 0;
   color: var(--color-text-light);
-  font-size: 0.95rem;
 }
 
-/* ============================================
-   STATS
-   ============================================ */
+.routes-header-actions,
+.routes-actions {
+  display: flex;
+  gap: 0.6rem;
+}
 
-.orders-stats {
+.routes-stats-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 1.5rem;
-  margin-bottom: 2rem;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 1rem;
 }
 
-.stat-card {
-  background: linear-gradient(135deg, var(--color-primary) 0%, var(--color-primary-dark) 100%);
-  color: white;
-  padding: 1.5rem;
-  border-radius: 8px;
-  text-align: center;
-  box-shadow: 0 4px 12px rgba(45, 122, 62, 0.15);
-  transition: transform 0.3s ease;
+.routes-stat-card {
+  padding: 1.2rem 1.35rem;
+  border-radius: 18px;
+  border: 1px solid #dce9d5;
+  background: linear-gradient(135deg, #ffffff 0%, #f4f9ef 100%);
+  box-shadow: var(--shadow-sm);
 }
 
-.stat-card:hover {
-  transform: translateY(-4px);
-}
-
-.stat-number {
+.routes-stat-value {
   display: block;
   font-size: 2rem;
-  font-weight: 900;
-  margin-bottom: 0.5rem;
-}
-
-.stat-label {
-  display: block;
-  font-size: 0.9rem;
-  opacity: 0.9;
-}
-
-/* ============================================
-   FILTERS
-   ============================================ */
-
-.filter-section {
-  margin-bottom: 2rem;
-}
-
-.filter-section label {
-  display: block;
+  font-weight: 800;
   color: var(--color-primary-dark);
-  font-weight: 600;
-  margin-bottom: 1rem;
 }
 
-.filter-buttons {
+.routes-stat-label {
+  display: block;
+  margin-top: 0.3rem;
+  color: var(--color-text-light);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.routes-toolbar {
+  display: grid;
+  grid-template-columns: minmax(280px, 1.25fr) minmax(0, 2fr);
+  gap: 1rem;
+}
+
+.routes-search-block,
+.routes-filter-block {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+
+.routes-search-block label,
+.routes-filter-block label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--color-text-light);
+}
+
+.routes-search-block input {
+  width: 100%;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid #d8e0d2;
+  border-radius: 12px;
+  background: #fff;
+  font: inherit;
+}
+
+.routes-search-block input:focus {
+  outline: none;
+  border-color: #79ba4f;
+  box-shadow: 0 0 0 3px rgba(121, 186, 79, 0.14);
+}
+
+.routes-filter-chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.75rem;
+  gap: 0.65rem;
 }
 
-.filter-btn {
-  padding: 0.75rem 1.25rem;
-  background: white;
-  border: 2px solid var(--color-gray);
-  border-radius: 20px;
-  color: var(--color-text);
-  font-weight: 500;
+.routes-filter-chip {
+  padding: 0.75rem 1rem;
+  border-radius: 999px;
+  border: 1px solid #d7e4d2;
+  background: #fff;
+  color: var(--color-primary-dark);
+  font-weight: 700;
   cursor: pointer;
-  transition: all 0.3s ease;
 }
 
-.filter-btn:hover {
-  border-color: var(--color-accent);
-  color: var(--color-primary);
-}
-
-.filter-btn.active {
-  background: var(--color-primary);
-  border-color: var(--color-primary);
+.routes-filter-chip.active {
+  background: #2f9d1f;
   color: white;
+  border-color: #2f9d1f;
 }
 
-/* ============================================
-   TABLE
-   ============================================ */
-
-.table-container {
-  background: white;
-  border-radius: 8px;
-  overflow-x: auto;
-  border: 1px solid var(--color-gray);
-}
-
-.orders-table {
+.routes-table {
   width: 100%;
   border-collapse: collapse;
 }
 
-.orders-table thead {
-  background: var(--color-bg-secondary);
-  border-bottom: 2px solid var(--color-gray);
-}
-
-.orders-table th {
-  padding: 1rem;
+.routes-table th {
   text-align: left;
-  font-weight: 600;
-  color: var(--color-primary-dark);
-  font-size: 0.9rem;
-}
-
-.orders-table td {
   padding: 1rem;
-  border-bottom: 1px solid var(--color-gray);
-  font-size: 0.95rem;
+  color: white;
+  background: #1f5f2f;
+  font-size: 0.92rem;
 }
 
-.orders-table tbody tr:hover {
-  background: var(--color-bg-secondary);
+.routes-table th:first-child {
+  border-top-left-radius: 16px;
 }
 
-.order-id {
-  font-family: monospace;
-  color: var(--color-primary);
+.routes-table th:last-child {
+  border-top-right-radius: 16px;
 }
 
-.location-badge {
-  background: var(--color-bg-secondary);
-  padding: 0.4rem 0.8rem;
-  border-radius: 4px;
-  font-size: 0.85rem;
+.routes-table td {
+  padding: 1rem;
+  border-bottom: 1px solid #ebf0e7;
+  vertical-align: middle;
+}
+
+.routes-row {
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.routes-row:hover {
+  background: #f7fbf5;
+}
+
+.routes-code,
+.routes-primary {
+  font-weight: 700;
   color: var(--color-primary-dark);
 }
 
-.priority-badge {
-  display: inline-block;
-  padding: 0.4rem 0.8rem;
-  border-radius: 4px;
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-
-.status-badge {
-  display: inline-block;
-  padding: 0.5rem 1rem;
-  border-radius: 12px;
-  color: white;
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-
-.amount {
-  font-weight: 700;
+.routes-code {
   color: var(--color-primary);
+  font-family: monospace;
 }
 
-.date-small {
+.routes-muted {
+  margin-top: 0.2rem;
   color: var(--color-text-light);
-  font-size: 0.9rem;
 }
 
-/* ACTIONS */
+.routes-money {
+  margin-top: 0.3rem;
+  font-weight: 800;
+  color: #2f9d1f;
+}
 
-.actions-cell {
-  display: flex;
-  gap: 0.5rem;
+.routes-status-chip {
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
+  padding: 0.55rem 0.95rem;
+  border-radius: 999px;
+  color: white;
+  font-size: 0.86rem;
+  font-weight: 700;
 }
 
-.btn-icon {
-  background: none;
-  border: none;
-  font-size: 1.2rem;
-  cursor: pointer;
-  padding: 0.5rem;
-  transition: transform 0.2s ease;
-}
-
-.btn-icon:hover {
-  transform: scale(1.2);
-}
-
-/* ============================================
-   EMPTY STATE
-   ============================================ */
-
-.empty-state {
-  padding: 3rem 2rem;
+.routes-empty {
+  padding: 2rem;
   text-align: center;
-  color: var(--color-text-light);
 }
 
-.empty-icon {
-  font-size: 3rem;
-  margin-bottom: 1rem;
+@media (max-width: 1100px) {
+  .routes-stats-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .routes-toolbar {
+    grid-template-columns: 1fr;
+  }
 }
 
-.empty-state p {
-  margin: 0;
-  font-size: 1.1rem;
-}
+@media (max-width: 720px) {
+  .routes-header-card {
+    flex-direction: column;
+    align-items: stretch;
+  }
 
-/* ============================================
-   RESPONSIVE
-   ============================================ */
-
-@media (max-width: 768px) {
-  .page-header {
+  .routes-header-actions,
+  .routes-actions {
     flex-direction: column;
   }
 
-  .page-header .btn {
+  .routes-header-card .btn,
+  .routes-actions .btn {
     width: 100%;
   }
 
-  .orders-stats {
-    grid-template-columns: repeat(2, 1fr);
-  }
-
-  .filter-buttons {
-    flex-wrap: wrap;
-  }
-
-  .orders-table {
-    font-size: 0.85rem;
-  }
-
-  .orders-table th,
-  .orders-table td {
-    padding: 0.75rem;
-  }
-
-  .table-container {
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+  .routes-stats-grid {
+    grid-template-columns: 1fr;
   }
 }

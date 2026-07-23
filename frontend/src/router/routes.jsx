@@ -126,23 +126,23 @@ export const routes = [
     element: <ProtectedRoute element={<DriverRatings />} allowedRoles={APP_ADMIN_ROLES} />
   },
   {
-    path: '/orders',
+    path: '/routes',
     element: <ProtectedRoute element={<OrdersList />} allowedRoles={APP_ADMIN_ROLES} />
   },
   {
-    path: '/orders/create',
+    path: '/routes/create',
     element: <ProtectedRoute element={<OrderCreate />} allowedRoles={APP_ADMIN_ROLES} />
   },
   {
-    path: '/orders/:id',
+    path: '/routes/:id',
     element: <ProtectedRoute element={<OrderDetail />} allowedRoles={APP_ADMIN_ROLES} />
   },
   {
-    path: '/orders/:id/edit',
+    path: '/routes/:id/edit',
     element: <ProtectedRoute element={<OrderEdit />} allowedRoles={APP_ADMIN_ROLES} />
   },
   {
-    path: '/orders/board',
+    path: '/routes/board',
     element: <ProtectedRoute element={<OrdersBoard />} allowedRoles={APP_ADMIN_ROLES} />
   },
   {
@@ -158,7 +158,7 @@ export const routes = [
     element: <ProtectedRoute element={<DriverReports />} allowedRoles={APP_ADMIN_ROLES} />
   },
   {
-    path: '/reports/orders',
+    path: '/reports/routes',
     element: <ProtectedRoute element={<OrderReports />} allowedRoles={APP_ADMIN_ROLES} />
   },
   {

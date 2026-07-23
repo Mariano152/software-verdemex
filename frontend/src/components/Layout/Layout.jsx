@@ -10,7 +10,7 @@ const SECTION_METADATA = [
   { match: '/vehicles', section: 'Vehiculos', caption: 'Gestion de flotilla, documentos y operacion diaria' },
   { match: '/drivers', section: 'Conductores', caption: 'Control de perfiles, desempeno y asignaciones' },
   { match: '/calificar', section: 'Calificar', caption: 'Seguimiento semanal de ratings para todos los conductores' },
-  { match: '/orders', section: 'Pedidos', caption: 'Seguimiento operativo y trazabilidad de entregas' },
+  { match: '/routes', section: 'Rutas', caption: 'Planeacion operativa, asignaciones y entregas programadas' },
   { match: '/analytics', section: 'Analytics', caption: 'Indicadores y visibilidad del negocio' },
   { match: '/users', section: 'Usuarios', caption: 'Administracion de accesos y perfiles internos' },
   { match: '/profile', section: 'Perfil', caption: 'Informacion de cuenta y preferencias' },
@@ -25,7 +25,7 @@ const ADMIN_MENU_ITEMS = [
   { path: '/vehicles', label: 'Vehiculos', icon: '🚚' },
   { path: '/drivers', label: 'Conductores', icon: '👨‍✈️' },
   { path: '/calificar', label: 'Calificar', icon: '📝' },
-  { path: '/orders', label: 'Pedidos', icon: '📦' },
+  { path: '/routes', label: 'Rutas', icon: '🗺️' },
   { path: '/analytics', label: 'Analytics', icon: '📈' },
   { path: '/users', label: 'Usuarios', icon: '👥' }
 ];

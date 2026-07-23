@@ -12,6 +12,7 @@ import maintenanceRoutes from './routes/maintenanceRoutes.js';
 import inventoryRoutes from './routes/inventoryRoutes.js';
 import expedienteRoutes from './routes/expedienteRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
+import routeRoutes from './routes/routeRoutes.js';
 
 dotenv.config();
 
@@ -74,9 +75,7 @@ app.use('/api/maintenance-records', maintenanceRoutes);
 app.use('/api/inventory', inventoryRoutes);
 app.use('/api/expedientes', expedienteRoutes);
 app.use('/api/uploads', uploadRoutes);
-
-// Rutas futuras (RF3+)
-// app.use('/api/orders', ordersRoutes);
+app.use('/api/routes', routeRoutes);
 
 // Error handler (DEBE SER AL FINAL)
 app.use(errorHandler);
