@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getFuelTypeLabel, normalizeFuelType } from '../../constants/fuelTypes';
+import PipasAnalyticsDashboard from '../PipasAnalytics/PipasAnalyticsDashboard';
+import DriverAnalyticsDashboard from '../DriverAnalytics/DriverAnalyticsDashboard';
+import RouteAnalyticsDashboard from '../RouteAnalytics/RouteAnalyticsDashboard';
 import './AnalyticsDashboard.css';
 
 const MONTH_LABELS = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
@@ -1744,6 +1747,54 @@ export default function AnalyticsDashboard() {
               {maintenanceOverviewCards.map((card) => <KpiCard key={card.id} card={card} />)}
             </div>
           </button>
+
+          <button type='button' className='analytics-section-card' onClick={() => setActiveView('pipas')}>
+            <div className='analytics-section-card-top'>
+              <div>
+                <span className='analytics-section-eyebrow'>Sección activa</span>
+                <h3>Pipas e inventario</h3>
+              </div>
+              <span className='analytics-link-chip'>Ver detalle</span>
+            </div>
+            <p className='analytics-section-card-description'>Inventario disponible, compras, precio promedio y comparativo de cargas desde pipa vs. gasolinera.</p>
+          </button>
+
+          <button type='button' className='analytics-section-card' onClick={() => setActiveView('drivers')}>
+            <div className='analytics-section-card-top'>
+              <div>
+                <span className='analytics-section-eyebrow'>Sección activa</span>
+                <h3>Conductores</h3>
+              </div>
+              <span className='analytics-link-chip'>Ver detalle</span>
+            </div>
+            <p className='analytics-section-card-description'>Ratings, litros cargados, gasto y rendimiento de combustible por conductor.</p>
+          </button>
+
+          <button type='button' className='analytics-section-card' onClick={() => setActiveView('routes')}>
+            <div className='analytics-section-card-top'><div><span className='analytics-section-eyebrow'>Sección activa</span><h3>Rutas</h3></div><span className='analytics-link-chip'>Ver detalle</span></div>
+            <p className='analytics-section-card-description'>Cantidad de rutas, valor, metros cúbicos, distancia y desempeño por conductor y trayecto.</p>
+          </button>
+        </div>
+      ) : activeView === 'pipas' ? (
+        <div className='analytics-detail'>
+          <div className='analytics-detail-header'>
+            <div>
+              <button type='button' className='analytics-back-btn' onClick={() => setActiveView('overview')}>
+                Volver al resumen
+              </button>
+            </div>
+          </div>
+          <PipasAnalyticsDashboard />
+        </div>
+      ) : activeView === 'drivers' ? (
+        <div className='analytics-detail'>
+          <div className='analytics-detail-header'><div><button type='button' className='analytics-back-btn' onClick={() => setActiveView('overview')}>Volver al resumen</button></div></div>
+          <DriverAnalyticsDashboard />
+        </div>
+      ) : activeView === 'routes' ? (
+        <div className='analytics-detail'>
+          <div className='analytics-detail-header'><div><button type='button' className='analytics-back-btn' onClick={() => setActiveView('overview')}>Volver al resumen</button></div></div>
+          <RouteAnalyticsDashboard />
         </div>
       ) : activeView === 'gasoline' ? (
         <div className='analytics-detail'>

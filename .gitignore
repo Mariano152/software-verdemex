@@ -1,0 +1,17 @@
+# Local Supabase database backups and archives
+/supabase-database-backup/
+/supabase-database-backup-*.zip
+*.sql
+
+# Environment and database credential files
+.env
+.env.*
+!.env.example
+*.env
+*.pgpass
+pgpass.conf
+*.pem
+*.key
+database-credentials*
+supabase-credentials*
+.supabase-backup-runner.ps1

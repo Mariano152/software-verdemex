@@ -148,6 +148,12 @@
   font-size: 1.8rem;
 }
 
+.analytics-section-card-description {
+  margin: 14px 0 0;
+  color: #607683;
+  line-height: 1.5;
+}
+
 .analytics-link-chip,
 .analytics-back-btn,
 .analytics-primary-btn {
