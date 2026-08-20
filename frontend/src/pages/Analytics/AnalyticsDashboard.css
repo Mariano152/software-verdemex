@@ -682,6 +682,111 @@
   white-space: nowrap;
 }
 
+.analytics-column-chart {
+  position: relative;
+  min-height: 330px;
+  margin-top: 24px;
+  padding: 28px 18px 0 72px;
+  overflow-x: auto;
+}
+
+.analytics-column-grid {
+  position: absolute;
+  inset: 28px 18px 58px 72px;
+  pointer-events: none;
+}
+
+.analytics-column-grid span {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: #dfe8ed;
+}
+
+.analytics-column-grid i {
+  position: absolute;
+  right: calc(100% + 10px);
+  top: -8px;
+  color: #68808a;
+  font-size: 0.72rem;
+  font-style: normal;
+  white-space: nowrap;
+}
+
+.analytics-column-bars {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: stretch;
+  gap: 18px;
+  min-width: max(100%, 520px);
+  height: 274px;
+}
+
+.analytics-column-item {
+  display: grid;
+  grid-template-rows: 24px minmax(180px, 1fr) 22px 18px;
+  flex: 1 0 78px;
+  min-width: 78px;
+  max-width: 150px;
+  gap: 4px;
+  padding: 0 8px;
+  border: 1px solid transparent;
+  border-radius: 14px;
+  background: transparent;
+  color: #173e44;
+  cursor: pointer;
+}
+
+.analytics-column-item:hover,
+.analytics-column-item-active {
+  border-color: #dbe7ee;
+  background: rgba(248, 251, 255, 0.82);
+}
+
+.analytics-column-item strong,
+.analytics-column-item b,
+.analytics-column-item small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.analytics-column-item strong {
+  font-size: 0.82rem;
+}
+
+.analytics-column-item b {
+  font-size: 0.78rem;
+}
+
+.analytics-column-item small {
+  color: #68808a;
+  font-size: 0.7rem;
+}
+
+.analytics-column-track {
+  display: flex;
+  align-items: flex-end;
+  width: min(64px, 80%);
+  height: 100%;
+  margin: 0 auto;
+}
+
+.analytics-column-track i {
+  width: 100%;
+  min-height: 5px;
+  border-radius: 8px 8px 2px 2px;
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.14);
+  transition: height 0.25s ease, filter 0.18s ease;
+}
+
+.analytics-column-item:hover .analytics-column-track i,
+.analytics-column-item-active .analytics-column-track i {
+  filter: saturate(1.2) brightness(0.96);
+}
+
 .analytics-selection-card {
   display: flex;
   flex-direction: column;

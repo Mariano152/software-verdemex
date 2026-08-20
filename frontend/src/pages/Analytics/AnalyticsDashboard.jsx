@@ -243,6 +243,42 @@ const getWeekStart = (date) => {
   return result;
 };
 
+const buildWeeklyEfficiencyRows = (records = []) => {
+  const weeks = new Map();
+  records.forEach((record) => {
+    const parts = parseDateParts(record.fecha_carga);
+    const liters = Number(record.litros || 0);
+    const kilometers = Number(record.kilometros_recorridos || 0);
+    if (!parts || liters <= 0 || kilometers <= 0) return;
+    const weekStart = getWeekStart(buildDateFromParts(parts));
+    const key = toLocalDateString(weekStart);
+    const current = weeks.get(key) || {
+      key,
+      label: `Sem ${String(weekStart.getDate()).padStart(2, '0')} ${MONTH_LABELS[weekStart.getMonth()]}`,
+      rangeLabel: `Semana del ${formatDate(key)}`,
+      totalLiters: 0,
+      totalKm: 0,
+      recordsCount: 0
+    };
+    current.totalLiters += liters;
+    current.totalKm += kilometers;
+    current.recordsCount += 1;
+    weeks.set(key, current);
+  });
+  return Array.from(weeks.values()).sort((a, b) => a.key.localeCompare(b.key)).map((row, index) => ({
+    ...row,
+    averageEfficiency: row.totalLiters > 0 ? row.totalKm / row.totalLiters : 0,
+    color: CHART_PALETTE[index % CHART_PALETTE.length]
+  }));
+};
+
+const normalizeVehicleStatus = (status) => {
+  const normalized = String(status || '').trim().toLowerCase();
+  if (normalized === 'en_mantenimiento' || normalized === 'mantenimiento') return 'mantenimiento';
+  if (normalized === 'inactivo') return 'inactivo';
+  return 'activo';
+};
+
 const getDelta = (currentValue, comparisonValue) => {
   const current = Number(currentValue || 0);
   const comparison = Number(comparisonValue || 0);
@@ -1113,10 +1149,10 @@ const MultiMetricTrendChart = ({
   );
 };
 
-const SimpleBarChart = ({ data, emptyMessage, activeLabel, rowDetail, valueFormatter, activeCards }) => {
+const SimpleBarChart = ({ data, emptyMessage, activeLabel, rowDetail, valueFormatter, activeCards, metricKey = 'totalAmount', recordNoun = 'registros' }) => {
   const [selectedKey, setSelectedKey] = useState(data[0]?.key || null);
   const [hoveredKey, setHoveredKey] = useState(null);
-  const maxAmount = Math.max(...data.map((item) => Number(item.totalAmount || 0)), 0);
+  const maxAmount = Math.max(...data.map((item) => Number(item[metricKey] || 0)), 0);
 
   useEffect(() => {
     setSelectedKey(data[0]?.key || null);
@@ -1137,7 +1173,7 @@ const SimpleBarChart = ({ data, emptyMessage, activeLabel, rowDetail, valueForma
       <div className='analytics-panel-scroll'>
         <div className='analytics-bar-chart'>
           {data.map((item) => {
-            const percentage = maxAmount > 0 ? (Number(item.totalAmount || 0) / maxAmount) * 100 : 0;
+            const percentage = maxAmount > 0 ? (Number(item[metricKey] || 0) / maxAmount) * 100 : 0;
             const isActive = item.key === (hoveredKey || selectedKey);
 
             return (
@@ -1156,7 +1192,7 @@ const SimpleBarChart = ({ data, emptyMessage, activeLabel, rowDetail, valueForma
                 <div className='analytics-bar-track'>
                   <div style={{ width: `${percentage}%`, background: `linear-gradient(90deg, ${item.color || CHART_PALETTE[0]} 0%, rgba(255,255,255,0.9) 160%)` }} />
                 </div>
-                <div className='analytics-bar-value'>{valueFormatter(item.totalAmount)}</div>
+                <div className='analytics-bar-value'>{valueFormatter(item[metricKey])}</div>
               </button>
             );
           })}
@@ -1167,7 +1203,7 @@ const SimpleBarChart = ({ data, emptyMessage, activeLabel, rowDetail, valueForma
         <div>
           <span className='analytics-selection-tag'>{activeLabel}</span>
           <h4>{activeItem.label}</h4>
-          <p>{activeItem.recordsCount} registros dentro del filtro actual.</p>
+          <p>{activeItem.recordsCount} {recordNoun} dentro del filtro actual.</p>
         </div>
         <div className='analytics-selection-metrics'>
           {activeCards(activeItem).map((card) => (
@@ -1182,7 +1218,53 @@ const SimpleBarChart = ({ data, emptyMessage, activeLabel, rowDetail, valueForma
   );
 };
 
-const DonutBreakdown = ({ title, subtitle, rows, emptyMessage, valueFormatter, metricKey = 'totalAmount', dateCaption }) => {
+const VerticalBarChart = ({ data, emptyMessage, valueFormatter, activeCards }) => {
+  const [selectedKey, setSelectedKey] = useState(data[data.length - 1]?.key || null);
+  const [hoveredKey, setHoveredKey] = useState(null);
+  const maxValue = Math.max(...data.map((item) => Number(item.averageEfficiency || 0)), 0);
+
+  useEffect(() => {
+    setSelectedKey(data[data.length - 1]?.key || null);
+  }, [data]);
+
+  if (!data.length) return <div className='analytics-empty-panel'><p>{emptyMessage}</p></div>;
+
+  const activeItem = data.find((item) => item.key === (hoveredKey || selectedKey)) || data[data.length - 1];
+  return (
+    <div className='analytics-chart-with-details'>
+      <div className='analytics-column-chart' role='img' aria-label='Rendimiento promedio por semana'>
+        <div className='analytics-column-grid' aria-hidden='true'>
+          {[1, 0.75, 0.5, 0.25, 0].map((ratio) => (
+            <span key={ratio} style={{ bottom: `${ratio * 100}%` }}><i>{formatNumber(maxValue * ratio)} km/L</i></span>
+          ))}
+        </div>
+        <div className='analytics-column-bars'>
+          {data.map((item) => {
+            const height = maxValue > 0 ? (Number(item.averageEfficiency || 0) / maxValue) * 100 : 0;
+            const isActive = item.key === (hoveredKey || selectedKey);
+            return (
+              <button key={item.key} type='button' className={`analytics-column-item ${isActive ? 'analytics-column-item-active' : ''}`}
+                onMouseEnter={() => setHoveredKey(item.key)} onMouseLeave={() => setHoveredKey(null)} onClick={() => setSelectedKey(item.key)}>
+                <strong>{valueFormatter(item.averageEfficiency)}</strong>
+                <span className='analytics-column-track'><i style={{ height: `${Math.max(height, 3)}%`, background: `linear-gradient(180deg, ${item.color} 0%, ${item.color}aa 100%)` }} /></span>
+                <b>{item.label}</b>
+                <small>{item.recordsCount} carga(s)</small>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+      <div className='analytics-selection-card analytics-selection-card-compact'>
+        <div><span className='analytics-selection-tag'>Semana activa</span><h4>{activeItem.label}</h4><p>{formatNumber(activeItem.totalKm)} km recorridos con {formatNumber(activeItem.totalLiters)} L.</p></div>
+        <div className='analytics-selection-metrics'>
+          {activeCards(activeItem).map((card) => <div key={card.label}><span>{card.label}</span><strong>{card.value}</strong></div>)}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const DonutBreakdown = ({ title, subtitle, rows, emptyMessage, valueFormatter, metricKey = 'totalAmount', dateCaption, recordNoun = 'registro(s)' }) => {
   const [activeKey, setActiveKey] = useState(rows[0]?.key || null);
   const total = rows.reduce((sum, row) => sum + Number(row[metricKey] || 0), 0);
 
@@ -1273,7 +1355,7 @@ const DonutBreakdown = ({ title, subtitle, rows, emptyMessage, valueFormatter, m
               >
                 <span><i style={{ background: row.color }} />{row.label}</span>
                 <strong>{valueFormatter(value)}</strong>
-                <small>{formatNumber(ratio, 1)}% · {row.recordsCount} registro(s)</small>
+                <small>{formatNumber(ratio, 1)}% · {row.recordsCount} {recordNoun}</small>
               </button>
             );
           })}
@@ -1548,6 +1630,10 @@ export default function AnalyticsDashboard() {
     () => gasolineVehicleRows.filter((row) => Number(row.totalLiters || 0) > 0 && Number(row.totalKm || 0) > 0).sort((a, b) => b.averageEfficiency - a.averageEfficiency),
     [gasolineVehicleRows]
   );
+  const gasolineWeeklyEfficiencyRows = useMemo(
+    () => buildWeeklyEfficiencyRows(gasolineDetailRecords),
+    [gasolineDetailRecords]
+  );
 
   const gasolinePrimaryCards = useMemo(
     () => buildGasolinePrimaryCards(gasolineDetailMetrics, gasolineDetailComparison),
@@ -1623,6 +1709,24 @@ export default function AnalyticsDashboard() {
       (record) => record.costo
     ).sort((a, b) => b.totalAmount - a.totalAmount)
   ), [maintenanceDetailRecords]);
+
+  const fleetStatusRows = useMemo(() => ([
+    { key: 'activo', label: 'Activos', color: '#22c55e' },
+    { key: 'mantenimiento', label: 'En mantenimiento', color: '#f59e0b' },
+    { key: 'inactivo', label: 'Inactivos', color: '#64748b' }
+  ].map((definition) => {
+    const count = vehicles.filter((vehicle) => normalizeVehicleStatus(vehicle.estado) === definition.key).length;
+    return { ...definition, totalAmount: count, recordsCount: count };
+  }).filter((row) => row.recordsCount > 0)), [vehicles]);
+
+  const fleetTypeRows = useMemo(() => (
+    aggregateByKey(
+      vehicles,
+      (vehicle) => String(vehicle.tipo_carro || '').trim() || 'Sin tipo',
+      (vehicle) => String(vehicle.tipo_carro || '').trim() || 'Sin tipo',
+      () => 1
+    ).map((row) => ({ ...row, totalAmount: row.recordsCount })).sort((a, b) => b.recordsCount - a.recordsCount)
+  ), [vehicles]);
 
   const maintenancePrimaryCards = useMemo(
     () => buildMaintenancePrimaryCards(maintenanceDetailMetrics, maintenanceDetailComparison),
@@ -1975,6 +2079,28 @@ export default function AnalyticsDashboard() {
             </div>
           </div>
 
+          <div className='analytics-chart-grid analytics-chart-grid-single analytics-order-quaternary'>
+            <div className='analytics-panel analytics-chart-panel analytics-chart-panel-wide'>
+              <div className='analytics-panel-header'>
+                <div>
+                  <h3>Rendimiento promedio por semana</h3>
+                  <p>Promedio ponderado de kilómetros recorridos por cada litro cargado durante cada semana.</p>
+                </div>
+                <span className='analytics-panel-date'>{gasolineDateCaption}</span>
+              </div>
+              <VerticalBarChart
+                data={gasolineWeeklyEfficiencyRows}
+                emptyMessage='No hay datos completos de kilómetros y litros para calcular el rendimiento semanal.'
+                valueFormatter={(value) => `${formatNumber(value)} km/L`}
+                activeCards={(item) => [
+                  { label: 'Rendimiento', value: `${formatNumber(item.averageEfficiency)} km/L` },
+                  { label: 'Kilómetros', value: `${formatNumber(item.totalKm)} km` },
+                  { label: 'Litros', value: `${formatNumber(item.totalLiters)} L` }
+                ]}
+              />
+            </div>
+          </div>
+
           <div className='analytics-chart-grid analytics-order-quaternary'>
             <DonutBreakdown
               title='Distribución del gasto por vehículo'
@@ -2138,6 +2264,27 @@ export default function AnalyticsDashboard() {
           </div>
 
           <SecondaryKpiGrid cards={maintenanceSecondaryCards} />
+
+          <div className='analytics-chart-grid analytics-order-primary'>
+            <DonutBreakdown
+              title='Vehículos por estado'
+              subtitle='Estado operativo actual de toda la flota: activos, inactivos y en mantenimiento.'
+              rows={fleetStatusRows}
+              emptyMessage='No hay vehículos disponibles para mostrar su estado.'
+              valueFormatter={(value) => formatNumber(value, 0)}
+              dateCaption='Estado actual de la flota'
+              recordNoun='vehículo(s)'
+            />
+            <DonutBreakdown
+              title='Vehículos por tipo'
+              subtitle='Participación de Torton, Rabón, Tracto y demás tipos dentro de la flota.'
+              rows={fleetTypeRows}
+              emptyMessage='No hay tipos de vehículo registrados.'
+              valueFormatter={(value) => formatNumber(value, 0)}
+              dateCaption='Flota completa'
+              recordNoun='vehículo(s)'
+            />
+          </div>
 
           <div className='analytics-chart-grid analytics-chart-grid-single analytics-order-primary'>
             <div className='analytics-panel analytics-chart-panel analytics-chart-panel-wide'>
