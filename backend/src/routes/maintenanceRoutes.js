@@ -1,18 +1,18 @@
 import express from 'express';
 import { vehicleController } from '../controllers/vehicleController.js';
-import { verifyToken } from '../middleware/auth.js';
+import { requirePermission, verifyToken } from '../middleware/auth.js';
 import { documentUploadMiddleware } from '../middleware/documentUpload.js';
 
 const router = express.Router();
 
 router.use(verifyToken);
 
-router.get('/', vehicleController.listGlobalMaintenanceRecords);
-router.get('/:maintenanceId', vehicleController.getGlobalMaintenanceRecordById);
-router.post('/', documentUploadMiddleware, vehicleController.createGlobalMaintenanceRecord);
-router.put('/:maintenanceId', documentUploadMiddleware, vehicleController.updateGlobalMaintenanceRecord);
-router.delete('/:maintenanceId', vehicleController.deleteGlobalMaintenanceRecord);
-router.delete('/:maintenanceId/files/:fileId', vehicleController.deleteGlobalMaintenanceFile);
-router.get('/:maintenanceId/download', vehicleController.downloadGlobalMaintenanceFile);
+router.get('/', requirePermission('vehicles.maintenance', 'dashboard.view', 'analytics.view'), vehicleController.listGlobalMaintenanceRecords);
+router.get('/:maintenanceId', requirePermission('vehicles.maintenance'), vehicleController.getGlobalMaintenanceRecordById);
+router.post('/', requirePermission('vehicles.maintenance'), documentUploadMiddleware, vehicleController.createGlobalMaintenanceRecord);
+router.put('/:maintenanceId', requirePermission('vehicles.maintenance'), documentUploadMiddleware, vehicleController.updateGlobalMaintenanceRecord);
+router.delete('/:maintenanceId', requirePermission('vehicles.maintenance'), vehicleController.deleteGlobalMaintenanceRecord);
+router.delete('/:maintenanceId/files/:fileId', requirePermission('vehicles.maintenance'), vehicleController.deleteGlobalMaintenanceFile);
+router.get('/:maintenanceId/download', requirePermission('vehicles.maintenance'), vehicleController.downloadGlobalMaintenanceFile);
 
 export default router;

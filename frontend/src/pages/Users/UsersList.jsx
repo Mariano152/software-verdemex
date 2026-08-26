@@ -44,6 +44,7 @@ export default function UsersList() {
   ), [users, filter]);
 
   const handleEdit = (userId) => {
+    if (users.find((user) => user.id === userId)?.isSuperuser) return;
     navigate(`/users/${userId}/edit`);
   };
 
@@ -116,7 +117,7 @@ export default function UsersList() {
                 {filteredUsers.map((user) => (
                   <tr
                     key={user.id}
-                    className="user-row"
+                    className={`user-row ${user.isSuperuser ? 'user-row-protected' : ''}`}
                     onClick={() => handleEdit(user.id)}
                   >
                     <td>
@@ -139,6 +140,7 @@ export default function UsersList() {
                         <button
                           type="button"
                           className="btn btn-outline"
+                          disabled={user.isSuperuser}
                           onClick={(event) => {
                             event.stopPropagation();
                             handleView(user.id);
@@ -149,12 +151,13 @@ export default function UsersList() {
                         <button
                           type="button"
                           className="btn btn-primary"
+                          disabled={user.isSuperuser}
                           onClick={(event) => {
                             event.stopPropagation();
                             handleEdit(user.id);
                           }}
                         >
-                          Editar
+                          {user.isSuperuser ? 'Protegido' : 'Editar'}
                         </button>
                       </div>
                     </td>

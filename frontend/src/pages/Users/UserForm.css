@@ -157,3 +157,19 @@
     padding: 1.5rem;
   }
 }
+.permission-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 18px;
+}
+
+.permission-heading p { margin: 6px 0 0; color: #6b7280; }
+.permission-all { display: flex; align-items: center; gap: 8px; font-weight: 700; white-space: nowrap; }
+.permission-groups { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-top: 20px; }
+.permission-groups fieldset { display: flex; flex-direction: column; gap: 10px; padding: 16px; border: 1px solid #d9e5df; border-radius: 14px; }
+.permission-groups legend { padding: 0 8px; color: var(--color-primary-dark); font-weight: 700; }
+.permission-option { display: flex; align-items: flex-start; gap: 9px; color: #334155; cursor: pointer; }
+.permission-option input { margin-top: 3px; }
+
+@media (max-width: 640px) { .permission-heading { flex-direction: column; } }

@@ -4,6 +4,10 @@ import { inventoryModel } from '../models/inventoryModel.js';
 import { driverModel } from '../models/driverModel.js';
 import { cloudinaryService } from '../services/cloudinaryService.js';
 import { VALID_FUEL_TYPES, normalizeFuelType } from '../constants/fuelTypes.js';
+import { isSuperuser } from '../config/permissions.js';
+
+const requestHasPermission = (req, permission) => isSuperuser(req.authUser)
+  || (Array.isArray(req.authUser?.permissions) && req.authUser.permissions.includes(permission));
 
 const extractFileList = (document) => {
   if (!document?.archivos_json) {
@@ -24,7 +28,7 @@ const extractFileList = (document) => {
 
 const isRemoteUrl = (value = '') => /^https?:\/\//i.test(value);
 const VALID_VEHICLE_STATES = ['activo', 'inactivo', 'en_mantenimiento'];
-const VALID_VEHICLE_TYPES = ['Torton', 'Tracto', 'Remolque', 'Rabon', 'Pipa', 'Gondola', 'Plataforma'];
+const VALID_VEHICLE_TYPES = ['Torton', 'Tracto', 'Remolque', 'Rabon', 'Pipa', 'Gondola', 'Plataforma', 'Roll Off', 'Vacuum', 'Tanque Diesel', 'Contenedor', 'Maquinaria'];
 const VEHICLE_PHOTO_TYPES = [
   'frente', 'parte_trasera', 'lado_piloto', 'lado_copiloto',
   'senales_y_luces', 'estrobos', 'extintor', 'rotulacion',
@@ -1915,7 +1919,8 @@ export const vehicleController = {
       await inventoryModel.clearPipaFifoConsumption(gasolineId);
 
       res.json({
-        message: 'Registro global de gasolina eliminado correctamente'
+        message: 'Registro global de gasolina eliminado correctamente',
+        deletedRecord: { id: gasolineId, titulo: deletedRecord.titulo, factura: deletedRecord.factura }
       });
 
       await vehicleController.logHistory(req, deletedRecord.vehiculo_id, {
@@ -2375,7 +2380,8 @@ export const vehicleController = {
       }
 
       res.json({
-        message: 'Registro global de mantenimiento eliminado correctamente'
+        message: 'Registro global de mantenimiento eliminado correctamente',
+        deletedRecord: { id: maintenanceId, titulo: deletedRecord.titulo, tipo_mantenimiento: deletedRecord.tipo_mantenimiento }
       });
 
       await vehicleController.logHistory(req, existingRecord.vehiculo_id, {
@@ -2789,6 +2795,7 @@ export const vehicleController = {
       res.json({
         message: 'Vehiculo eliminado correctamente',
         vehicleId: id,
+        deletedVehicle: { id, numero_economico: existingVehicle.numero_economico, placa: existingVehicle.placa, tipo_carro: existingVehicle.tipo_carro },
         summary: deletionResult.summary
       });
     } catch (error) {
@@ -2835,6 +2842,17 @@ export const vehicleController = {
           message: 'Vehículo no encontrado'
         });
       }
+
+      const bodyKeys = Object.keys(req.body || {});
+      const hasBasicIntent = Boolean(req.body.basicInfo) || ['numero_economico', 'tipo_carro', 'propietario_nombre', 'placa', 'numero_serie', 'marca', 'modelo', 'color', 'capacidad_kg', 'descripcion'].some((field) => Object.prototype.hasOwnProperty.call(req.body, field));
+      const hasDocumentIntent = Object.prototype.hasOwnProperty.call(req.body, 'documents');
+      const hasMaintenanceIntent = Object.prototype.hasOwnProperty.call(req.body, 'safetyElements') || Object.prototype.hasOwnProperty.call(req.body, 'estado');
+      const hasPhotoIntent = Boolean(req.files && Object.keys(req.files).length) || Object.prototype.hasOwnProperty.call(req.body, 'deletedPhotos') || bodyKeys.some((field) => field.startsWith('descripcion_'));
+
+      if (hasBasicIntent && !requestHasPermission(req, 'vehicles.edit')) return res.status(403).json({ error: 'Insufficient permissions', permission: 'vehicles.edit' });
+      if (hasDocumentIntent && !requestHasPermission(req, 'vehicles.documents')) return res.status(403).json({ error: 'Insufficient permissions', permission: 'vehicles.documents' });
+      if (hasMaintenanceIntent && !requestHasPermission(req, 'vehicles.maintenance')) return res.status(403).json({ error: 'Insufficient permissions', permission: 'vehicles.maintenance' });
+      if (hasPhotoIntent && !requestHasPermission(req, 'vehicles.photos')) return res.status(403).json({ error: 'Insufficient permissions', permission: 'vehicles.photos' });
 
       // Parsear datos que vienen en FormData
       let basicInfo = {};

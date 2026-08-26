@@ -174,13 +174,15 @@ export const routeController = {
 
   async deleteRoute(req, res) {
     try {
+      const existingRoute = await routeModel.getRouteById(req.params.id);
+      if (!existingRoute) return res.status(404).json({ message: 'Ruta no encontrada' });
       const deletedRoute = await routeModel.deleteRoute(req.params.id);
 
       if (!deletedRoute) {
         return res.status(404).json({ message: 'Ruta no encontrada' });
       }
 
-      res.json({ message: 'Ruta eliminada correctamente' });
+      res.json({ message: 'Ruta eliminada correctamente', deletedRoute: { id: deletedRoute.id, descripcion: existingRoute.descripcion, origen: existingRoute.origen, destino: existingRoute.destino } });
     } catch (error) {
       console.error('Error eliminando ruta:', error);
       res.status(500).json({

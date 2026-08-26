@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { userModel } from '../models/userModel.js';
 import { driverModel } from '../models/driverModel.js';
 import { vehicleModel } from '../models/vehicleModel.js';
+import { isSuperuser } from '../config/permissions.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 const JWT_EXPIRY = process.env.JWT_EXPIRY || '7d';
@@ -15,7 +16,9 @@ const buildAuthUser = (user) => ({
   lastName: user.last_name,
   name: `${user.first_name || ''} ${user.last_name || ''}`.trim(),
   role: user.role,
-  driverId: user.driver_id || null
+  driverId: user.driver_id || null,
+  permissions: isSuperuser(user) ? 'all' : (user.permissions || []),
+  isSuperuser: isSuperuser(user)
 });
 
 const buildToken = (user) => jwt.sign(
@@ -24,7 +27,9 @@ const buildToken = (user) => jwt.sign(
     email: user.email,
     username: user.username,
     role: user.role,
-    driverId: user.driver_id || null
+    driverId: user.driver_id || null,
+    permissions: isSuperuser(user) ? 'all' : (user.permissions || []),
+    isSuperuser: isSuperuser(user)
   },
   JWT_SECRET,
   { expiresIn: JWT_EXPIRY }

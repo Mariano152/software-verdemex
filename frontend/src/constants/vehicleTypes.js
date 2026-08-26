@@ -5,5 +5,10 @@ export const VEHICLE_TYPE_OPTIONS = [
   'Rabon',
   'Pipa',
   'Gondola',
-  'Plataforma'
+  'Plataforma',
+  'Roll Off',
+  'Vacuum',
+  'Tanque Diesel',
+  'Contenedor',
+  'Maquinaria'
 ];

@@ -3,7 +3,7 @@ import { useAuth } from '../../hooks/useAuth';
 import Layout from '../Layout/Layout';
 import { Placeholder } from '../Placeholder/Placeholder';
 
-export function ProtectedRoute({ element, allowedRoles = null }) {
+export function ProtectedRoute({ element, allowedRoles = null, requiredPermission = null }) {
   const { isAuthenticated, loadingAuth, user } = useAuth();
 
   if (loadingAuth) {
@@ -15,6 +15,11 @@ export function ProtectedRoute({ element, allowedRoles = null }) {
   }
 
   if (Array.isArray(allowedRoles) && allowedRoles.length > 0 && !allowedRoles.includes(user?.role)) {
+    return <Navigate to="/unauthorized" replace />;
+  }
+
+  const requiredPermissions = Array.isArray(requiredPermission) ? requiredPermission : [requiredPermission].filter(Boolean);
+  if (requiredPermissions.length && user?.permissions !== 'all' && !requiredPermissions.some((permission) => user?.permissions?.includes(permission))) {
     return <Navigate to="/unauthorized" replace />;
   }
 

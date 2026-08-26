@@ -1,6 +1,7 @@
 import bcrypt from 'bcrypt';
 import { userModel } from '../models/userModel.js';
 import { driverModel } from '../models/driverModel.js';
+import { isSuperuser, sanitizePermissions } from '../config/permissions.js';
 
 const normalizeText = (value) => String(value || '').trim();
 const normalizeLower = (value) => normalizeText(value).toLowerCase();
@@ -12,7 +13,8 @@ const buildUserPayload = (body = {}) => ({
   username: normalizeLower(body.username),
   role: normalizeLower(body.role || 'operador'),
   password: normalizeText(body.password),
-  driverId: normalizeText(body.driverId) || null
+  driverId: normalizeText(body.driverId) || null,
+  permissions: sanitizePermissions(body.permissions)
 });
 
 const formatUser = (user) => ({
@@ -26,7 +28,9 @@ const formatUser = (user) => ({
   driverId: user.driver_id || null,
   driverName: user.driver_name || null,
   createdAt: user.created_at,
-  updatedAt: user.updated_at
+  updatedAt: user.updated_at,
+  permissions: isSuperuser(user) ? 'all' : (user.permissions || []),
+  isSuperuser: isSuperuser(user)
 });
 
 const validateUserPayload = async (payload, userId = null) => {
@@ -101,7 +105,8 @@ export const userController = {
         lastName: payload.lastName,
         hashedPassword,
         role: payload.role,
-        driverId: payload.role === 'conductor' ? payload.driverId : null
+        driverId: payload.role === 'conductor' ? payload.driverId : null,
+        permissions: payload.role === 'admin' ? payload.permissions : []
       });
 
       res.status(201).json({
@@ -121,6 +126,10 @@ export const userController = {
 
       if (!existingUser) {
         return res.status(404).json({ message: 'Usuario no encontrado' });
+      }
+
+      if (isSuperuser(existingUser)) {
+        return res.status(403).json({ message: 'El superusuario principal no puede ser modificado' });
       }
 
       const payload = buildUserPayload(req.body);
@@ -144,7 +153,8 @@ export const userController = {
         lastName: payload.lastName,
         role: payload.role,
         driverId: payload.role === 'conductor' ? payload.driverId : null,
-        hashedPassword
+        hashedPassword,
+        permissions: payload.role === 'admin' ? payload.permissions : []
       });
 
       res.json({
@@ -154,6 +164,20 @@ export const userController = {
     } catch (error) {
       console.error('Error actualizando usuario:', error);
       res.status(500).json({ message: 'Error al actualizar usuario', error: error.message });
+    }
+  },
+
+  async deleteUser(req, res) {
+    try {
+      const user = await userModel.findById(req.params.id);
+      if (!user) return res.status(404).json({ message: 'Usuario no encontrado' });
+      if (isSuperuser(user)) return res.status(403).json({ message: 'El superusuario principal no puede ser eliminado' });
+      if (String(user.id) === String(req.user.id)) return res.status(400).json({ message: 'No puedes eliminar tu propia cuenta' });
+      await userModel.softDelete(user.id);
+      res.json({ message: 'Usuario eliminado correctamente', deletedUser: { id: user.id, username: user.username, name: `${user.first_name || ''} ${user.last_name || ''}`.trim() } });
+    } catch (error) {
+      console.error('Error eliminando usuario:', error);
+      res.status(500).json({ message: 'Error al eliminar usuario', error: error.message });
     }
   }
 };

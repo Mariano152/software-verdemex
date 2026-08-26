@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { fetchDrivers } from '../Drivers/driverApi';
 import { createUser } from './userApi';
 import './UserForm.css';
+import { PermissionSelector } from './permissions.js';
 
 const EMPTY_FORM = {
   firstName: '',
@@ -12,7 +13,8 @@ const EMPTY_FORM = {
   role: 'conductor',
   driverId: '',
   password: '',
-  confirmPassword: ''
+  confirmPassword: '',
+  permissions: []
 };
 
 export default function UserCreate() {
@@ -62,7 +64,8 @@ export default function UserCreate() {
         username: formData.username,
         role: formData.role,
         driverId: formData.role === 'conductor' ? formData.driverId : null,
-        password: formData.password
+        password: formData.password,
+        permissions: formData.role === 'admin' ? formData.permissions : []
       });
       navigate('/users');
     } catch (saveError) {
@@ -110,6 +113,8 @@ export default function UserCreate() {
             </div>
           </div>
         </section>
+
+        {formData.role === 'admin' ? <PermissionSelector value={formData.permissions} onChange={(permissions) => setFormData((current) => ({ ...current, permissions }))} /> : null}
 
         <section className="form-section">
           <h3>Configuracion de Acceso</h3>

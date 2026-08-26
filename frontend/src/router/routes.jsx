@@ -38,6 +38,7 @@ import UsersList from '../pages/Users/UsersList';
 import UserCreate from '../pages/Users/UserCreate';
 import UserEdit from '../pages/Users/UserEdit';
 import Profile from '../pages/Users/Profile';
+import AuditLogDashboard from '../pages/Notifications/AuditLogDashboard';
 
 import NotFound from '../pages/Errors/NotFound';
 import Unauthorized from '../pages/Errors/Unauthorized';
@@ -51,35 +52,35 @@ export const routes = [
   },
   {
     path: '/dashboard',
-    element: <ProtectedRoute element={<Dashboard />} allowedRoles={APP_ADMIN_ROLES} />
+    element: <ProtectedRoute element={<Dashboard />} allowedRoles={APP_ADMIN_ROLES} requiredPermission='dashboard.view' />
   },
   {
     path: '/gasoline',
-    element: <ProtectedRoute element={<GasolineDashboard />} allowedRoles={APP_ADMIN_ROLES} />
+    element: <ProtectedRoute element={<GasolineDashboard />} allowedRoles={APP_ADMIN_ROLES} requiredPermission='gasoline.view' />
   },
   {
     path: '/inventory',
-    element: <ProtectedRoute element={<InventoryDashboard />} allowedRoles={APP_ADMIN_ROLES} />
+    element: <ProtectedRoute element={<InventoryDashboard />} allowedRoles={APP_ADMIN_ROLES} requiredPermission='inventory.view' />
   },
   {
     path: '/maintenance',
-    element: <ProtectedRoute element={<MaintenanceDashboard />} allowedRoles={APP_ADMIN_ROLES} />
+    element: <ProtectedRoute element={<MaintenanceDashboard />} allowedRoles={APP_ADMIN_ROLES} requiredPermission='vehicles.maintenance' />
   },
   {
     path: '/vehicles',
-    element: <ProtectedRoute element={<VehiclesList />} allowedRoles={APP_ADMIN_ROLES} />
+    element: <ProtectedRoute element={<VehiclesList />} allowedRoles={APP_ADMIN_ROLES} requiredPermission='vehicles.view' />
   },
   {
     path: '/vehicles/create',
-    element: <ProtectedRoute element={<VehicleCreate />} allowedRoles={APP_ADMIN_ROLES} />
+    element: <ProtectedRoute element={<VehicleCreate />} allowedRoles={APP_ADMIN_ROLES} requiredPermission='vehicles.create' />
   },
   {
     path: '/vehicles/:id',
-    element: <ProtectedRoute element={<VehicleDetail />} allowedRoles={APP_ADMIN_ROLES} />
+    element: <ProtectedRoute element={<VehicleDetail />} allowedRoles={APP_ADMIN_ROLES} requiredPermission='vehicles.view' />
   },
   {
     path: '/vehicles/:id/edit',
-    element: <ProtectedRoute element={<VehicleEdit />} allowedRoles={APP_ADMIN_ROLES} />
+    element: <ProtectedRoute element={<VehicleEdit />} allowedRoles={APP_ADMIN_ROLES} requiredPermission={['vehicles.edit', 'vehicles.parameters', 'vehicles.maintenance', 'vehicles.photos', 'vehicles.documents', 'gasoline.manage']} />
   },
   {
     path: '/vehicles/:id/file',
@@ -99,23 +100,23 @@ export const routes = [
   },
   {
     path: '/drivers',
-    element: <ProtectedRoute element={<DriversList />} allowedRoles={APP_ADMIN_ROLES} />
+    element: <ProtectedRoute element={<DriversList />} allowedRoles={APP_ADMIN_ROLES} requiredPermission='drivers.view' />
   },
   {
     path: '/calificar',
-    element: <ProtectedRoute element={<DriverGlobalRatingPage />} allowedRoles={APP_ADMIN_ROLES} />
+    element: <ProtectedRoute element={<DriverGlobalRatingPage />} allowedRoles={APP_ADMIN_ROLES} requiredPermission='drivers.rate' />
   },
   {
     path: '/drivers/create',
-    element: <ProtectedRoute element={<DriverCreate />} allowedRoles={APP_ADMIN_ROLES} />
+    element: <ProtectedRoute element={<DriverCreate />} allowedRoles={APP_ADMIN_ROLES} requiredPermission='drivers.manage' />
   },
   {
     path: '/drivers/:id',
-    element: <ProtectedRoute element={<DriverDetail />} allowedRoles={APP_ADMIN_ROLES} />
+    element: <ProtectedRoute element={<DriverDetail />} allowedRoles={APP_ADMIN_ROLES} requiredPermission='drivers.view' />
   },
   {
     path: '/drivers/:id/edit',
-    element: <ProtectedRoute element={<DriverEdit />} allowedRoles={APP_ADMIN_ROLES} />
+    element: <ProtectedRoute element={<DriverEdit />} allowedRoles={APP_ADMIN_ROLES} requiredPermission='drivers.manage' />
   },
   {
     path: '/drivers/:id/assignments',
@@ -127,19 +128,19 @@ export const routes = [
   },
   {
     path: '/routes',
-    element: <ProtectedRoute element={<OrdersList />} allowedRoles={APP_ADMIN_ROLES} />
+    element: <ProtectedRoute element={<OrdersList />} allowedRoles={APP_ADMIN_ROLES} requiredPermission='routes.view' />
   },
   {
     path: '/routes/create',
-    element: <ProtectedRoute element={<OrderCreate />} allowedRoles={APP_ADMIN_ROLES} />
+    element: <ProtectedRoute element={<OrderCreate />} allowedRoles={APP_ADMIN_ROLES} requiredPermission='routes.manage' />
   },
   {
     path: '/routes/:id',
-    element: <ProtectedRoute element={<OrderDetail />} allowedRoles={APP_ADMIN_ROLES} />
+    element: <ProtectedRoute element={<OrderDetail />} allowedRoles={APP_ADMIN_ROLES} requiredPermission='routes.view' />
   },
   {
     path: '/routes/:id/edit',
-    element: <ProtectedRoute element={<OrderEdit />} allowedRoles={APP_ADMIN_ROLES} />
+    element: <ProtectedRoute element={<OrderEdit />} allowedRoles={APP_ADMIN_ROLES} requiredPermission='routes.manage' />
   },
   {
     path: '/routes/board',
@@ -147,7 +148,7 @@ export const routes = [
   },
   {
     path: '/analytics',
-    element: <ProtectedRoute element={<AnalyticsDashboard />} allowedRoles={APP_ADMIN_ROLES} />
+    element: <ProtectedRoute element={<AnalyticsDashboard />} allowedRoles={APP_ADMIN_ROLES} requiredPermission='analytics.view' />
   },
   {
     path: '/reports/vehicles',
@@ -163,15 +164,19 @@ export const routes = [
   },
   {
     path: '/users',
-    element: <ProtectedRoute element={<UsersList />} allowedRoles={['admin']} />
+    element: <ProtectedRoute element={<UsersList />} allowedRoles={['admin']} requiredPermission='users.manage' />
+  },
+  {
+    path: '/notifications',
+    element: <ProtectedRoute element={<AuditLogDashboard />} allowedRoles={['admin']} requiredPermission='notifications.view' />
   },
   {
     path: '/users/create',
-    element: <ProtectedRoute element={<UserCreate />} allowedRoles={['admin']} />
+    element: <ProtectedRoute element={<UserCreate />} allowedRoles={['admin']} requiredPermission='users.manage' />
   },
   {
     path: '/users/:id/edit',
-    element: <ProtectedRoute element={<UserEdit />} allowedRoles={['admin']} />
+    element: <ProtectedRoute element={<UserEdit />} allowedRoles={['admin']} requiredPermission='users.manage' />
   },
   {
     path: '/profile',

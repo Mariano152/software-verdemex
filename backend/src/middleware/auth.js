@@ -1,4 +1,6 @@
 import jwt from 'jsonwebtoken';
+import { userModel } from '../models/userModel.js';
+import { isSuperuser } from '../config/permissions.js';
 
 export const verifyToken = (req, res, next) => {
   const authHeaderToken = req.headers.authorization?.split(' ')[1];
@@ -45,4 +47,20 @@ export const requireRole = (...allowedRoles) => (req, res, next) => {
   }
 
   next();
+};
+
+export const requirePermission = (...permissions) => async (req, res, next) => {
+  try {
+    if (!req.user) return res.status(401).json({ error: 'Not authenticated' });
+    const user = await userModel.findById(req.user.id);
+    if (!user) return res.status(401).json({ error: 'User not found' });
+    req.authUser = user;
+    if (isSuperuser(user)) return next();
+    if (user.role !== 'admin' || !Array.isArray(user.permissions) || !permissions.some((permission) => user.permissions.includes(permission))) {
+      return res.status(403).json({ error: 'Insufficient permissions', permissions });
+    }
+    next();
+  } catch (error) {
+    next(error);
+  }
 };

@@ -194,3 +194,7 @@
     width: 100%;
   }
 }
+.user-row-protected {
+  background: #f8faf5;
+  cursor: default;
+}

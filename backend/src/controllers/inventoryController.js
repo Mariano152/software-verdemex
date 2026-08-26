@@ -278,7 +278,8 @@ export const inventoryController = {
       }
 
       res.json({
-        message: 'Pipa eliminada correctamente'
+        message: 'Pipa eliminada correctamente',
+        deletedPipa: { id: deletedPipa.id, nombre: deletedPipa.nombre }
       });
     } catch (error) {
       if (error.code === '42P01') {

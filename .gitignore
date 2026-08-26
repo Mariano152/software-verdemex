@@ -2,6 +2,7 @@
 /supabase-database-backup/
 /supabase-database-backup-*.zip
 *.sql
+!backend/src/migrations/*.sql
 
 # Environment and database credential files
 .env

@@ -13,6 +13,8 @@ import inventoryRoutes from './routes/inventoryRoutes.js';
 import expedienteRoutes from './routes/expedienteRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
 import routeRoutes from './routes/routeRoutes.js';
+import auditLogRoutes from './routes/auditLogRoutes.js';
+import { auditLogger } from './middleware/auditLogger.js';
 
 dotenv.config();
 
@@ -55,6 +57,7 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(logRequest);
+app.use(auditLogger);
 
 // Health check
 app.get('/health', (req, res) => {
@@ -76,6 +79,7 @@ app.use('/api/inventory', inventoryRoutes);
 app.use('/api/expedientes', expedienteRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/routes', routeRoutes);
+app.use('/api/audit-logs', auditLogRoutes);
 
 // Error handler (DEBE SER AL FINAL)
 app.use(errorHandler);

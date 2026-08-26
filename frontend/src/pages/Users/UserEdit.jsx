@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { fetchDrivers } from '../Drivers/driverApi';
 import { fetchUserById, updateUser } from './userApi';
 import './UserForm.css';
+import { PermissionSelector } from './permissions.js';
 
 const EMPTY_FORM = {
   firstName: '',
@@ -11,7 +12,8 @@ const EMPTY_FORM = {
   username: '',
   role: 'conductor',
   driverId: '',
-  password: ''
+  password: '',
+  permissions: []
 };
 
 export default function UserEdit() {
@@ -39,7 +41,8 @@ export default function UserEdit() {
           username: user.username || '',
           role: user.role || 'conductor',
           driverId: user.driverId || '',
-          password: ''
+          password: '',
+          permissions: Array.isArray(user.permissions) ? user.permissions : []
         });
         setDrivers(driverOptions);
       } catch (loadError) {
@@ -74,7 +77,8 @@ export default function UserEdit() {
         username: formData.username,
         role: formData.role,
         driverId: formData.role === 'conductor' ? formData.driverId : null,
-        password: formData.password || undefined
+        password: formData.password || undefined,
+        permissions: formData.role === 'admin' ? formData.permissions : []
       });
       navigate('/users');
     } catch (saveError) {
@@ -126,6 +130,8 @@ export default function UserEdit() {
             </div>
           </div>
         </section>
+
+        {formData.role === 'admin' ? <PermissionSelector value={formData.permissions} onChange={(permissions) => setFormData((current) => ({ ...current, permissions }))} /> : null}
 
         <section className="form-section">
           <h3>Configuracion de Acceso</h3>

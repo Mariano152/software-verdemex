@@ -787,6 +787,130 @@
   filter: saturate(1.2) brightness(0.96);
 }
 
+.fleet-status-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  margin-top: 22px;
+}
+
+.fleet-status-legend {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 14px 24px;
+}
+
+.fleet-status-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: #38545c;
+  font-size: 0.86rem;
+  font-weight: 700;
+}
+
+.fleet-status-legend i {
+  width: 13px;
+  height: 13px;
+  border-radius: 3px;
+}
+
+.fleet-status-scroll {
+  position: relative;
+  min-height: 310px;
+  padding: 18px 12px 0 42px;
+  overflow-x: auto;
+}
+
+.fleet-status-grid {
+  position: absolute;
+  inset: 18px 12px 58px 42px;
+  pointer-events: none;
+}
+
+.fleet-status-grid > span {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: #dfe8ed;
+}
+
+.fleet-status-grid > span > i {
+  position: absolute;
+  right: calc(100% + 8px);
+  top: -8px;
+  color: #71858e;
+  font-size: 0.7rem;
+  font-style: normal;
+}
+
+.fleet-status-bars {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: flex-end;
+  gap: 18px;
+  min-width: max(100%, 620px);
+  height: 270px;
+}
+
+.fleet-status-column {
+  display: grid;
+  grid-template-rows: 22px minmax(190px, 1fr) 46px;
+  align-items: end;
+  justify-items: center;
+  flex: 1 0 74px;
+  min-width: 74px;
+  max-width: 125px;
+  height: 100%;
+}
+
+.fleet-status-total {
+  align-self: center;
+  color: #173e44;
+  font-size: 0.82rem;
+}
+
+.fleet-status-track {
+  display: flex;
+  flex-direction: column-reverse;
+  align-self: end;
+  width: min(64px, 78%);
+  min-height: 8px;
+  overflow: hidden;
+  border-radius: 7px 7px 2px 2px;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.1);
+}
+
+.fleet-status-segment {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 18px;
+  color: #ffffff;
+  font-size: 0.78rem;
+  font-weight: 800;
+  transition: filter 0.18s ease;
+}
+
+.fleet-status-segment:hover {
+  filter: brightness(0.9) saturate(1.15);
+}
+
+.fleet-status-column > b {
+  align-self: start;
+  width: 100%;
+  padding-top: 8px;
+  overflow: hidden;
+  color: #49636c;
+  font-size: 0.72rem;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .analytics-selection-card {
   display: flex;
   flex-direction: column;

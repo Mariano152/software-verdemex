@@ -3,7 +3,7 @@ import { query } from '../config/database.js';
 export const userModel = {
   async findByIdentifier(identifier) {
     const result = await query(
-      `SELECT id, email, username, first_name, last_name, password, role, driver_id, created_at
+      `SELECT id, email, username, first_name, last_name, password, role, driver_id, permissions, created_at
        FROM users
        WHERE (LOWER(email) = LOWER($1) OR LOWER(username) = LOWER($1))
          AND deleted_at IS NULL`,
@@ -14,7 +14,7 @@ export const userModel = {
 
   async findByEmail(email) {
     const result = await query(
-      `SELECT id, email, username, first_name, last_name, password, role, driver_id, created_at
+      `SELECT id, email, username, first_name, last_name, password, role, driver_id, permissions, created_at
        FROM users
        WHERE LOWER(email) = LOWER($1)
          AND deleted_at IS NULL`,
@@ -25,7 +25,7 @@ export const userModel = {
 
   async findByUsername(username) {
     const result = await query(
-      `SELECT id, email, username, first_name, last_name, password, role, driver_id, created_at
+      `SELECT id, email, username, first_name, last_name, password, role, driver_id, permissions, created_at
        FROM users
        WHERE LOWER(username) = LOWER($1)
          AND deleted_at IS NULL`,
@@ -44,6 +44,7 @@ export const userModel = {
          u.last_name,
          u.role,
          u.driver_id,
+         u.permissions,
          u.created_at,
          u.updated_at,
          d.nombre AS driver_name
@@ -68,6 +69,7 @@ export const userModel = {
          u.last_name,
          u.role,
          u.driver_id,
+         u.permissions,
          u.created_at,
          u.updated_at,
          d.nombre AS driver_name
@@ -81,17 +83,17 @@ export const userModel = {
     return result.rows;
   },
 
-  async create({ email, username, firstName, lastName, hashedPassword, role, driverId = null }) {
+  async create({ email, username, firstName, lastName, hashedPassword, role, driverId = null, permissions = [] }) {
     const result = await query(
-      `INSERT INTO users (email, username, first_name, last_name, password, role, driver_id, created_at, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
-       RETURNING id, email, username, first_name, last_name, role, driver_id, created_at`,
-      [email, username, firstName, lastName, hashedPassword, role, driverId]
+      `INSERT INTO users (email, username, first_name, last_name, password, role, driver_id, permissions, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, NOW(), NOW())
+       RETURNING id, email, username, first_name, last_name, role, driver_id, permissions, created_at`,
+      [email, username, firstName, lastName, hashedPassword, role, driverId, JSON.stringify(permissions)]
     );
     return result.rows[0];
   },
 
-  async update(userId, { email, username, firstName, lastName, role, driverId = null, hashedPassword = null }) {
+  async update(userId, { email, username, firstName, lastName, role, driverId = null, hashedPassword = null, permissions = [] }) {
     const result = await query(
       `UPDATE users
        SET email = $1,
@@ -101,11 +103,12 @@ export const userModel = {
            role = $5,
            driver_id = $6,
            password = COALESCE($7, password),
+           permissions = $8::jsonb,
            updated_at = NOW()
-       WHERE id = $8
+       WHERE id = $9
          AND deleted_at IS NULL
-       RETURNING id, email, username, first_name, last_name, role, driver_id, created_at, updated_at`,
-      [email, username, firstName, lastName, role, driverId, hashedPassword, userId]
+       RETURNING id, email, username, first_name, last_name, role, driver_id, permissions, created_at, updated_at`,
+      [email, username, firstName, lastName, role, driverId, hashedPassword, JSON.stringify(permissions), userId]
     );
     return result.rows[0] || null;
   },

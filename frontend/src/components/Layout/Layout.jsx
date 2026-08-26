@@ -13,6 +13,7 @@ const SECTION_METADATA = [
   { match: '/routes', section: 'Rutas', caption: 'Planeacion operativa, asignaciones y entregas programadas' },
   { match: '/analytics', section: 'Analytics', caption: 'Indicadores y visibilidad del negocio' },
   { match: '/users', section: 'Usuarios', caption: 'Administracion de accesos y perfiles internos' },
+  { match: '/notifications', section: 'Notificaciones', caption: 'Trazabilidad completa de movimientos del sistema' },
   { match: '/profile', section: 'Perfil', caption: 'Informacion de cuenta y preferencias' },
   { match: '/dashboard', section: 'Dashboard', caption: 'Resumen ejecutivo del sistema' }
 ];
@@ -27,12 +28,20 @@ const ADMIN_MENU_ITEMS = [
   { path: '/calificar', label: 'Calificar', icon: '📝' },
   { path: '/routes', label: 'Rutas', icon: '🗺️' },
   { path: '/analytics', label: 'Analytics', icon: '📈' },
-  { path: '/users', label: 'Usuarios', icon: '👥' }
+  { path: '/users', label: 'Usuarios', icon: '👥' },
+  { path: '/notifications', label: 'Notificaciones', icon: '🔔' }
 ];
 
 const DRIVER_MENU_ITEMS = [
   { path: '/profile', label: 'Mi portal', icon: '👤' }
 ];
+
+const MENU_PERMISSIONS = {
+  '/dashboard': 'dashboard.view', '/gasoline': 'gasoline.view', '/inventory': 'inventory.view',
+  '/maintenance': 'vehicles.maintenance', '/vehicles': 'vehicles.view', '/drivers': 'drivers.view',
+  '/calificar': 'drivers.rate', '/routes': 'routes.view', '/analytics': 'analytics.view', '/users': 'users.manage',
+  '/notifications': 'notifications.view'
+};
 
 export default function Layout({ children }) {
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -46,7 +55,7 @@ export default function Layout({ children }) {
   };
 
   const menuItems = (user?.role === 'conductor' ? DRIVER_MENU_ITEMS : ADMIN_MENU_ITEMS)
-    .filter((item) => (item.path === '/users' ? user?.role === 'admin' : true));
+    .filter((item) => !MENU_PERMISSIONS[item.path] || user?.permissions === 'all' || user?.permissions?.includes(MENU_PERMISSIONS[item.path]));
 
   const currentSection = SECTION_METADATA.find(({ match }) => location.pathname.startsWith(match)) || {
     section: 'Panel',

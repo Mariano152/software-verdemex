@@ -1264,6 +1264,43 @@ const VerticalBarChart = ({ data, emptyMessage, valueFormatter, activeCards }) =
   );
 };
 
+const FleetTypeStatusChart = ({ data }) => {
+  const statusOptions = [
+    { key: 'activo', label: 'Activo', color: '#22c55e' },
+    { key: 'mantenimiento', label: 'En mantenimiento', color: '#f59e0b' },
+    { key: 'inactivo', label: 'Inactivo', color: '#ef4444' }
+  ];
+  const maxTotal = Math.max(...data.map((item) => item.total), 1);
+
+  if (!data.length) return <div className='analytics-empty-panel'><p>No hay tipos o estados de vehículo registrados.</p></div>;
+
+  return (
+    <div className='fleet-status-chart'>
+      <div className='fleet-status-legend'>
+        {statusOptions.map((status) => <span key={status.key}><i style={{ background: status.color }} />{status.label}</span>)}
+      </div>
+      <div className='fleet-status-scroll'>
+        <div className='fleet-status-grid' aria-hidden='true'>{[0, 0.25, 0.5, 0.75, 1].map((ratio) => <span key={ratio} style={{ bottom: `${ratio * 100}%` }}><i>{formatNumber(maxTotal * ratio, 0)}</i></span>)}</div>
+        <div className='fleet-status-bars'>
+          {data.map((item) => (
+            <div key={item.type} className='fleet-status-column'>
+              <strong className='fleet-status-total'>{item.total}</strong>
+              <div className='fleet-status-track' style={{ height: `${Math.max((item.total / maxTotal) * 100, 4)}%` }}>
+                {statusOptions.map((status) => item[status.key] > 0 ? (
+                  <div key={status.key} className='fleet-status-segment' style={{ height: `${(item[status.key] / item.total) * 100}%`, background: status.color }} title={`${item.type} · ${status.label}: ${item[status.key]}`}>
+                    <span>{item[status.key]}</span>
+                  </div>
+                ) : null)}
+              </div>
+              <b title={item.type}>{item.type}</b>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const DonutBreakdown = ({ title, subtitle, rows, emptyMessage, valueFormatter, metricKey = 'totalAmount', dateCaption, recordNoun = 'registro(s)' }) => {
   const [activeKey, setActiveKey] = useState(rows[0]?.key || null);
   const total = rows.reduce((sum, row) => sum + Number(row[metricKey] || 0), 0);
@@ -1719,14 +1756,16 @@ export default function AnalyticsDashboard() {
     return { ...definition, totalAmount: count, recordsCount: count };
   }).filter((row) => row.recordsCount > 0)), [vehicles]);
 
-  const fleetTypeRows = useMemo(() => (
-    aggregateByKey(
-      vehicles,
-      (vehicle) => String(vehicle.tipo_carro || '').trim() || 'Sin tipo',
-      (vehicle) => String(vehicle.tipo_carro || '').trim() || 'Sin tipo',
-      () => 1
-    ).map((row) => ({ ...row, totalAmount: row.recordsCount })).sort((a, b) => b.recordsCount - a.recordsCount)
-  ), [vehicles]);
+  const fleetTypeStatusData = useMemo(() => {
+    const types = Array.from(new Set(vehicles.map((vehicle) => String(vehicle.tipo_carro || '').trim() || 'Sin tipo'))).sort((a, b) => a.localeCompare(b, 'es'));
+    return types.map((type) => {
+      const typeVehicles = vehicles.filter((vehicle) => (String(vehicle.tipo_carro || '').trim() || 'Sin tipo') === type);
+      const activo = typeVehicles.filter((vehicle) => normalizeVehicleStatus(vehicle.estado) === 'activo').length;
+      const mantenimiento = typeVehicles.filter((vehicle) => normalizeVehicleStatus(vehicle.estado) === 'mantenimiento').length;
+      const inactivo = typeVehicles.filter((vehicle) => normalizeVehicleStatus(vehicle.estado) === 'inactivo').length;
+      return { type, activo, mantenimiento, inactivo, total: typeVehicles.length };
+    }).filter((row) => row.total > 0);
+  }, [vehicles]);
 
   const maintenancePrimaryCards = useMemo(
     () => buildMaintenancePrimaryCards(maintenanceDetailMetrics, maintenanceDetailComparison),
@@ -2275,15 +2314,10 @@ export default function AnalyticsDashboard() {
               dateCaption='Estado actual de la flota'
               recordNoun='vehículo(s)'
             />
-            <DonutBreakdown
-              title='Vehículos por tipo'
-              subtitle='Participación de Torton, Rabón, Tracto y demás tipos dentro de la flota.'
-              rows={fleetTypeRows}
-              emptyMessage='No hay tipos de vehículo registrados.'
-              valueFormatter={(value) => formatNumber(value, 0)}
-              dateCaption='Flota completa'
-              recordNoun='vehículo(s)'
-            />
+            <div className='analytics-panel analytics-chart-panel analytics-chart-panel-wide'>
+              <div className='analytics-panel-header'><div><h3>Vehículos por tipo y estado</h3><p>Cada barra representa un tipo de unidad y separa activos, en mantenimiento e inactivos.</p></div><span className='analytics-panel-date'>Flota completa</span></div>
+              <FleetTypeStatusChart data={fleetTypeStatusData} />
+            </div>
           </div>
 
           <div className='analytics-chart-grid analytics-chart-grid-single analytics-order-primary'>

@@ -1,15 +1,15 @@
 import express from 'express';
 import { routeController } from '../controllers/routeController.js';
-import { verifyToken } from '../middleware/auth.js';
+import { requirePermission, verifyToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
 router.use(verifyToken);
 
-router.get('/', routeController.listRoutes);
-router.get('/:id', routeController.getRouteById);
-router.post('/', routeController.createRoute);
-router.put('/:id', routeController.updateRoute);
-router.delete('/:id', routeController.deleteRoute);
+router.get('/', requirePermission('routes.view', 'dashboard.view', 'analytics.view'), routeController.listRoutes);
+router.get('/:id', requirePermission('routes.view'), routeController.getRouteById);
+router.post('/', requirePermission('routes.manage'), routeController.createRoute);
+router.put('/:id', requirePermission('routes.manage'), routeController.updateRoute);
+router.delete('/:id', requirePermission('routes.manage'), routeController.deleteRoute);
 
 export default router;
