@@ -339,7 +339,7 @@ export default function VehicleGasolineSection({
 
   const handleDeleteRecord = async (recordId) => {
     try {
-      if (!window.confirm('Seguro que deseas eliminar este registro de gasolina?')) {
+      if (!window.confirm('¿Seguro que deseas eliminar este registro de diésel?')) {
         return;
       }
 
@@ -403,7 +403,7 @@ export default function VehicleGasolineSection({
         <div className='header-left'>
           <button className='btn-back' onClick={onBack}>Volver</button>
           <div className='header-info'>
-            <h2>Gasolina</h2>
+            <h2>Diésel</h2>
             <p className='header-caption'>Registro de cargas, litros comprados y gasto del vehiculo</p>
           </div>
         </div>
@@ -415,7 +415,7 @@ export default function VehicleGasolineSection({
       <div className='maintenance-history-section'>
         <div className='maintenance-history-header'>
           <div>
-            <h3>Resumen de gasolina</h3>
+            <h3>Resumen de diésel</h3>
             <p>Consulta el gasto acumulado y el consumo comprado usando los filtros actuales.</p>
           </div>
         </div>
@@ -507,7 +507,7 @@ export default function VehicleGasolineSection({
         <div className='maintenance-records-list'>
           {records.length === 0 ? (
             <div className='maintenance-empty-state'>
-              <p>Aun no hay cargas de gasolina registradas para este vehiculo.</p>
+              <p>Aún no hay cargas de diésel registradas para este vehículo.</p>
               <button type='button' className='maintenance-add-btn maintenance-add-btn-inline' onClick={openNewRecordModal}>
                 Agregar primera carga
               </button>

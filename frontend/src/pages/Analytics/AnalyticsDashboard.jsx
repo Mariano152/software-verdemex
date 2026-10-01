@@ -1420,6 +1420,7 @@ export default function AnalyticsDashboard() {
   const [maintenanceRecords, setMaintenanceRecords] = useState([]);
   const [gasolineTrendMetrics, setGasolineTrendMetrics] = useState(['totalAmount', 'totalLiters', 'averageEfficiency', 'totalKm']);
   const [maintenanceTrendMetrics, setMaintenanceTrendMetrics] = useState(['totalAmount', 'recordsCount', 'oilChanges', 'averageTicket']);
+  const [weeklyEfficiencyOrder, setWeeklyEfficiencyOrder] = useState('date-asc');
   const [gasolineFilters, setGasolineFilters] = useState(() => ({
     ...buildDefaultDateFilters(getDateRangeByPreset('month')),
     provider: 'todos',
@@ -1471,7 +1472,7 @@ export default function AnalyticsDashboard() {
       const maintenanceData = await maintenanceResponse.json().catch(() => ({}));
 
       if (!vehiclesResponse.ok) throw new Error(vehiclesData.message || 'No se pudieron cargar los vehículos');
-      if (!gasolineResponse.ok) throw new Error(gasolineData.message || 'No se pudieron cargar los registros de gasolina');
+      if (!gasolineResponse.ok) throw new Error(gasolineData.message || 'No se pudieron cargar los registros de diésel');
       if (!maintenanceResponse.ok) throw new Error(maintenanceData.message || 'No se pudieron cargar los registros de mantenimiento');
 
       setVehicles(vehiclesData.vehicles || []);
@@ -1671,6 +1672,13 @@ export default function AnalyticsDashboard() {
     () => buildWeeklyEfficiencyRows(gasolineDetailRecords),
     [gasolineDetailRecords]
   );
+  const orderedWeeklyEfficiencyRows = useMemo(() => {
+    const rows = [...gasolineWeeklyEfficiencyRows];
+    if (weeklyEfficiencyOrder === 'date-desc') return rows.sort((a, b) => b.key.localeCompare(a.key));
+    if (weeklyEfficiencyOrder === 'efficiency-asc') return rows.sort((a, b) => a.averageEfficiency - b.averageEfficiency);
+    if (weeklyEfficiencyOrder === 'efficiency-desc') return rows.sort((a, b) => b.averageEfficiency - a.averageEfficiency);
+    return rows.sort((a, b) => a.key.localeCompare(b.key));
+  }, [gasolineWeeklyEfficiencyRows, weeklyEfficiencyOrder]);
 
   const gasolinePrimaryCards = useMemo(
     () => buildGasolinePrimaryCards(gasolineDetailMetrics, gasolineDetailComparison),
@@ -1840,7 +1848,7 @@ export default function AnalyticsDashboard() {
       <div className='analytics-header'>
         <div>
           <h1>Análisis y Reportes</h1>
-          <p>Panel comparativo para gasolina y mantenimiento con KPIs, tendencia, distribución y rankings operativos.</p>
+          <p>Panel comparativo para diésel y mantenimiento con KPIs, tendencia, distribución y rankings operativos.</p>
         </div>
 
         <label className='analytics-preset-field'>
@@ -1860,14 +1868,14 @@ export default function AnalyticsDashboard() {
           <div className='analytics-overview-copy'>
             <span className='analytics-section-tag'>Operación</span>
             <h2>KPIs principales del periodo</h2>
-            <p>La portada resume gasolina y mantenimiento con comparación automática contra el periodo más cercano con datos.</p>
+            <p>La portada resume diésel y mantenimiento con comparación automática contra el periodo más cercano con datos.</p>
           </div>
 
           <button type='button' className='analytics-section-card' onClick={() => setActiveView('gasoline')}>
             <div className='analytics-section-card-top'>
               <div>
                 <span className='analytics-section-eyebrow'>Sección activa</span>
-                <h3>Gasolina</h3>
+                <h3>Diésel</h3>
               </div>
               <span className='analytics-link-chip'>Ver detalle</span>
             </div>
@@ -1946,7 +1954,7 @@ export default function AnalyticsDashboard() {
               <button type='button' className='analytics-back-btn' onClick={() => setActiveView('overview')}>
                 Volver al resumen
               </button>
-              <h2>Detalle de KPIs de gasolina</h2>
+              <h2>Detalle de KPIs de diésel</h2>
               <p>Comparativos de costo, litros, rendimiento, kilómetros y concentración por unidad, proveedor y combustible.</p>
             </div>
           </div>
@@ -2097,7 +2105,7 @@ export default function AnalyticsDashboard() {
               <MultiMetricTrendChart
                 data={gasolineTrendSeries}
                 granularityLabel={getTrendGranularityLabel(getTrendGranularity({ preset: periodPreset, dateFrom: gasolineFilters.dateFrom, dateTo: gasolineFilters.dateTo }))}
-                emptyMessage='No hay suficiente histórico para construir la tendencia de gasolina.'
+                emptyMessage='No hay suficiente histórico para construir la tendencia de diésel.'
                 seriesOptions={gasolineSeriesOptions}
                 activeSeries={gasolineTrendMetrics}
                 onToggleSeries={(key) => toggleTrendMetric(setGasolineTrendMetrics, gasolineTrendMetrics, key)}
@@ -2125,10 +2133,19 @@ export default function AnalyticsDashboard() {
                   <h3>Rendimiento promedio por semana</h3>
                   <p>Promedio ponderado de kilómetros recorridos por cada litro cargado durante cada semana.</p>
                 </div>
-                <span className='analytics-panel-date'>{gasolineDateCaption}</span>
+                <div className='analytics-weekly-order'>
+                  <label htmlFor='weekly-efficiency-order'>Ordenar semanas</label>
+                  <select id='weekly-efficiency-order' value={weeklyEfficiencyOrder} onChange={(event) => setWeeklyEfficiencyOrder(event.target.value)}>
+                    <option value='date-asc'>Fecha: antigua a reciente</option>
+                    <option value='date-desc'>Fecha: reciente a antigua</option>
+                    <option value='efficiency-asc'>Rendimiento: creciente</option>
+                    <option value='efficiency-desc'>Rendimiento: decreciente</option>
+                  </select>
+                  <span className='analytics-panel-date'>{gasolineDateCaption}</span>
+                </div>
               </div>
               <VerticalBarChart
-                data={gasolineWeeklyEfficiencyRows}
+                data={orderedWeeklyEfficiencyRows}
                 emptyMessage='No hay datos completos de kilómetros y litros para calcular el rendimiento semanal.'
                 valueFormatter={(value) => `${formatNumber(value)} km/L`}
                 activeCards={(item) => [

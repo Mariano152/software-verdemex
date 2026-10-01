@@ -351,7 +351,7 @@ export default function GlobalMaintenanceRecordModal({
                   value={formData.kilometraje_base_aceite_manual}
                   onChange={(event) => handleChange('kilometraje_base_aceite_manual', event.target.value)}
                   readOnly={isViewMode || !formData.usar_kilometraje_base_manual}
-                  placeholder={formData.usar_kilometraje_base_manual ? 'Ej. 1000' : 'Se tomara de gasolina'}
+                  placeholder={formData.usar_kilometraje_base_manual ? 'Ej. 1000' : 'Se tomará de diésel'}
                 />
               </label>
 
@@ -359,8 +359,8 @@ export default function GlobalMaintenanceRecordModal({
                 {formData.usar_kilometraje_base_manual
                   ? 'El kilometraje base se guardara manualmente para este cambio de aceite.'
                   : autoDetectedMileage !== null
-                    ? `Se tomara el kilometraje ${Number(autoDetectedMileage).toLocaleString('es-MX')} km de la carga de gasolina mas reciente anterior o igual a la fecha.`
-                    : 'Si no existe una carga de gasolina previa para esa fecha, el backend te pedira capturarlo manualmente.'}
+                    ? `Se tomará el kilometraje ${Number(autoDetectedMileage).toLocaleString('es-MX')} km de la carga de diésel más reciente anterior o igual a la fecha.`
+                    : 'Si no existe una carga de diésel previa para esa fecha, el sistema te pedirá capturarlo manualmente.'}
               </div>
             </>
           ) : null}

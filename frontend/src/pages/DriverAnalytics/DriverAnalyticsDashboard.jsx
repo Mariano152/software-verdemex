@@ -20,7 +20,7 @@ export default function DriverAnalyticsDashboard() {
       const [driversResponse, recordsResponse] = await Promise.all([fetch('/api/drivers', { headers }), fetch('/api/gasoline-records', { headers })]);
       const [driversData, recordsData] = await Promise.all([driversResponse.json().catch(() => ({})), recordsResponse.json().catch(() => ({}))]);
       if (!driversResponse.ok) throw new Error(driversData.message || 'No se pudieron cargar los conductores');
-      if (!recordsResponse.ok) throw new Error(recordsData.message || 'No se pudieron cargar las cargas de gasolina');
+      if (!recordsResponse.ok) throw new Error(recordsData.message || 'No se pudieron cargar las cargas de diésel');
       setDrivers(driversData.drivers || []); setRecords(recordsData.gasolineRecords || []); setError('');
     } catch (fetchError) { setError(fetchError.message || 'No se pudo cargar el análisis de conductores.'); } finally { setLoading(false); }
   }, []);

@@ -540,7 +540,7 @@ export default function GasolineRecordModal({
         <div className='maintenance-modal-header'>
           <div>
             <h3>
-              {isNew ? 'Nueva carga de gasolina' : isViewMode ? 'Detalle de la carga' : 'Editar carga de gasolina'}
+              {isNew ? 'Nueva carga de diésel' : isViewMode ? 'Detalle de la carga' : 'Editar carga de diésel'}
             </h3>
             <p>{vehicleLabel}</p>
           </div>

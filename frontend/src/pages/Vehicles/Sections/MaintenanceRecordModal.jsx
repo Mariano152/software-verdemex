@@ -222,12 +222,12 @@ export default function MaintenanceRecordModal({
                   value={formData.kilometraje_base_aceite_manual}
                   onChange={(e) => handleChange('kilometraje_base_aceite_manual', e.target.value)}
                   readOnly={isViewMode || !formData.usar_kilometraje_base_manual}
-                  placeholder={formData.usar_kilometraje_base_manual ? 'Ej. 1000' : 'Se tomara de la gasolina anterior'}
+                  placeholder={formData.usar_kilometraje_base_manual ? 'Ej. 1000' : 'Se tomará del diésel anterior'}
                 />
               </label>
               {!formData.usar_kilometraje_base_manual ? (
                 <div className='full-width maintenance-help-note'>
-                  Se buscara la carga de gasolina mas reciente anterior o igual a la fecha del cambio para tomar ese kilometraje como base.
+                  Se buscará la carga de diésel más reciente anterior o igual a la fecha del cambio para tomar ese kilometraje como base.
                 </div>
               ) : null}
             </>

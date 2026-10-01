@@ -601,7 +601,7 @@ export default function GlobalGasolineRecordModal({
         <div className='maintenance-modal-header'>
           <div>
             <h3>
-              {isNew ? 'Nueva carga global de gasolina' : isViewMode ? 'Detalle de la carga global' : 'Editar carga global'}
+              {isNew ? 'Nueva carga global de diésel' : isViewMode ? 'Detalle de la carga global' : 'Editar carga global'}
             </h3>
             <p>Selecciona un vehiculo y registra la carga con sus medidores.</p>
           </div>

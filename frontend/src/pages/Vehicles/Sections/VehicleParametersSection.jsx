@@ -25,7 +25,7 @@ const buildFormFromParameters = (parameters) => ({
 
 const FIELD_GROUPS = [
   {
-    title: 'Gasolina y rendimiento',
+    title: 'Diésel y rendimiento',
     description: 'Estos datos se usaran mas adelante para validar cargas y clasificar el rendimiento real contra el esperado.',
     fields: [
       {
@@ -188,7 +188,7 @@ export default function VehicleParametersSection({
           <div>
             <h2>Parametros del vehiculo</h2>
             <p>
-              Configura limites operativos de gasolina y mantenimiento para {vehicle?.placa || 'la unidad'}.
+              Configura límites operativos de diésel y mantenimiento para {vehicle?.placa || 'la unidad'}.
             </p>
           </div>
         </div>

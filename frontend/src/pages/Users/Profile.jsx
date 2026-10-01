@@ -102,7 +102,7 @@ const buildNotificationItems = ({ driver, ratings, currentWeek, gasolineSignatur
   pendingGasolineRecords.forEach((record) => {
     items.push({
       type: 'warning',
-      title: 'Firma de gasolina pendiente',
+      title: 'Firma de diésel pendiente',
       message: `${record.factura || record.titulo || 'Carga'} · ${record.placa_snapshot || record.vehiculo_placa || 'Vehiculo'}`,
       actionRecordId: String(record.id),
       actionLabel: `Firmar ${record.factura || record.titulo || 'carga'}`
@@ -444,7 +444,7 @@ export default function Profile() {
           <div className="section-heading">
             <div>
               <h3>Notificaciones</h3>
-              <p>Este apartado muestra avisos operativos y cargas de gasolina pendientes por firmar.</p>
+              <p>Este apartado muestra avisos operativos y cargas de diésel pendientes por firmar.</p>
             </div>
           </div>
 
@@ -475,7 +475,7 @@ export default function Profile() {
             className={`profile-section-tab ${activePortalSection === 'signatures' ? 'active' : ''}`}
             onClick={() => setActivePortalSection('signatures')}
           >
-            Firmas de gasolina
+            Firmas de diésel
           </button>
           <button
             type="button"
@@ -491,7 +491,7 @@ export default function Profile() {
         <section className="profile-card profile-ratings-card">
           <div className="section-heading">
             <div>
-              <h3>Firmas de gasolina</h3>
+              <h3>Firmas de diésel</h3>
               <p>Aqui puedes firmar cargas pendientes y consultar tu historial con filtros.</p>
             </div>
             <div className="rating-average-chip">
@@ -535,11 +535,11 @@ export default function Profile() {
           <div className="ratings-list">
             {gasolineSignatureRecords.length === 0 ? (
               <div className="profile-empty-card">
-                <p>Aun no tienes cargas de gasolina asignadas.</p>
+                <p>Aún no tienes cargas de diésel asignadas.</p>
               </div>
             ) : filteredGasolineSignatureRecords.length === 0 ? (
               <div className="profile-empty-card">
-                <p>No se encontraron firmas de gasolina con los filtros actuales.</p>
+                <p>No se encontraron firmas de diésel con los filtros actuales.</p>
               </div>
             ) : (
               filteredGasolineSignatureRecords.map((record) => {
@@ -551,7 +551,7 @@ export default function Profile() {
                   <article key={`gasoline-signature-${record.id}`} className="rating-record-card">
                     <div className="rating-record-top">
                       <div>
-                        <h4>{record.factura || record.titulo || 'Carga de gasolina'}</h4>
+                        <h4>{record.factura || record.titulo || 'Carga de diésel'}</h4>
                         <p>{record.placa_snapshot || record.vehiculo_placa || '-'} · {formatDate(record.fecha_carga)}</p>
                       </div>
                       <div className="rating-score-pill">{formatSignatureStatus(record.firma_estatus)}</div>

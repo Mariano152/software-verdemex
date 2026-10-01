@@ -1,7 +1,7 @@
 export const PERMISSION_GROUPS = [
   { title: 'Dashboards y reportes', items: [['dashboard.view', 'Ver dashboard principal'], ['analytics.view', 'Ver análisis y reportes']] },
   { title: 'Vehículos', items: [['vehicles.view', 'Consultar vehículos'], ['vehicles.create', 'Crear vehículos'], ['vehicles.edit', 'Editar información general'], ['vehicles.delete', 'Eliminar vehículos'], ['vehicles.parameters', 'Modificar parámetros operativos'], ['vehicles.maintenance', 'Gestionar mantenimiento y seguridad'], ['vehicles.photos', 'Gestionar fotografías'], ['vehicles.documents', 'Gestionar documentos']] },
-  { title: 'Gasolina e inventario', items: [['gasoline.view', 'Consultar cargas de gasolina'], ['gasoline.manage', 'Crear, editar y eliminar cargas'], ['inventory.view', 'Consultar inventario'], ['inventory.manage', 'Modificar inventario y pipas']] },
+  { title: 'Diésel e inventario', items: [['gasoline.view', 'Consultar cargas de diésel'], ['gasoline.manage', 'Crear, editar y eliminar cargas'], ['inventory.view', 'Consultar inventario'], ['inventory.manage', 'Modificar inventario y pipas']] },
   { title: 'Conductores', items: [['drivers.view', 'Consultar conductores'], ['drivers.manage', 'Crear y editar conductores'], ['drivers.rate', 'Calificar conductores']] },
   { title: 'Rutas', items: [['routes.view', 'Consultar rutas'], ['routes.manage', 'Crear, editar y eliminar rutas']] },
   { title: 'Administración', items: [['notifications.view', 'Ver notificaciones y bitácora de movimientos'], ['users.manage', 'Administrar otros usuarios']] }

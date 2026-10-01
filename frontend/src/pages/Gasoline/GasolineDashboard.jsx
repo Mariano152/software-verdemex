@@ -173,7 +173,7 @@ export default function GasolineDashboard() {
         }
 
         if (!recordsResponse.ok) {
-          throw new Error(recordsData.message || 'No se pudieron cargar los registros de gasolina');
+          throw new Error(recordsData.message || 'No se pudieron cargar los registros de diésel');
         }
 
         setVehicles(vehiclesData.vehicles || []);
@@ -325,7 +325,7 @@ export default function GasolineDashboard() {
   };
 
   const handleDeleteRecord = async (recordId) => {
-    const confirmed = window.confirm('Seguro que deseas eliminar este registro global de gasolina?');
+    const confirmed = window.confirm('¿Seguro que deseas eliminar este registro global de diésel?');
     if (!confirmed) return;
 
     const token = localStorage.getItem('authToken');
@@ -441,7 +441,7 @@ export default function GasolineDashboard() {
         'Primera carga': record.primera_carga ? 'Si' : 'No',
         'Estatus rendimiento': performanceStatus.label,
         'Documentos adjuntos': files.map((file) => file.nombre_original).join(', '),
-        'Firmas de gasolina': signatureFiles.map((file) => file.nombre_original).join(', ')
+        'Firmas de diésel': signatureFiles.map((file) => file.nombre_original).join(', ')
       };
     });
 
@@ -466,7 +466,7 @@ export default function GasolineDashboard() {
       ? vehiclesMap.get(String(filters.vehicleId))
       : null;
     const fileName = [
-      'reporte-gasolina',
+      'reporte-diesel',
       selectedVehicle?.placa || 'todos',
       filters.dateFrom ? formatDateForFileName(filters.dateFrom) : 'inicio-abierto',
       filters.dateTo ? formatDateForFileName(filters.dateTo) : 'fin-abierto'
@@ -479,7 +479,7 @@ export default function GasolineDashboard() {
     return (
       <div className='gasoline-dashboard-state'>
         <div className='spinner' />
-        <p>Cargando historial global de gasolina...</p>
+        <p>Cargando historial global de diésel...</p>
       </div>
     );
   }
@@ -500,7 +500,7 @@ export default function GasolineDashboard() {
       <div className='section-header'>
         <div className='header-left'>
           <div className='header-info'>
-            <h2>Gasolina</h2>
+            <h2>Diésel</h2>
             <p className='header-caption'>
               Historial global de cargas para todos los vehiculos con kilometraje, montos, litros y adjuntos.
             </p>
@@ -625,7 +625,7 @@ export default function GasolineDashboard() {
             className={`gasoline-section-tab ${activeSection === 'signatures' ? 'active' : ''}`}
             onClick={() => setActiveSection('signatures')}
           >
-            Firmas de gasolina
+            Firmas de diésel
           </button>
         </div>
       </div>
@@ -747,7 +747,7 @@ export default function GasolineDashboard() {
                     </div>
 
                     <div className='maintenance-files-inline'>
-                      <span className='record-label'>Firmas de gasolina</span>
+                      <span className='record-label'>Firmas de diésel</span>
                       {signatureFiles.length === 0 ? (
                         <p>Sin evidencia</p>
                       ) : (
@@ -775,7 +775,7 @@ export default function GasolineDashboard() {
         <div className='maintenance-history-section'>
           <div className='maintenance-history-header'>
             <div>
-              <h3>Firmas de gasolina</h3>
+              <h3>Firmas de diésel</h3>
               <p>Vista concentrada de cargas asignadas a conductor y su evidencia fotografica.</p>
             </div>
           </div>
@@ -783,7 +783,7 @@ export default function GasolineDashboard() {
           <div className='maintenance-records-list'>
             {signatureFocusedRecords.length === 0 ? (
               <div className='maintenance-empty-state'>
-                <p>No hay firmas de gasolina con los filtros actuales.</p>
+                <p>No hay firmas de diésel con los filtros actuales.</p>
               </div>
             ) : (
               signatureFocusedRecords.map((record) => {

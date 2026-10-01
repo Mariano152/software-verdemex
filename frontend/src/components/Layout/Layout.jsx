@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import './Layout.css';
 
 const SECTION_METADATA = [
-  { match: '/gasoline', section: 'Gasolina', caption: 'Bitacora global de cargas, kilometrajes y documentos' },
+  { match: '/gasoline', section: 'Diésel', caption: 'Bitacora global de cargas, kilometrajes y documentos' },
   { match: '/inventory', section: 'Inventario', caption: 'Control de pipas, capacidad maxima y recargas de combustible' },
   { match: '/maintenance', section: 'Mantenimiento', caption: 'Bitacora global de servicios y proximos cambios de aceite' },
   { match: '/vehicles', section: 'Vehiculos', caption: 'Gestion de flotilla, documentos y operacion diaria' },
@@ -20,7 +20,7 @@ const SECTION_METADATA = [
 
 const ADMIN_MENU_ITEMS = [
   { path: '/dashboard', label: 'Dashboard', icon: '📊' },
-  { path: '/gasoline', label: 'Gasolina', icon: '⛽' },
+  { path: '/gasoline', label: 'Diésel', icon: '⛽' },
   { path: '/inventory', label: 'Inventario', icon: '🛢️' },
   { path: '/maintenance', label: 'Mantenimiento', icon: '🛠️' },
   { path: '/vehicles', label: 'Vehiculos', icon: '🚚' },

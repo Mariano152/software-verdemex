@@ -2,12 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import './AuditLogDashboard.css';
 
 const MODULES = [
-  ['todos', 'Todos'], ['vehículos', 'Vehículos'], ['rutas', 'Rutas'], ['gasolina', 'Gasolina'],
+  ['todos', 'Todos'], ['vehículos', 'Vehículos'], ['rutas', 'Rutas'], ['gasolina', 'Diésel'],
   ['mantenimiento', 'Mantenimiento'], ['inventario', 'Inventario'], ['conductores', 'Conductores'],
   ['usuarios', 'Usuarios'], ['expedientes', 'Expedientes']
 ];
 const ACTION_LABELS = { agregar: 'Agregó', modificar: 'Modificó', eliminar: 'Eliminó' };
-const MODULE_SINGULAR = { 'vehículos': 'vehículo', rutas: 'ruta', gasolina: 'registro de gasolina', mantenimiento: 'mantenimiento', inventario: 'registro de inventario', conductores: 'conductor', usuarios: 'usuario', expedientes: 'expediente' };
+const MODULE_SINGULAR = { 'vehículos': 'vehículo', rutas: 'ruta', gasolina: 'registro de diésel', mantenimiento: 'mantenimiento', inventario: 'registro de inventario', conductores: 'conductor', usuarios: 'usuario', expedientes: 'expediente' };
 const formatDateTime = (value) => new Date(value).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'medium' });
 const friendlyTitle = (log) => String(log.title || '').startsWith('/api/') ? `Registro de ${MODULE_SINGULAR[log.module] || log.module}` : (log.title || `Registro de ${log.module}`);
 const movementDescription = (log) => `${ACTION_LABELS[log.action] || log.action} ${MODULE_SINGULAR[log.module] || log.module}: ${friendlyTitle(log)}`;

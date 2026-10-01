@@ -112,7 +112,7 @@ const buildGasolineRecordTitle = ({ factura, fecha_carga, placa }) => {
   if (factura) return `Factura ${factura}`;
   if (fecha_carga && placa) return `Carga ${placa} ${fecha_carga}`;
   if (placa) return `Carga ${placa}`;
-  return 'Carga de gasolina';
+  return 'Carga de diésel';
 };
 const buildGlobalGasolineData = (body, vehicle, previousMileage = null, options = {}) => {
   const { preserveCapturedPreviousMileage = false } = options;
@@ -463,7 +463,7 @@ const buildMaintenanceData = async (req, vehicleId, existingRecord = null) => {
   });
 
   if (previousMileage === null || previousMileage === undefined) {
-    const error = new Error('No existe una carga de gasolina anterior o igual a la fecha del cambio. Captura el kilometraje base manualmente.');
+    const error = new Error('No existe una carga de diésel anterior o igual a la fecha del cambio. Captura el kilometraje base manualmente.');
     error.statusCode = 400;
     throw error;
   }
@@ -1243,7 +1243,7 @@ export const vehicleController = {
 
       if (!gasolineRecord) {
         return res.status(404).json({
-          message: 'Registro de gasolina no encontrado'
+          message: 'Registro de diésel no encontrado'
         });
       }
 
@@ -1344,7 +1344,7 @@ export const vehicleController = {
       }
 
       res.status(201).json({
-        message: 'Registro de gasolina creado correctamente',
+        message: 'Registro de diésel creado correctamente',
         gasolineRecord: createdRecord
       });
     } catch (error) {
@@ -1483,7 +1483,7 @@ export const vehicleController = {
       }
 
       res.json({
-        message: 'Registro de gasolina actualizado correctamente',
+        message: 'Registro de diésel actualizado correctamente',
         gasolineRecord: updatedRecord
       });
     } catch (error) {
@@ -1516,7 +1516,7 @@ export const vehicleController = {
       await inventoryModel.clearPipaFifoConsumption(gasolineId);
 
       res.json({
-        message: 'Registro de gasolina eliminado correctamente'
+        message: 'Registro de diésel eliminado correctamente'
       });
 
       await vehicleController.logHistory(req, vehicleId, {
@@ -1643,7 +1643,7 @@ export const vehicleController = {
       );
 
       res.json({
-        message: 'Registros globales de gasolina listados correctamente',
+        message: 'Registros globales de diésel listados correctamente',
         count: enrichedRecords.filter(Boolean).length,
         gasolineRecords: enrichedRecords.filter(Boolean)
       });
@@ -1663,7 +1663,7 @@ export const vehicleController = {
 
       if (!gasolineRecord) {
         return res.status(404).json({
-          message: 'Registro global de gasolina no encontrado'
+          message: 'Registro global de diésel no encontrado'
         });
       }
 
@@ -1735,7 +1735,7 @@ export const vehicleController = {
       });
 
       res.status(201).json({
-        message: 'Registro global de gasolina creado correctamente',
+        message: 'Registro global de diésel creado correctamente',
         gasolineRecord: createdRecord
       });
     } catch (error) {
@@ -1886,7 +1886,7 @@ export const vehicleController = {
       });
 
       res.json({
-        message: 'Registro global de gasolina actualizado correctamente',
+        message: 'Registro global de diésel actualizado correctamente',
         gasolineRecord: updatedRecord
       });
     } catch (error) {
@@ -1919,7 +1919,7 @@ export const vehicleController = {
       await inventoryModel.clearPipaFifoConsumption(gasolineId);
 
       res.json({
-        message: 'Registro global de gasolina eliminado correctamente',
+        message: 'Registro global de diésel eliminado correctamente',
         deletedRecord: { id: gasolineId, titulo: deletedRecord.titulo, factura: deletedRecord.factura }
       });
 
@@ -2047,7 +2047,7 @@ export const vehicleController = {
 
       if (req.user?.role !== 'conductor') {
         return res.status(403).json({
-          message: 'Solo los conductores pueden firmar una carga de gasolina'
+          message: 'Solo los conductores pueden firmar una carga de diésel'
         });
       }
 
@@ -2092,7 +2092,7 @@ export const vehicleController = {
       });
 
       res.json({
-        message: 'Firma de gasolina registrada correctamente',
+        message: 'Firma de diésel registrada correctamente',
         gasolineRecord: updatedRecord
       });
     } catch (error) {

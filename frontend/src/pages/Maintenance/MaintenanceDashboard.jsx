@@ -270,7 +270,7 @@ export default function MaintenanceDashboard() {
 
         if (!vehiclesResponse.ok) throw new Error(vehiclesData.message || 'No se pudieron cargar los vehiculos');
         if (!maintenanceResponse.ok) throw new Error(maintenanceData.message || 'No se pudieron cargar los mantenimientos');
-        if (!gasolineResponse.ok) throw new Error(gasolineData.message || 'No se pudieron cargar los registros de gasolina');
+        if (!gasolineResponse.ok) throw new Error(gasolineData.message || 'No se pudieron cargar los registros de diésel');
 
         setVehicles(vehiclesData.vehicles || []);
         setMaintenanceRecords(sortByMaintenanceDateDesc(maintenanceData.maintenanceRecords || []));

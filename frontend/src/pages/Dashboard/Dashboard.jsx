@@ -67,7 +67,7 @@ export default function Dashboard() {
   }, [data.vehicles]);
 
   const activities = useMemo(() => [
-    ...data.gasoline.map((record) => ({ id: `g-${record.id}`, type: 'Gasolina', message: `${number(record.litros, 2)} L cargados a ${vehicleLabel(record)}`, date: record.created_at || record.fecha_carga })),
+    ...data.gasoline.map((record) => ({ id: `g-${record.id}`, type: 'Diésel', message: `${number(record.litros, 2)} L cargados a ${vehicleLabel(record)}`, date: record.created_at || record.fecha_carga })),
     ...data.maintenance.map((record) => ({ id: `m-${record.id}`, type: 'Mantenimiento', message: `${record.tipo_mantenimiento || record.titulo || 'Servicio'} en ${vehicleLabel(record)}`, date: record.created_at || record.fecha_servicio })),
     ...data.routes.map((route) => ({ id: `r-${route.id}`, type: 'Ruta', message: `${route.origen || 'Origen'} → ${route.destino || 'Destino'} · ${String(route.estatus || 'programada').replace('_', ' ')}`, date: route.updated_at || route.created_at || route.fecha_registro }))
   ].filter((item) => item.date).sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 8), [data]);
