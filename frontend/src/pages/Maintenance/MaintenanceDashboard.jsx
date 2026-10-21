@@ -18,6 +18,8 @@ const formatNumber = (value, maximumFractionDigits = 2) => Number(value || 0).to
   maximumFractionDigits
 });
 
+const OIL_TRACKING_PREVIEW_LIMIT = 3;
+
 const formatDate = (value) => {
   if (!value) return '-';
   const match = String(value).match(/^(\d{4})-(\d{2})-(\d{2})/);
@@ -31,6 +33,14 @@ const formatDate = (value) => {
 const formatDateForFileName = (value) => {
   if (!value) return 'sin-fecha';
   return String(value).replaceAll('/', '-');
+};
+
+// Keep filtering in calendar-date space so the complete selected final day is
+// included even when the API returns a timestamp after YYYY-MM-DD.
+const getDateKey = (value) => {
+  if (!value) return '';
+  const match = String(value).match(/^(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : '';
 };
 
 const parseDateValue = (dateValue) => {
@@ -236,6 +246,7 @@ export default function MaintenanceDashboard() {
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [isNewRecord, setIsNewRecord] = useState(false);
   const [recordModalMode, setRecordModalMode] = useState('edit');
+  const [showAllOilTrackingRows, setShowAllOilTrackingRows] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -270,7 +281,7 @@ export default function MaintenanceDashboard() {
 
         if (!vehiclesResponse.ok) throw new Error(vehiclesData.message || 'No se pudieron cargar los vehiculos');
         if (!maintenanceResponse.ok) throw new Error(maintenanceData.message || 'No se pudieron cargar los mantenimientos');
-        if (!gasolineResponse.ok) throw new Error(gasolineData.message || 'No se pudieron cargar los registros de diésel');
+        if (!gasolineResponse.ok) throw new Error(gasolineData.message || 'No se pudieron cargar los registros de diesel');
 
         setVehicles(vehiclesData.vehicles || []);
         setMaintenanceRecords(sortByMaintenanceDateDesc(maintenanceData.maintenanceRecords || []));
@@ -292,6 +303,11 @@ export default function MaintenanceDashboard() {
       .map((vehicle) => buildOilTrackingItem(vehicle, maintenanceRecords, gasolineRecords))
       .sort((left, right) => left.sortScore - right.sortScore)
   ), [vehicles, maintenanceRecords, gasolineRecords]);
+
+  const visibleOilTrackingRows = showAllOilTrackingRows
+    ? oilTrackingRows
+    : oilTrackingRows.slice(0, OIL_TRACKING_PREVIEW_LIMIT);
+  const hiddenOilTrackingCount = Math.max(0, oilTrackingRows.length - OIL_TRACKING_PREVIEW_LIMIT);
 
   const availableMaintenanceTypes = useMemo(() => (
     Array.from(new Set(
@@ -322,8 +338,9 @@ export default function MaintenanceDashboard() {
       const matchesProvider = filters.provider === 'todos'
         ? true
         : String(record.proveedor || '').trim() === filters.provider;
-      const matchesDateFrom = filters.dateFrom ? record.fecha_servicio >= filters.dateFrom : true;
-      const matchesDateTo = filters.dateTo ? record.fecha_servicio <= filters.dateTo : true;
+      const recordDate = getDateKey(record.fecha_servicio);
+      const matchesDateFrom = filters.dateFrom ? recordDate >= filters.dateFrom : true;
+      const matchesDateTo = filters.dateTo ? recordDate <= filters.dateTo : true;
 
       const searchableText = [
         record.titulo,
@@ -607,7 +624,7 @@ export default function MaintenanceDashboard() {
               <p>No hay vehiculos disponibles para analizar.</p>
             </div>
           ) : (
-            oilTrackingRows.map((item) => (
+            visibleOilTrackingRows.map((item) => (
               <button
                 key={item.vehicle.id}
                 type='button'
@@ -635,6 +652,17 @@ export default function MaintenanceDashboard() {
             ))
           )}
         </div>
+        {hiddenOilTrackingCount > 0 && (
+          <button
+            type='button'
+            className='oil-alert-toggle'
+            aria-expanded={showAllOilTrackingRows}
+            onClick={() => setShowAllOilTrackingRows((current) => !current)}
+          >
+            <span>{showAllOilTrackingRows ? 'Mostrar solo los 3 primeros' : `Mostrar ${hiddenOilTrackingCount} vehiculo(s) mas`}</span>
+            <span className={`oil-alert-toggle-icon ${showAllOilTrackingRows ? 'expanded' : ''}`} aria-hidden='true'>⌄</span>
+          </button>
+        )}
       </div>
 
       <div className='maintenance-history-section'>

@@ -108,6 +108,38 @@
    TABLA
    ============================================ */
 
+.vehicles-list .card-body {
+  min-width: 0;
+}
+
+.vehicles-table {
+  width: 100%;
+  table-layout: fixed;
+  font-size: 0.88rem;
+}
+
+.vehicles-table th,
+.vehicles-table td {
+  padding: 0.75rem 0.55rem;
+  overflow-wrap: anywhere;
+}
+
+.vehicles-table th:nth-child(1) { width: 10%; }
+.vehicles-table th:nth-child(2) { width: 9%; }
+.vehicles-table th:nth-child(3) { width: 9%; }
+.vehicles-table th:nth-child(4) { width: 13%; }
+.vehicles-table th:nth-child(5) { width: 13%; }
+.vehicles-table th:nth-child(6) { width: 8%; }
+.vehicles-table th:nth-child(7) { width: 9%; }
+.vehicles-table th:nth-child(8) { width: 11%; }
+.vehicles-table th:nth-child(9) { width: 7%; }
+.vehicles-table th:nth-child(10) { width: 11%; }
+
+.vehicles-table .btn {
+  width: 100%;
+  padding: 0.55rem 0.45rem;
+}
+
 .fuel-bar {
   width: 100%;
   height: 6px;
@@ -216,6 +248,10 @@
   letter-spacing: 1px;
   font-family: 'Courier New', monospace;
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .color-name {
@@ -226,7 +262,8 @@
 .vehicle-status-badge {
   display: inline-flex;
   align-items: center;
-  min-width: 130px;
+  width: 100%;
+  min-width: 0;
   justify-content: center;
   border: 1px solid transparent;
   text-transform: none;
@@ -328,12 +365,12 @@ tbody tr.clickable-row:hover {
     width: 100%;
   }
 
-  table {
+  .vehicles-table {
     font-size: 0.85rem;
   }
 
-  th,
-  td {
+  .vehicles-table th,
+  .vehicles-table td {
     padding: 0.5rem;
   }
 

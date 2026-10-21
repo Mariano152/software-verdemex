@@ -294,7 +294,7 @@ export default function VehicleEdit() {
 
     const responseData = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(responseData.message || 'Error al crear registro de diésel');
+      throw new Error(responseData.message || 'Error al crear registro de diesel');
     }
 
     const savedRecord = responseData.gasolineRecord;
@@ -330,7 +330,7 @@ export default function VehicleEdit() {
 
     const responseData = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(responseData.message || 'Error al actualizar registro de diésel');
+      throw new Error(responseData.message || 'Error al actualizar registro de diesel');
     }
 
     const savedRecord = responseData.gasolineRecord;
@@ -357,7 +357,7 @@ export default function VehicleEdit() {
 
     const responseData = await response.json().catch(() => ({}));
     if (!response.ok) {
-      throw new Error(responseData.message || 'Error al eliminar registro de diésel');
+      throw new Error(responseData.message || 'Error al eliminar registro de diesel');
     }
 
     setVehicle((prev) => ({
@@ -523,7 +523,7 @@ export default function VehicleEdit() {
   const handleDeleteVehicle = async () => {
     const vehicleLabel = getVehicleIdentifier(vehicle) || vehicle?.placa || id;
     const confirmed = window.confirm(
-      `Se eliminará el vehículo ${vehicleLabel} junto con sus documentos, mantenimientos y registros de diésel.\n\nEsta acción lo ocultará del sistema. ¿Deseas continuar?`
+      `Se eliminará el vehículo ${vehicleLabel} junto con sus documentos, mantenimientos y registros de diesel.\n\nEsta acción lo ocultará del sistema. ¿Deseas continuar?`
     );
 
     if (!confirmed) return;

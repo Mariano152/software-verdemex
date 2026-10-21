@@ -13,6 +13,40 @@
   gap: 0.9rem;
 }
 
+.oil-alert-toggle {
+  width: 100%;
+  margin-top: 0.9rem;
+  padding: 0.8rem 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+  border: 1px solid #cbdacf;
+  border-radius: 12px;
+  background: #f7fbf8;
+  color: #1f5f32;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.18s ease, border-color 0.18s ease;
+}
+
+.oil-alert-toggle:hover {
+  background: #edf7ef;
+  border-color: #8fba99;
+}
+
+.oil-alert-toggle-icon {
+  display: inline-block;
+  font-size: 1.25rem;
+  line-height: 1;
+  transition: transform 0.18s ease;
+}
+
+.oil-alert-toggle-icon.expanded {
+  transform: rotate(180deg);
+}
+
 .oil-alert-row {
   width: 100%;
   border: 1px solid #d7e1db;

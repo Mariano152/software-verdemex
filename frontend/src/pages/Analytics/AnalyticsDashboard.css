@@ -87,9 +87,10 @@
 .analytics-weekly-order {
   display: flex;
   flex-direction: column;
-  align-items: flex-end;
+  align-items: flex-start;
   gap: 6px;
   min-width: 245px;
+  margin-top: 18px;
 }
 
 .analytics-weekly-order label {

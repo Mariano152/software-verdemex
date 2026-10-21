@@ -57,6 +57,14 @@ const formatDateForFileName = (value) => {
   return String(value).replaceAll('/', '-');
 };
 
+// Compare calendar dates instead of complete timestamps. API values may include
+// a time and timezone, while the date inputs always contain only YYYY-MM-DD.
+const getDateKey = (value) => {
+  if (!value) return '';
+  const match = String(value).match(/^(\d{4}-\d{2}-\d{2})/);
+  return match ? match[1] : '';
+};
+
 const buildRecordTimestamp = (record) => {
   if (!record?.fecha_carga) return 0;
   const time = record.hora_carga || '00:00:00';
@@ -173,7 +181,7 @@ export default function GasolineDashboard() {
         }
 
         if (!recordsResponse.ok) {
-          throw new Error(recordsData.message || 'No se pudieron cargar los registros de diésel');
+          throw new Error(recordsData.message || 'No se pudieron cargar los registros de diesel');
         }
 
         setVehicles(vehiclesData.vehicles || []);
@@ -206,8 +214,9 @@ export default function GasolineDashboard() {
       const matchesSignatureStatus = filters.signatureStatus === 'todos'
         ? true
         : String(record.firma_estatus || 'sin_asignar') === String(filters.signatureStatus);
-      const matchesDateFrom = filters.dateFrom ? record.fecha_carga >= filters.dateFrom : true;
-      const matchesDateTo = filters.dateTo ? record.fecha_carga <= filters.dateTo : true;
+      const recordDate = getDateKey(record.fecha_carga);
+      const matchesDateFrom = filters.dateFrom ? recordDate >= filters.dateFrom : true;
+      const matchesDateTo = filters.dateTo ? recordDate <= filters.dateTo : true;
 
       const searchableText = [
         record.titulo,
@@ -325,7 +334,7 @@ export default function GasolineDashboard() {
   };
 
   const handleDeleteRecord = async (recordId) => {
-    const confirmed = window.confirm('¿Seguro que deseas eliminar este registro global de diésel?');
+    const confirmed = window.confirm('¿Seguro que deseas eliminar este registro global de diesel?');
     if (!confirmed) return;
 
     const token = localStorage.getItem('authToken');
@@ -441,7 +450,7 @@ export default function GasolineDashboard() {
         'Primera carga': record.primera_carga ? 'Si' : 'No',
         'Estatus rendimiento': performanceStatus.label,
         'Documentos adjuntos': files.map((file) => file.nombre_original).join(', '),
-        'Firmas de diésel': signatureFiles.map((file) => file.nombre_original).join(', ')
+        'Firmas de diesel': signatureFiles.map((file) => file.nombre_original).join(', ')
       };
     });
 
@@ -479,7 +488,7 @@ export default function GasolineDashboard() {
     return (
       <div className='gasoline-dashboard-state'>
         <div className='spinner' />
-        <p>Cargando historial global de diésel...</p>
+        <p>Cargando historial global de diesel...</p>
       </div>
     );
   }
@@ -500,7 +509,7 @@ export default function GasolineDashboard() {
       <div className='section-header'>
         <div className='header-left'>
           <div className='header-info'>
-            <h2>Diésel</h2>
+            <h2>Diesel</h2>
             <p className='header-caption'>
               Historial global de cargas para todos los vehiculos con kilometraje, montos, litros y adjuntos.
             </p>
@@ -625,7 +634,7 @@ export default function GasolineDashboard() {
             className={`gasoline-section-tab ${activeSection === 'signatures' ? 'active' : ''}`}
             onClick={() => setActiveSection('signatures')}
           >
-            Firmas de diésel
+            Firmas de diesel
           </button>
         </div>
       </div>
@@ -747,7 +756,7 @@ export default function GasolineDashboard() {
                     </div>
 
                     <div className='maintenance-files-inline'>
-                      <span className='record-label'>Firmas de diésel</span>
+                      <span className='record-label'>Firmas de diesel</span>
                       {signatureFiles.length === 0 ? (
                         <p>Sin evidencia</p>
                       ) : (
@@ -775,7 +784,7 @@ export default function GasolineDashboard() {
         <div className='maintenance-history-section'>
           <div className='maintenance-history-header'>
             <div>
-              <h3>Firmas de diésel</h3>
+              <h3>Firmas de diesel</h3>
               <p>Vista concentrada de cargas asignadas a conductor y su evidencia fotografica.</p>
             </div>
           </div>
@@ -783,7 +792,7 @@ export default function GasolineDashboard() {
           <div className='maintenance-records-list'>
             {signatureFocusedRecords.length === 0 ? (
               <div className='maintenance-empty-state'>
-                <p>No hay firmas de diésel con los filtros actuales.</p>
+                <p>No hay firmas de diesel con los filtros actuales.</p>
               </div>
             ) : (
               signatureFocusedRecords.map((record) => {

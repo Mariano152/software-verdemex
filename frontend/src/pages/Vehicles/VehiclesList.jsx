@@ -161,7 +161,7 @@ export default function VehiclesList() {
               </button>
             </div>
           ) : filteredVehicles.length > 0 ? (
-            <table>
+            <table className="vehicles-table">
               <thead>
                 <tr>
                   <th>Numero Economico</th>

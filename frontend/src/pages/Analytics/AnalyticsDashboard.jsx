@@ -254,6 +254,7 @@ const buildWeeklyEfficiencyRows = (records = []) => {
     const key = toLocalDateString(weekStart);
     const current = weeks.get(key) || {
       key,
+      sortValue: weekStart.getTime(),
       label: `Sem ${String(weekStart.getDate()).padStart(2, '0')} ${MONTH_LABELS[weekStart.getMonth()]}`,
       rangeLabel: `Semana del ${formatDate(key)}`,
       totalLiters: 0,
@@ -1472,7 +1473,7 @@ export default function AnalyticsDashboard() {
       const maintenanceData = await maintenanceResponse.json().catch(() => ({}));
 
       if (!vehiclesResponse.ok) throw new Error(vehiclesData.message || 'No se pudieron cargar los vehículos');
-      if (!gasolineResponse.ok) throw new Error(gasolineData.message || 'No se pudieron cargar los registros de diésel');
+      if (!gasolineResponse.ok) throw new Error(gasolineData.message || 'No se pudieron cargar los registros de diesel');
       if (!maintenanceResponse.ok) throw new Error(maintenanceData.message || 'No se pudieron cargar los registros de mantenimiento');
 
       setVehicles(vehiclesData.vehicles || []);
@@ -1674,10 +1675,10 @@ export default function AnalyticsDashboard() {
   );
   const orderedWeeklyEfficiencyRows = useMemo(() => {
     const rows = [...gasolineWeeklyEfficiencyRows];
-    if (weeklyEfficiencyOrder === 'date-desc') return rows.sort((a, b) => b.key.localeCompare(a.key));
+    if (weeklyEfficiencyOrder === 'date-desc') return rows.sort((a, b) => b.sortValue - a.sortValue);
     if (weeklyEfficiencyOrder === 'efficiency-asc') return rows.sort((a, b) => a.averageEfficiency - b.averageEfficiency);
     if (weeklyEfficiencyOrder === 'efficiency-desc') return rows.sort((a, b) => b.averageEfficiency - a.averageEfficiency);
-    return rows.sort((a, b) => a.key.localeCompare(b.key));
+    return rows.sort((a, b) => a.sortValue - b.sortValue);
   }, [gasolineWeeklyEfficiencyRows, weeklyEfficiencyOrder]);
 
   const gasolinePrimaryCards = useMemo(
@@ -1848,7 +1849,7 @@ export default function AnalyticsDashboard() {
       <div className='analytics-header'>
         <div>
           <h1>Análisis y Reportes</h1>
-          <p>Panel comparativo para diésel y mantenimiento con KPIs, tendencia, distribución y rankings operativos.</p>
+          <p>Panel comparativo para diesel y mantenimiento con KPIs, tendencia, distribución y rankings operativos.</p>
         </div>
 
         <label className='analytics-preset-field'>
@@ -1868,14 +1869,14 @@ export default function AnalyticsDashboard() {
           <div className='analytics-overview-copy'>
             <span className='analytics-section-tag'>Operación</span>
             <h2>KPIs principales del periodo</h2>
-            <p>La portada resume diésel y mantenimiento con comparación automática contra el periodo más cercano con datos.</p>
+            <p>La portada resume diesel y mantenimiento con comparación automática contra el periodo más cercano con datos.</p>
           </div>
 
           <button type='button' className='analytics-section-card' onClick={() => setActiveView('gasoline')}>
             <div className='analytics-section-card-top'>
               <div>
                 <span className='analytics-section-eyebrow'>Sección activa</span>
-                <h3>Diésel</h3>
+                <h3>Diesel</h3>
               </div>
               <span className='analytics-link-chip'>Ver detalle</span>
             </div>
@@ -1954,7 +1955,7 @@ export default function AnalyticsDashboard() {
               <button type='button' className='analytics-back-btn' onClick={() => setActiveView('overview')}>
                 Volver al resumen
               </button>
-              <h2>Detalle de KPIs de diésel</h2>
+              <h2>Detalle de KPIs de diesel</h2>
               <p>Comparativos de costo, litros, rendimiento, kilómetros y concentración por unidad, proveedor y combustible.</p>
             </div>
           </div>
@@ -2105,7 +2106,7 @@ export default function AnalyticsDashboard() {
               <MultiMetricTrendChart
                 data={gasolineTrendSeries}
                 granularityLabel={getTrendGranularityLabel(getTrendGranularity({ preset: periodPreset, dateFrom: gasolineFilters.dateFrom, dateTo: gasolineFilters.dateTo }))}
-                emptyMessage='No hay suficiente histórico para construir la tendencia de diésel.'
+                emptyMessage='No hay suficiente histórico para construir la tendencia de diesel.'
                 seriesOptions={gasolineSeriesOptions}
                 activeSeries={gasolineTrendMetrics}
                 onToggleSeries={(key) => toggleTrendMetric(setGasolineTrendMetrics, gasolineTrendMetrics, key)}
@@ -2133,16 +2134,16 @@ export default function AnalyticsDashboard() {
                   <h3>Rendimiento promedio por semana</h3>
                   <p>Promedio ponderado de kilómetros recorridos por cada litro cargado durante cada semana.</p>
                 </div>
-                <div className='analytics-weekly-order'>
-                  <label htmlFor='weekly-efficiency-order'>Ordenar semanas</label>
-                  <select id='weekly-efficiency-order' value={weeklyEfficiencyOrder} onChange={(event) => setWeeklyEfficiencyOrder(event.target.value)}>
-                    <option value='date-asc'>Fecha: antigua a reciente</option>
-                    <option value='date-desc'>Fecha: reciente a antigua</option>
-                    <option value='efficiency-asc'>Rendimiento: creciente</option>
-                    <option value='efficiency-desc'>Rendimiento: decreciente</option>
-                  </select>
-                  <span className='analytics-panel-date'>{gasolineDateCaption}</span>
-                </div>
+                <span className='analytics-panel-date'>{gasolineDateCaption}</span>
+              </div>
+              <div className='analytics-weekly-order'>
+                <label htmlFor='weekly-efficiency-order'>Ordenar semanas</label>
+                <select id='weekly-efficiency-order' value={weeklyEfficiencyOrder} onChange={(event) => setWeeklyEfficiencyOrder(event.target.value)}>
+                  <option value='date-asc'>Fecha: antigua a reciente</option>
+                  <option value='date-desc'>Fecha: reciente a antigua</option>
+                  <option value='efficiency-asc'>Rendimiento: creciente</option>
+                  <option value='efficiency-desc'>Rendimiento: decreciente</option>
+                </select>
               </div>
               <VerticalBarChart
                 data={orderedWeeklyEfficiencyRows}

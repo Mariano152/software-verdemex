@@ -85,7 +85,7 @@ export default function VehicleDetailView({
       cardClass: 'gasoline',
       icon: '⛽',
       eyebrow: 'Consumo y cargas',
-      title: 'Diésel',
+      title: 'Diesel',
       description: 'Historial de cargas, litros comprados y gasto mensual',
       stats: `${vehicle.gasolineRecords?.length || 0} cargas registradas`
     },

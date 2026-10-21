@@ -136,7 +136,7 @@ const getModuleLabel = (moduleName) => {
   switch (moduleName) {
     case 'documentos': return 'Documentos';
     case 'mantenimiento': return 'Mantenimiento';
-    case 'gasolina': return 'Diésel';
+    case 'gasolina': return 'Diesel';
     case 'parametros': return 'Parámetros';
     case 'fotos': return 'Fotografías';
     default: return moduleName || 'General';
