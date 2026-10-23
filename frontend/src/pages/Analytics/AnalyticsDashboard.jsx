@@ -368,6 +368,20 @@ const calculateGasolineMetrics = (records = []) => {
   };
 };
 
+const filterGasolineRecordsByVehicleType = (records = [], vehicles = [], vehicleType = '') => {
+  const normalizedType = String(vehicleType || '').trim().toLowerCase();
+  const matchingVehicleIds = new Set(
+    vehicles
+      .filter((vehicle) => String(vehicle.tipo_carro || '').trim().toLowerCase() === normalizedType)
+      .map((vehicle) => String(vehicle.id))
+  );
+
+  return records.filter((record) => (
+    matchingVehicleIds.has(String(record.vehiculo_id))
+    || String(record.vehiculo_tipo_carro || '').trim().toLowerCase() === normalizedType
+  ));
+};
+
 const calculateMaintenanceMetrics = (records = []) => {
   const providers = new Set();
   const vehicles = new Set();
@@ -639,7 +653,7 @@ const buildCardData = ({ id, label, value, detail, delta }) => ({
   comparisonDetail: delta.detailLabel
 });
 
-const buildGasolinePrimaryCards = (metrics, comparison) => ([
+const buildGasolinePrimaryCards = (metrics, comparison, tractoMetrics, tractoComparison) => ([
   buildCardData({
     id: 'gasoline-total',
     label: 'Gasto total',
@@ -673,6 +687,18 @@ const buildGasolinePrimaryCards = (metrics, comparison) => ([
       currentValue: metrics.averageEfficiency,
       comparisonValue: comparison.metrics.averageEfficiency,
       comparison,
+      suffix: 'km/L'
+    })
+  }),
+  buildCardData({
+    id: 'gasoline-tracto-efficiency',
+    label: 'Rendimiento promedio tractos',
+    value: `${formatNumber(tractoMetrics.averageEfficiency)} km/L`,
+    detail: `${tractoMetrics.completeRecords} cargas completas de tractos`,
+    delta: buildKpiDelta({
+      currentValue: tractoMetrics.averageEfficiency,
+      comparisonValue: tractoComparison.metrics.averageEfficiency,
+      comparison: tractoComparison,
       suffix: 'km/L'
     })
   }),
@@ -1555,6 +1581,10 @@ export default function AnalyticsDashboard() {
     [gasolineFilters, gasolineRecords, overviewRange]
   );
   const gasolineOverviewMetrics = useMemo(() => calculateGasolineMetrics(gasolineOverviewRecords), [gasolineOverviewRecords]);
+  const gasolineOverviewTractoMetrics = useMemo(
+    () => calculateGasolineMetrics(filterGasolineRecordsByVehicleType(gasolineOverviewRecords, vehicles, 'Tracto')),
+    [gasolineOverviewRecords, vehicles]
+  );
   const gasolineOverviewComparison = useMemo(() => buildComparisonContext({
     records: gasolineRecords,
     metricsCalculator: calculateGasolineMetrics,
@@ -1571,9 +1601,34 @@ export default function AnalyticsDashboard() {
       includeFirstLoads: true
     }
   }), [gasolineRecords, overviewRange, periodPreset]);
+  const gasolineOverviewTractoComparison = useMemo(() => buildComparisonContext({
+    records: gasolineRecords,
+    metricsCalculator: calculateGasolineMetrics,
+    filterFn: ({ records, filters }) => filterGasolineRecordsByVehicleType(
+      filterGasolineRecords({ records, filters }),
+      vehicles,
+      'Tracto'
+    ),
+    currentRange: overviewRange,
+    preset: periodPreset,
+    baseFilters: {
+      search: '',
+      vehicleId: 'todos',
+      provider: 'todos',
+      operator: 'todos',
+      fuelType: 'todos',
+      onlyComplete: false,
+      includeFirstLoads: true
+    }
+  }), [gasolineRecords, overviewRange, periodPreset, vehicles]);
   const gasolineOverviewCards = useMemo(
-    () => buildGasolinePrimaryCards(gasolineOverviewMetrics, gasolineOverviewComparison),
-    [gasolineOverviewComparison, gasolineOverviewMetrics]
+    () => buildGasolinePrimaryCards(
+      gasolineOverviewMetrics,
+      gasolineOverviewComparison,
+      gasolineOverviewTractoMetrics,
+      gasolineOverviewTractoComparison
+    ),
+    [gasolineOverviewComparison, gasolineOverviewMetrics, gasolineOverviewTractoComparison, gasolineOverviewTractoMetrics]
   );
 
   const maintenanceOverviewRecords = useMemo(
@@ -1605,6 +1660,10 @@ export default function AnalyticsDashboard() {
     [gasolineFilters, gasolineRecords]
   );
   const gasolineDetailMetrics = useMemo(() => calculateGasolineMetrics(gasolineDetailRecords), [gasolineDetailRecords]);
+  const gasolineDetailTractoMetrics = useMemo(
+    () => calculateGasolineMetrics(filterGasolineRecordsByVehicleType(gasolineDetailRecords, vehicles, 'Tracto')),
+    [gasolineDetailRecords, vehicles]
+  );
   const gasolineDetailComparison = useMemo(() => buildComparisonContext({
     records: gasolineRecords,
     metricsCalculator: calculateGasolineMetrics,
@@ -1613,6 +1672,18 @@ export default function AnalyticsDashboard() {
     preset: periodPreset,
     baseFilters: gasolineFilters
   }), [gasolineFilters, gasolineRecords, periodPreset]);
+  const gasolineDetailTractoComparison = useMemo(() => buildComparisonContext({
+    records: gasolineRecords,
+    metricsCalculator: calculateGasolineMetrics,
+    filterFn: ({ records, filters }) => filterGasolineRecordsByVehicleType(
+      filterGasolineRecords({ records, filters }),
+      vehicles,
+      'Tracto'
+    ),
+    currentRange: { from: gasolineFilters.dateFrom, to: gasolineFilters.dateTo },
+    preset: periodPreset,
+    baseFilters: gasolineFilters
+  }), [gasolineFilters, gasolineRecords, periodPreset, vehicles]);
   const gasolineTrendSeries = useMemo(() => buildTrendSeries({
     records: gasolineDetailRecords,
     preset: periodPreset,
@@ -1682,8 +1753,13 @@ export default function AnalyticsDashboard() {
   }, [gasolineWeeklyEfficiencyRows, weeklyEfficiencyOrder]);
 
   const gasolinePrimaryCards = useMemo(
-    () => buildGasolinePrimaryCards(gasolineDetailMetrics, gasolineDetailComparison),
-    [gasolineDetailComparison, gasolineDetailMetrics]
+    () => buildGasolinePrimaryCards(
+      gasolineDetailMetrics,
+      gasolineDetailComparison,
+      gasolineDetailTractoMetrics,
+      gasolineDetailTractoComparison
+    ),
+    [gasolineDetailComparison, gasolineDetailMetrics, gasolineDetailTractoComparison, gasolineDetailTractoMetrics]
   );
   const gasolineSecondaryCards = useMemo(
     () => buildGasolineSecondaryCards({
