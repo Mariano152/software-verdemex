@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { getFuelTypeLabel, normalizeFuelType } from '../../../constants/fuelTypes';
 import { getGasolinePerformanceStatus } from '../../../utils/gasolinePerformance';
 import NotificationModal from '../../../components/Notifications/NotificationModal';
+import { useConfirmDialog } from '../../../context/confirmDialogContext';
 import GasolineRecordModal from './GasolineRecordModal';
 import '../../../components/Notifications/NotificationModal.css';
 import './VehicleGasolineSection.css';
@@ -107,6 +108,7 @@ export default function VehicleGasolineSection({
   onDeleteGasolineRecord,
   onBack
 }) {
+  const askConfirm = useConfirmDialog();
   const [records, setRecords] = useState(gasolineRecords);
   const [notification, setNotification] = useState(null);
   const [recordModalOpen, setRecordModalOpen] = useState(false);
@@ -339,7 +341,7 @@ export default function VehicleGasolineSection({
 
   const handleDeleteRecord = async (recordId) => {
     try {
-      if (!window.confirm('¿Seguro que deseas eliminar este registro de diesel?')) {
+      if (!await askConfirm({ title: 'Eliminar carga de combustible', message: 'La carga se quitará del historial de esta unidad.', note: 'Esta acción no se puede deshacer.', confirmLabel: 'Sí, eliminar' })) {
         return;
       }
 

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import NotificationModal from '../../components/Notifications/NotificationModal';
+import { useConfirmDialog } from '../../context/confirmDialogContext';
 import DriverEmergencyContactModal from './DriverEmergencyContactModal';
 import './DriverEmergencyContactsSection.css';
 
@@ -11,6 +12,7 @@ export default function DriverEmergencyContactsSection({
   onUpdateContact,
   onDeleteContact
 }) {
+  const askConfirm = useConfirmDialog();
   const [records, setRecords] = useState(contacts);
   const [notification, setNotification] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -102,7 +104,7 @@ export default function DriverEmergencyContactsSection({
 
   const handleDelete = async (contactId) => {
     try {
-      if (!window.confirm('Seguro que deseas eliminar este contacto de emergencia?')) {
+      if (!await askConfirm({ title: 'Eliminar contacto de emergencia', message: 'El contacto dejará de estar disponible para este conductor.', note: 'Esta acción no se puede deshacer.', confirmLabel: 'Sí, eliminar' })) {
         return;
       }
 

@@ -1,12 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { deleteRoute, fetchRoutes } from './routeApi';
+import { useConfirmDialog } from '../../context/confirmDialogContext';
 import { formatRouteStatus, formatRouteType, getRouteCode, getRouteStatusColor } from './routeHelpers';
 import './OrdersList.css';
 
 const STATUS_FILTERS = ['todos', 'programada', 'en_proceso', 'entregada', 'cancelada'];
 
 const OrdersList = () => {
+  const askConfirm = useConfirmDialog();
   const navigate = useNavigate();
   const [routes, setRoutes] = useState([]);
   const [filter, setFilter] = useState('todos');
@@ -53,7 +55,7 @@ const OrdersList = () => {
   }), [routes, filter, search]);
 
   const handleDelete = async (routeId) => {
-    const confirmed = window.confirm('Esta accion eliminara la ruta seleccionada. Deseas continuar?');
+    const confirmed = await askConfirm({ title: 'Eliminar ruta', message: 'La ruta seleccionada se quitará del sistema.', note: 'Esta acción no se puede deshacer.', confirmLabel: 'Sí, eliminar' });
     if (!confirmed) return;
 
     try {

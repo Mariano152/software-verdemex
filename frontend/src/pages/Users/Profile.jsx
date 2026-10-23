@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
+import NotificationModal from '../../components/Notifications/NotificationModal';
 import { buildDriverStars, formatDriverRating } from '../Drivers/driverFormatting';
 import {
   buildWeekOptions,
@@ -118,6 +119,7 @@ export default function Profile() {
   const [portalData, setPortalData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [actionNotification, setActionNotification] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedScore, setSelectedScore] = useState('todos');
   const [selectedYear, setSelectedYear] = useState('todos');
@@ -291,7 +293,7 @@ export default function Profile() {
   const handleSubmitSignature = async (recordId) => {
     if (!recordId) return;
     if (!signatureFiles.length) {
-      window.alert('Selecciona al menos una foto para registrar la firma.');
+      setActionNotification({ type: 'warning', title: 'Falta evidencia', message: 'Selecciona al menos una foto para registrar la firma.' });
       return;
     }
 
@@ -331,7 +333,7 @@ export default function Profile() {
       setSignatureFiles([]);
       setSignatureNotes('');
     } catch (submitError) {
-      window.alert(submitError.message || 'No se pudo registrar la firma');
+      setActionNotification({ type: 'error', title: 'No se pudo registrar la firma', message: submitError.message || 'Inténtalo nuevamente.' });
     } finally {
       setSubmittingSignature(false);
     }
@@ -805,6 +807,13 @@ export default function Profile() {
           </div>
         </section>
       )}
+      <NotificationModal
+        isOpen={!!actionNotification}
+        type={actionNotification?.type}
+        title={actionNotification?.title}
+        message={actionNotification?.message}
+        onClose={() => setActionNotification(null)}
+      />
     </div>
   );
 }

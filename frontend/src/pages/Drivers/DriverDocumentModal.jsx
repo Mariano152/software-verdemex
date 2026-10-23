@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import usePopupTopScroll from '../../hooks/usePopupTopScroll';
+import { useConfirmDialog } from '../../context/confirmDialogContext';
 import {
   DOCUMENT_STATUS_TIMEZONE,
   getDocumentDerivedStatus,
@@ -78,6 +79,7 @@ export default function DriverDocumentModal({
   onSave,
   onDelete
 }) {
+  const askConfirm = useConfirmDialog();
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [storedVigencia, setStoredVigencia] = useState('');
   const [selectedFiles, setSelectedFiles] = useState([]);
@@ -234,7 +236,7 @@ export default function DriverDocumentModal({
 
   const handleDeleteDocument = async () => {
     if (!document?.id) return;
-    if (!window.confirm('Seguro que deseas eliminar este documento?')) return;
+    if (!await askConfirm({ title: 'Eliminar documento del conductor', message: 'El documento dejará de estar disponible en su expediente.', note: 'Esta acción no se puede deshacer.', confirmLabel: 'Sí, eliminar' })) return;
     await onDelete?.(document.id);
     onClose?.();
   };

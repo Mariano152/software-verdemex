@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import NotificationModal from '../../components/Notifications/NotificationModal';
+import ConfirmDialog from '../../components/ConfirmDialog/ConfirmDialog';
 import { getVehicleSelectorLabel } from '../../utils/vehicleLabels';
 import { formatImportErrors, normalizeLookup, parseMaintenanceImport, readExcelFile } from '../../utils/excelImport';
 import '../../components/Notifications/NotificationModal.css';
@@ -250,6 +251,8 @@ export default function MaintenanceDashboard() {
   const [recordModalMode, setRecordModalMode] = useState('edit');
   const [showAllOilTrackingRows, setShowAllOilTrackingRows] = useState(false);
   const [importingExcel, setImportingExcel] = useState(false);
+  const [pendingExcelImport, setPendingExcelImport] = useState(null);
+  const [pendingDeleteRecordId, setPendingDeleteRecordId] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -443,7 +446,6 @@ export default function MaintenanceDashboard() {
     event.target.value = '';
     if (!file || importingExcel) return;
 
-    let importedCount = 0;
     setImportingExcel(true);
     try {
       const workbook = await readExcelFile(file);
@@ -480,9 +482,20 @@ export default function MaintenanceDashboard() {
 
       if (errors.length > 0) throw new Error(`No se importó ningún registro. Corrige lo siguiente:\n${formatImportErrors(errors)}`);
       if (preparedRows.length === 0) throw new Error('El archivo no contiene mantenimientos para importar.');
-      if (!window.confirm(`Se validaron ${preparedRows.length} mantenimiento(s). ¿Deseas agregarlos al sistema?`)) return;
+      setPendingExcelImport({ fileName: file.name, rows: preparedRows });
+    } catch (importError) {
+      setNotification({ type: 'error', title: 'No se pudo validar el Excel', message: importError.message });
+    } finally {
+      setImportingExcel(false);
+    }
+  };
 
-      for (const { row, vehicle } of preparedRows) {
+  const confirmExcelImport = async () => {
+    if (!pendingExcelImport || importingExcel) return;
+    let importedCount = 0;
+    setImportingExcel(true);
+    try {
+      for (const { row, vehicle } of pendingExcelImport.rows) {
         await handleSaveRecord({
           vehiculo_id: String(vehicle.id),
           titulo: row.titulo,
@@ -498,6 +511,7 @@ export default function MaintenanceDashboard() {
         }, [], null);
         importedCount += 1;
       }
+      setPendingExcelImport(null);
       setNotification({ type: 'success', title: 'Importación terminada', message: `Se agregaron ${importedCount} mantenimiento(s). Ya puedes verlos, editarlos o eliminarlos en el historial.` });
     } catch (importError) {
       const partialMessage = importedCount > 0
@@ -510,9 +524,6 @@ export default function MaintenanceDashboard() {
   };
 
   const handleDeleteRecord = async (recordId) => {
-    const confirmed = window.confirm('Seguro que deseas eliminar este registro global de mantenimiento?');
-    if (!confirmed) return;
-
     const token = localStorage.getItem('authToken');
     const response = await fetch(`/api/maintenance-records/${recordId}`, {
       method: 'DELETE',
@@ -534,6 +545,16 @@ export default function MaintenanceDashboard() {
       title: 'Exito',
       message: 'Registro eliminado correctamente'
     });
+  };
+
+  const confirmDeleteRecord = async () => {
+    if (!pendingDeleteRecordId) return;
+    try {
+      await handleDeleteRecord(pendingDeleteRecordId);
+      setPendingDeleteRecordId(null);
+    } catch (deleteError) {
+      setNotification({ type: 'error', title: 'No se pudo eliminar', message: deleteError.message });
+    }
   };
 
   const handleDownloadFile = async (fileInfo) => {
@@ -862,7 +883,7 @@ export default function MaintenanceDashboard() {
                       <button type='button' className='ghost-btn' onClick={() => navigate(`/vehicles/${record.vehiculo_id}/edit?section=maintenance&maintenanceId=${record.id}`)}>
                         Ir al vehiculo
                       </button>
-                      <button type='button' className='danger-btn' onClick={() => handleDeleteRecord(record.id)}>Eliminar</button>
+                      <button type='button' className='danger-btn' onClick={() => setPendingDeleteRecordId(record.id)}>Eliminar</button>
                     </div>
                   </div>
 
@@ -922,7 +943,7 @@ export default function MaintenanceDashboard() {
         onClose={() => setRecordModalOpen(false)}
         onSave={handleSaveRecord}
         onEdit={(record) => openEditRecordModal(record)}
-        onDelete={(recordId) => handleDeleteRecord(recordId)}
+        onDelete={(recordId) => setPendingDeleteRecordId(recordId)}
       />
 
       <NotificationModal
@@ -931,6 +952,31 @@ export default function MaintenanceDashboard() {
         title={notification?.title}
         message={notification?.message}
         onClose={() => setNotification(null)}
+      />
+
+      <ConfirmDialog
+        isOpen={!!pendingExcelImport}
+        eyebrow='Importación validada'
+        title='Importar mantenimientos'
+        message='El archivo pasó todas las validaciones iniciales y está listo para agregarse.'
+        fileName={pendingExcelImport?.fileName}
+        count={pendingExcelImport?.rows.length || 0}
+        itemLabel='registros'
+        confirmLabel='Importar registros'
+        loading={importingExcel}
+        onCancel={() => setPendingExcelImport(null)}
+        onConfirm={confirmExcelImport}
+      />
+
+      <ConfirmDialog
+        isOpen={!!pendingDeleteRecordId}
+        tone='danger'
+        title='Eliminar mantenimiento'
+        message='Esta acción quitará el registro del historial de la unidad.'
+        note='La eliminación no se puede deshacer desde esta pantalla.'
+        confirmLabel='Sí, eliminar'
+        onCancel={() => setPendingDeleteRecordId(null)}
+        onConfirm={confirmDeleteRecord}
       />
     </div>
   );

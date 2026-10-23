@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import NotificationModal from '../../components/Notifications/NotificationModal';
+import { useConfirmDialog } from '../../context/confirmDialogContext';
 import { getFuelTypeLabel } from '../../constants/fuelTypes';
 import '../../components/Notifications/NotificationModal.css';
 import InventoryPipaModal from './InventoryPipaModal';
@@ -38,6 +39,7 @@ const sortRecordsByDateDesc = (records = []) => (
 );
 
 export default function InventoryDashboard() {
+  const askConfirm = useConfirmDialog();
   const [pipas, setPipas] = useState([]);
   const [records, setRecords] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -278,7 +280,7 @@ export default function InventoryDashboard() {
   };
 
   const handleDeletePipa = async (pipaId) => {
-    const confirmed = window.confirm('Esto eliminara la pipa y su historial de inventario. Deseas continuar?');
+    const confirmed = await askConfirm({ title: 'Eliminar pipa', message: 'También se eliminará su historial de inventario.', note: 'Esta acción no se puede deshacer.', confirmLabel: 'Sí, eliminar' });
     if (!confirmed) return;
 
     const token = localStorage.getItem('authToken');
@@ -337,7 +339,7 @@ export default function InventoryDashboard() {
   };
 
   const handleDeleteRecord = async (recordId) => {
-    const confirmed = window.confirm('Seguro que deseas eliminar este registro de inventario?');
+    const confirmed = await askConfirm({ title: 'Eliminar registro de inventario', message: 'El movimiento dejará de aparecer en el historial.', note: 'Esta acción no se puede deshacer.', confirmLabel: 'Sí, eliminar' });
     if (!confirmed) return;
 
     const token = localStorage.getItem('authToken');

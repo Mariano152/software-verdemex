@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import NotificationModal from '../../components/Notifications/NotificationModal';
+import ConfirmDialog from '../../components/ConfirmDialog/ConfirmDialog';
 import { getFuelTypeLabel } from '../../constants/fuelTypes';
 import { getGasolinePerformanceStatus } from '../../utils/gasolinePerformance';
 import { getVehicleSelectorLabel } from '../../utils/vehicleLabels';
@@ -133,6 +134,8 @@ export default function GasolineDashboard() {
   const [isNewRecord, setIsNewRecord] = useState(false);
   const [recordModalMode, setRecordModalMode] = useState('edit');
   const [importingExcel, setImportingExcel] = useState(false);
+  const [pendingExcelImport, setPendingExcelImport] = useState(null);
+  const [pendingDeleteRecordId, setPendingDeleteRecordId] = useState(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -341,7 +344,6 @@ export default function GasolineDashboard() {
     event.target.value = '';
     if (!file || importingExcel) return;
 
-    let importedCount = 0;
     setImportingExcel(true);
     try {
       const workbook = await readExcelFile(file);
@@ -392,9 +394,20 @@ export default function GasolineDashboard() {
 
       if (errors.length > 0) throw new Error(`No se importó ningún registro. Corrige lo siguiente:\n${formatImportErrors(errors)}`);
       if (preparedRows.length === 0) throw new Error('El archivo no contiene cargas para importar.');
-      if (!window.confirm(`Se validaron ${preparedRows.length} carga(s). ¿Deseas agregarlas al sistema?`)) return;
+      setPendingExcelImport({ fileName: file.name, rows: preparedRows });
+    } catch (importError) {
+      setNotification({ type: 'error', title: 'No se pudo validar el Excel', message: importError.message });
+    } finally {
+      setImportingExcel(false);
+    }
+  };
 
-      for (const { row, vehicle, pipa, driver } of preparedRows) {
+  const confirmExcelImport = async () => {
+    if (!pendingExcelImport || importingExcel) return;
+    let importedCount = 0;
+    setImportingExcel(true);
+    try {
+      for (const { row, vehicle, pipa, driver } of pendingExcelImport.rows) {
         await handleSaveRecord({
           vehiculo_id: String(vehicle.id),
           titulo: row.titulo,
@@ -418,6 +431,7 @@ export default function GasolineDashboard() {
         }, [], null);
         importedCount += 1;
       }
+      setPendingExcelImport(null);
       setNotification({ type: 'success', title: 'Importación terminada', message: `Se agregaron ${importedCount} carga(s). Ya puedes verlas, editarlas o eliminarlas en el historial.` });
     } catch (importError) {
       const partialMessage = importedCount > 0
@@ -430,9 +444,6 @@ export default function GasolineDashboard() {
   };
 
   const handleDeleteRecord = async (recordId) => {
-    const confirmed = window.confirm('¿Seguro que deseas eliminar este registro global de diesel?');
-    if (!confirmed) return;
-
     const token = localStorage.getItem('authToken');
     const response = await fetch(`/api/gasoline-records/${recordId}`, {
       method: 'DELETE',
@@ -456,6 +467,16 @@ export default function GasolineDashboard() {
     });
     window.dispatchEvent(new CustomEvent(GASOLINE_RECORDS_UPDATED_EVENT));
     localStorage.setItem(GASOLINE_RECORDS_UPDATED_STORAGE_KEY, String(Date.now()));
+  };
+
+  const confirmDeleteRecord = async () => {
+    if (!pendingDeleteRecordId) return;
+    try {
+      await handleDeleteRecord(pendingDeleteRecordId);
+      setPendingDeleteRecordId(null);
+    } catch (deleteError) {
+      setNotification({ type: 'error', title: 'No se pudo eliminar', message: deleteError.message });
+    }
   };
 
   const handleDownloadFile = async (fileInfo) => {
@@ -805,7 +826,7 @@ export default function GasolineDashboard() {
                       <div className='maintenance-record-actions'>
                         <button type='button' className='ghost-btn' onClick={() => openViewRecordModal(record)}>Ver</button>
                         <button type='button' className='ghost-btn' onClick={() => openEditRecordModal(record)}>Editar</button>
-                        <button type='button' className='danger-btn' onClick={() => handleDeleteRecord(record.id)}>Eliminar</button>
+                      <button type='button' className='danger-btn' onClick={() => setPendingDeleteRecordId(record.id)}>Eliminar</button>
                       </div>
                     </div>
 
@@ -964,7 +985,7 @@ export default function GasolineDashboard() {
         onClose={() => setRecordModalOpen(false)}
         onSave={handleSaveRecord}
         onEdit={(record) => openEditRecordModal(record)}
-        onDelete={(recordId) => handleDeleteRecord(recordId)}
+        onDelete={(recordId) => setPendingDeleteRecordId(recordId)}
       />
 
       <NotificationModal
@@ -973,6 +994,31 @@ export default function GasolineDashboard() {
         title={notification?.title}
         message={notification?.message}
         onClose={() => setNotification(null)}
+      />
+
+      <ConfirmDialog
+        isOpen={!!pendingExcelImport}
+        eyebrow='Importación validada'
+        title='Importar cargas de combustible'
+        message='El archivo pasó todas las validaciones iniciales y está listo para agregarse.'
+        fileName={pendingExcelImport?.fileName}
+        count={pendingExcelImport?.rows.length || 0}
+        itemLabel='cargas'
+        confirmLabel='Importar cargas'
+        loading={importingExcel}
+        onCancel={() => setPendingExcelImport(null)}
+        onConfirm={confirmExcelImport}
+      />
+
+      <ConfirmDialog
+        isOpen={!!pendingDeleteRecordId}
+        tone='danger'
+        title='Eliminar carga de combustible'
+        message='Esta acción quitará el registro del historial.'
+        note='La eliminación no se puede deshacer desde esta pantalla.'
+        confirmLabel='Sí, eliminar'
+        onCancel={() => setPendingDeleteRecordId(null)}
+        onConfirm={confirmDeleteRecord}
       />
     </div>
   );

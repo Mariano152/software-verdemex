@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import NotificationModal from '../../components/Notifications/NotificationModal';
+import { useConfirmDialog } from '../../context/confirmDialogContext';
 import './ExpedientePage.css';
 
 export default function ExpedientePage() {
+  const askConfirm = useConfirmDialog();
   const { expedienteId } = useParams();
   const navigate = useNavigate();
 
@@ -162,7 +164,7 @@ export default function ExpedientePage() {
   };
 
   const handleDeleteItem = async (itemId) => {
-    if (!window.confirm('¿Eliminar este item?')) return;
+    if (!await askConfirm({ title: 'Eliminar elemento del expediente', message: 'El elemento seleccionado se quitará del expediente.', note: 'Esta acción no se puede deshacer.', confirmLabel: 'Sí, eliminar' })) return;
 
     try {
       const token = localStorage.getItem('authToken');

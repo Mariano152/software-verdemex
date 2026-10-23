@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { deleteRoute, fetchRouteById } from './routeApi';
+import { useConfirmDialog } from '../../context/confirmDialogContext';
 import {
   formatRouteStatus,
   formatRouteType,
@@ -10,6 +11,7 @@ import {
 import './OrderDetail.css';
 
 const OrderDetail = () => {
+  const askConfirm = useConfirmDialog();
   const { id } = useParams();
   const navigate = useNavigate();
   const [route, setRoute] = useState(null);
@@ -35,7 +37,7 @@ const OrderDetail = () => {
   }, [id]);
 
   const handleDelete = async () => {
-    const confirmed = window.confirm('Esta accion eliminara la ruta. Deseas continuar?');
+    const confirmed = await askConfirm({ title: 'Eliminar ruta', message: 'La ruta se quitará definitivamente del sistema.', note: 'Esta acción no se puede deshacer.', confirmLabel: 'Sí, eliminar' });
     if (!confirmed) return;
 
     try {

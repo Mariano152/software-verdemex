@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import usePopupTopScroll from '../../hooks/usePopupTopScroll';
+import { useConfirmDialog } from '../../context/confirmDialogContext';
 import './DriverDocumentsSection.css';
 
 const EMPTY_FORM = {
@@ -40,6 +41,7 @@ export default function DriverHistoryModal({
   onSave,
   onDelete
 }) {
+  const askConfirm = useConfirmDialog();
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [existingFiles, setExistingFiles] = useState([]);
@@ -149,7 +151,7 @@ export default function DriverHistoryModal({
 
   const handleDeleteRecord = async () => {
     if (!record?.id) return;
-    if (!window.confirm('Seguro que deseas eliminar este registro de historial?')) return;
+    if (!await askConfirm({ title: 'Eliminar registro del historial', message: 'El registro dejará de estar disponible en el expediente del conductor.', note: 'Esta acción no se puede deshacer.', confirmLabel: 'Sí, eliminar' })) return;
     await onDelete?.(record.id);
     onClose?.();
   };

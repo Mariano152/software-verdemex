@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import usePopupTopScroll from '../../hooks/usePopupTopScroll';
+import { useConfirmDialog } from '../../context/confirmDialogContext';
 import {
   buildWeekOptions,
   formatWeekRangeLabel,
@@ -60,6 +61,7 @@ export default function DriverRatingModal({
   onSave,
   onDelete
 }) {
+  const askConfirm = useConfirmDialog();
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [selectedFiles, setSelectedFiles] = useState([]);
   const [existingFiles, setExistingFiles] = useState([]);
@@ -196,7 +198,7 @@ export default function DriverRatingModal({
 
   const handleDeleteRecord = async () => {
     if (!record?.id) return;
-    if (!window.confirm('Seguro que deseas eliminar este rating?')) return;
+    if (!await askConfirm({ title: 'Eliminar calificación', message: 'La calificación seleccionada se quitará del historial del conductor.', note: 'Esta acción no se puede deshacer.', confirmLabel: 'Sí, eliminar' })) return;
     await onDelete?.(record.id);
     onClose?.();
   };

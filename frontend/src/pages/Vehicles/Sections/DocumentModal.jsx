@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import usePopupTopScroll from '../../../hooks/usePopupTopScroll';
+import { useConfirmDialog } from '../../../context/confirmDialogContext';
 import {
   DOCUMENT_STATUS_TIMEZONE,
   getDocumentDerivedStatus,
@@ -97,6 +98,7 @@ export default function DocumentModal({
   onSave,
   onDelete
 }) {
+  const askConfirm = useConfirmDialog();
   const [formData, setFormData] = useState(EMPTY_FORM);
   const [storedVigencia, setStoredVigencia] = useState('');
   const [selectedFiles, setSelectedFiles] = useState([]);
@@ -195,7 +197,7 @@ export default function DocumentModal({
   const handleDeleteExistingFile = async (fileId) => {
     if (!document?.id || !fileId || isViewMode) return;
 
-    if (!window.confirm('Seguro que deseas eliminar este archivo adjunto?')) return;
+    if (!await askConfirm({ title: 'Eliminar archivo adjunto', message: 'El archivo se quitará permanentemente de este documento.', note: 'Esta acción no se puede deshacer.', confirmLabel: 'Sí, eliminar' })) return;
 
     const token = localStorage.getItem('authToken');
     const response = await fetch(`/api/vehicles/${vehicleId}/documents/${document.id}/files/${fileId}`, {
@@ -282,7 +284,7 @@ export default function DocumentModal({
   const handleDeleteDocument = async () => {
     if (!document?.id) return;
 
-    if (!window.confirm('Seguro que deseas eliminar este documento?')) return;
+    if (!await askConfirm({ title: 'Eliminar documento', message: 'El documento y sus archivos adjuntos se eliminarán.', note: 'Esta acción no se puede deshacer.', confirmLabel: 'Sí, eliminar' })) return;
 
     const token = localStorage.getItem('authToken');
     const response = await fetch(`/api/vehicles/${vehicleId}/documents/${document.id}`, {

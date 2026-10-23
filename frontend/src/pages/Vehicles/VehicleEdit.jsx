@@ -7,6 +7,7 @@ import VehicleGasolineSection from './Sections/VehicleGasolineSection';
 import VehiclePhotosSection from './Sections/VehiclePhotosSection';
 import VehicleParametersSection from './Sections/VehicleParametersSection';
 import NotificationModal from '../../components/Notifications/NotificationModal';
+import { useConfirmDialog } from '../../context/confirmDialogContext';
 import { VEHICLE_TYPE_OPTIONS } from '../../constants/vehicleTypes';
 import { getVehicleIdentifier, getVehicleSecondaryLabel } from '../../utils/vehicleLabels';
 import '../../components/Notifications/NotificationModal.css';
@@ -21,6 +22,7 @@ const GASOLINE_RECORDS_UPDATED_STORAGE_KEY = 'gasoline-records-updated-at';
  * Permite navegacion a secciones especificas (Documentos, Mantenimiento, Fotos)
  */
 export default function VehicleEdit() {
+  const askConfirm = useConfirmDialog();
   const { id } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
@@ -522,9 +524,12 @@ export default function VehicleEdit() {
 
   const handleDeleteVehicle = async () => {
     const vehicleLabel = getVehicleIdentifier(vehicle) || vehicle?.placa || id;
-    const confirmed = window.confirm(
-      `Se eliminará el vehículo ${vehicleLabel} junto con sus documentos, mantenimientos y registros de diesel.\n\nEsta acción lo ocultará del sistema. ¿Deseas continuar?`
-    );
+    const confirmed = await askConfirm({
+      title: `Eliminar vehículo ${vehicleLabel}`,
+      message: 'También se quitarán sus documentos, mantenimientos y registros de combustible.',
+      note: 'El vehículo quedará oculto del sistema. Esta acción no se puede deshacer desde la pantalla.',
+      confirmLabel: 'Sí, eliminar vehículo'
+    });
 
     if (!confirmed) return;
 

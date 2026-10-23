@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import NotificationModal from '../../../components/Notifications/NotificationModal';
+import { useConfirmDialog } from '../../../context/confirmDialogContext';
 import MaintenanceRecordModal from './MaintenanceRecordModal';
 import '../../../components/Notifications/NotificationModal.css';
 import './VehicleMaintenanceSection.css';
@@ -159,6 +160,7 @@ export default function VehicleMaintenanceSection({
   onCancel,
   onBack
 }) {
+  const askConfirm = useConfirmDialog();
   const [isEditing, setIsEditing] = useState(false);
   const [editedElements, setEditedElements] = useState(normalizeElements(safetyElements));
   const [records, setRecords] = useState(maintenanceRecords);
@@ -371,7 +373,7 @@ export default function VehicleMaintenanceSection({
 
   const handleDeleteRecord = async (recordId) => {
     try {
-      if (!window.confirm('¿Seguro que deseas eliminar este registro de mantenimiento?')) {
+      if (!await askConfirm({ title: 'Eliminar mantenimiento', message: 'El registro se quitará del historial de esta unidad.', note: 'Esta acción no se puede deshacer.', confirmLabel: 'Sí, eliminar' })) {
         return;
       }
 
