@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import * as XLSX from 'xlsx';
 import NotificationModal from '../../components/Notifications/NotificationModal';
 import { getFuelTypeLabel } from '../../constants/fuelTypes';
 import { getGasolinePerformanceStatus } from '../../utils/gasolinePerformance';
 import { getVehicleSelectorLabel } from '../../utils/vehicleLabels';
+import { formatImportErrors, normalizeLookup, parseDieselImport, readExcelFile } from '../../utils/excelImport';
 import '../../components/Notifications/NotificationModal.css';
 import GlobalGasolineRecordModal from './GlobalGasolineRecordModal';
 import './GasolineDashboard.css';
@@ -109,6 +110,7 @@ const SIGNATURE_STATUS_LABELS = {
 };
 
 export default function GasolineDashboard() {
+  const importInputRef = useRef(null);
   const [activeSection, setActiveSection] = useState('records');
   const [vehicles, setVehicles] = useState([]);
   const [drivers, setDrivers] = useState([]);
@@ -130,6 +132,7 @@ export default function GasolineDashboard() {
   const [selectedRecord, setSelectedRecord] = useState(null);
   const [isNewRecord, setIsNewRecord] = useState(false);
   const [recordModalMode, setRecordModalMode] = useState('edit');
+  const [importingExcel, setImportingExcel] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -333,6 +336,99 @@ export default function GasolineDashboard() {
     return savedRecord;
   };
 
+  const handleImportExcel = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || importingExcel) return;
+
+    let importedCount = 0;
+    setImportingExcel(true);
+    try {
+      const workbook = await readExcelFile(file);
+      const importedRows = parseDieselImport(workbook);
+      const vehicleByNumber = new Map(vehicles.map((vehicle) => [normalizeLookup(vehicle.numero_economico), vehicle]));
+      const pipaByName = new Map(inventoryPipas.flatMap((pipa) => [
+        [normalizeLookup(pipa.nombre), pipa],
+        [normalizeLookup(pipa.nombre_pipa), pipa]
+      ]).filter(([key]) => key));
+      const driverByName = new Map(drivers.flatMap((driver) => {
+        const fullName = driver.nombre_completo || [driver.nombre, driver.apellido_paterno, driver.apellido_materno].filter(Boolean).join(' ');
+        return [[normalizeLookup(fullName), driver], [normalizeLookup(driver.numero_empleado), driver]].filter(([key]) => key);
+      }));
+      const existingKeys = new Set(records.map((record) => [
+        normalizeLookup(record.numero_economico_snapshot),
+        getDateKey(record.fecha_carga),
+        String(record.hora_carga || '').slice(0, 5),
+        normalizeLookup(record.factura)
+      ].join('|')));
+      const fileKeys = new Set();
+      const errors = [];
+      const preparedRows = [];
+
+      importedRows.forEach((row) => {
+        const vehicle = vehicleByNumber.get(normalizeLookup(row.numero_economico));
+        const pipa = row.origen_carga === 'pipa' ? pipaByName.get(normalizeLookup(row.pipa_nombre)) : null;
+        const driver = row.conductor ? driverByName.get(normalizeLookup(row.conductor)) : null;
+        const key = [normalizeLookup(row.numero_economico), row.fecha_carga, row.hora_carga, normalizeLookup(row.factura)].join('|');
+        let message = '';
+        if (!vehicle) message = `No existe el vehículo ${row.numero_economico || '(vacío)'}.`;
+        else if (!row.fecha_carga || !row.hora_carga) message = 'Fecha u hora inválida.';
+        else if (!row.titulo || !row.factura || !row.proveedor || !row.operador) message = 'Título, factura, proveedor y operador son obligatorios.';
+        else if (!['diesel', 'magma', 'premium'].includes(row.tipo_combustible)) message = 'Tipo de combustible inválido.';
+        else if (!['gasolinera', 'pipa'].includes(row.origen_carga)) message = 'origen_carga debe ser gasolinera o pipa.';
+        else if (row.origen_carga === 'pipa' && !pipa) message = `No existe la pipa ${row.pipa_nombre || '(vacía)'}.`;
+        else if (row.kilometraje_actual === null || row.litros === null || row.litros <= 0 || row.m3_enviados === null) message = 'Kilometraje, litros y m3 enviados deben ser números válidos.';
+        else if (row.origen_carga === 'gasolinera' && (row.costo_total === null || row.costo_total < 0)) message = 'El costo total es obligatorio para gasolinera.';
+        else if (row.conductor && !driver) message = `No existe el conductor ${row.conductor}.`;
+        else if (existingKeys.has(key) || fileKeys.has(key)) message = 'La carga está duplicada por vehículo, fecha, hora y factura.';
+
+        if (message) {
+          errors.push({ rowNumber: row.rowNumber, message });
+          return;
+        }
+        fileKeys.add(key);
+        preparedRows.push({ row, vehicle, pipa, driver });
+      });
+
+      if (errors.length > 0) throw new Error(`No se importó ningún registro. Corrige lo siguiente:\n${formatImportErrors(errors)}`);
+      if (preparedRows.length === 0) throw new Error('El archivo no contiene cargas para importar.');
+      if (!window.confirm(`Se validaron ${preparedRows.length} carga(s). ¿Deseas agregarlas al sistema?`)) return;
+
+      for (const { row, vehicle, pipa, driver } of preparedRows) {
+        await handleSaveRecord({
+          vehiculo_id: String(vehicle.id),
+          titulo: row.titulo,
+          factura: row.factura,
+          tipo_combustible: row.tipo_combustible,
+          origen_carga: row.origen_carga,
+          pipa_id: pipa?.id || '',
+          pipa_nombre_snapshot: pipa?.nombre || pipa?.nombre_pipa || '',
+          proveedor: row.proveedor,
+          fecha_carga: row.fecha_carga,
+          hora_carga: row.hora_carga,
+          kilometraje_actual: String(row.kilometraje_actual),
+          litros: String(row.litros),
+          costo_total: row.costo_total ?? '',
+          m3_enviados: String(row.m3_enviados),
+          operador: row.operador,
+          primera_carga: row.primera_carga,
+          conductor_id: driver?.id || '',
+          conductor_nombre_snapshot: row.conductor || '',
+          observaciones: row.observaciones
+        }, [], null);
+        importedCount += 1;
+      }
+      setNotification({ type: 'success', title: 'Importación terminada', message: `Se agregaron ${importedCount} carga(s). Ya puedes verlas, editarlas o eliminarlas en el historial.` });
+    } catch (importError) {
+      const partialMessage = importedCount > 0
+        ? `${importedCount} carga(s) sí se guardaron antes del error. ${importError.message}`
+        : importError.message;
+      setNotification({ type: 'error', title: 'No se pudo completar la importación', message: partialMessage });
+    } finally {
+      setImportingExcel(false);
+    }
+  };
+
   const handleDeleteRecord = async (recordId) => {
     const confirmed = window.confirm('¿Seguro que deseas eliminar este registro global de diesel?');
     if (!confirmed) return;
@@ -514,9 +610,13 @@ export default function GasolineDashboard() {
               Historial global de cargas para todos los vehiculos con kilometraje, montos, litros y adjuntos.
             </p>
           </div>
-          <button type='button' className='maintenance-add-btn' onClick={handleDownloadReport}>
-            Descargar reporte
-          </button>
+          <div className='dashboard-header-actions'>
+            <input ref={importInputRef} className='excel-import-input' type='file' accept='.xlsx,.xls' onChange={handleImportExcel} />
+            <button type='button' className='maintenance-add-btn secondary' onClick={() => importInputRef.current?.click()} disabled={importingExcel}>
+              {importingExcel ? 'Subiendo...' : 'Subir Excel'}
+            </button>
+            <button type='button' className='maintenance-add-btn' onClick={handleDownloadReport}>Descargar reporte</button>
+          </div>
         </div>
       </div>
 

@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import * as XLSX from 'xlsx';
 import NotificationModal from '../../components/Notifications/NotificationModal';
 import { getVehicleSelectorLabel } from '../../utils/vehicleLabels';
+import { formatImportErrors, normalizeLookup, parseMaintenanceImport, readExcelFile } from '../../utils/excelImport';
 import '../../components/Notifications/NotificationModal.css';
 import '../Vehicles/Sections/VehicleMaintenanceSection.css';
 import GlobalMaintenanceRecordModal from './GlobalMaintenanceRecordModal';
@@ -228,6 +229,7 @@ const buildOilTrackingItem = (vehicle, maintenanceRecords, gasolineRecords) => {
 
 export default function MaintenanceDashboard() {
   const navigate = useNavigate();
+  const importInputRef = useRef(null);
   const [vehicles, setVehicles] = useState([]);
   const [maintenanceRecords, setMaintenanceRecords] = useState([]);
   const [gasolineRecords, setGasolineRecords] = useState([]);
@@ -247,6 +249,7 @@ export default function MaintenanceDashboard() {
   const [isNewRecord, setIsNewRecord] = useState(false);
   const [recordModalMode, setRecordModalMode] = useState('edit');
   const [showAllOilTrackingRows, setShowAllOilTrackingRows] = useState(false);
+  const [importingExcel, setImportingExcel] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -435,6 +438,77 @@ export default function MaintenanceDashboard() {
     });
   };
 
+  const handleImportExcel = async (event) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || importingExcel) return;
+
+    let importedCount = 0;
+    setImportingExcel(true);
+    try {
+      const workbook = await readExcelFile(file);
+      const importedRows = parseMaintenanceImport(workbook);
+      const vehicleByNumber = new Map(vehicles.map((vehicle) => [normalizeLookup(vehicle.numero_economico), vehicle]));
+      const existingKeys = new Set(maintenanceRecords.map((record) => [
+        normalizeLookup(record.vehiculo_numero_economico),
+        getDateKey(record.fecha_servicio),
+        normalizeLookup(record.titulo),
+        Number(record.costo || 0).toFixed(2)
+      ].join('|')));
+      const fileKeys = new Set();
+      const errors = [];
+      const preparedRows = [];
+
+      importedRows.forEach((row) => {
+        const vehicle = vehicleByNumber.get(normalizeLookup(row.numero_economico));
+        const key = [normalizeLookup(row.numero_economico), row.fecha_servicio, normalizeLookup(row.titulo), Number(row.costo || 0).toFixed(2)].join('|');
+        let message = '';
+        if (!vehicle) message = `No existe el vehículo ${row.numero_economico || '(vacío)'}.`;
+        else if (!row.fecha_servicio) message = 'La fecha de servicio es inválida.';
+        else if (!row.titulo || !row.tipo_mantenimiento) message = 'Título y tipo de mantenimiento son obligatorios.';
+        else if (row.costo !== null && row.costo < 0) message = 'El costo no puede ser negativo.';
+        else if (row.es_cambio_aceite && row.usar_kilometraje_base_manual && (row.kilometraje_base_aceite_manual === null || row.kilometraje_base_aceite_manual < 0)) message = 'Falta un kilometraje base de aceite válido.';
+        else if (existingKeys.has(key) || fileKeys.has(key)) message = 'El mantenimiento está duplicado por vehículo, fecha, título y costo.';
+
+        if (message) {
+          errors.push({ rowNumber: row.rowNumber, message });
+          return;
+        }
+        fileKeys.add(key);
+        preparedRows.push({ row, vehicle });
+      });
+
+      if (errors.length > 0) throw new Error(`No se importó ningún registro. Corrige lo siguiente:\n${formatImportErrors(errors)}`);
+      if (preparedRows.length === 0) throw new Error('El archivo no contiene mantenimientos para importar.');
+      if (!window.confirm(`Se validaron ${preparedRows.length} mantenimiento(s). ¿Deseas agregarlos al sistema?`)) return;
+
+      for (const { row, vehicle } of preparedRows) {
+        await handleSaveRecord({
+          vehiculo_id: String(vehicle.id),
+          titulo: row.titulo,
+          tipo_mantenimiento: row.tipo_mantenimiento,
+          fecha_servicio: row.fecha_servicio,
+          costo: row.costo ?? '',
+          proveedor: row.proveedor,
+          descripcion: row.descripcion,
+          observaciones: row.observaciones,
+          es_cambio_aceite: row.es_cambio_aceite,
+          usar_kilometraje_base_manual: row.usar_kilometraje_base_manual,
+          kilometraje_base_aceite_manual: row.kilometraje_base_aceite_manual ?? ''
+        }, [], null);
+        importedCount += 1;
+      }
+      setNotification({ type: 'success', title: 'Importación terminada', message: `Se agregaron ${importedCount} mantenimiento(s). Ya puedes verlos, editarlos o eliminarlos en el historial.` });
+    } catch (importError) {
+      const partialMessage = importedCount > 0
+        ? `${importedCount} mantenimiento(s) sí se guardaron antes del error. ${importError.message}`
+        : importError.message;
+      setNotification({ type: 'error', title: 'No se pudo completar la importación', message: partialMessage });
+    } finally {
+      setImportingExcel(false);
+    }
+  };
+
   const handleDeleteRecord = async (recordId) => {
     const confirmed = window.confirm('Seguro que deseas eliminar este registro global de mantenimiento?');
     if (!confirmed) return;
@@ -576,9 +650,13 @@ export default function MaintenanceDashboard() {
               Bitacora global de mantenimientos para toda la flotilla con alertas de cambio de aceite y acceso directo por unidad.
             </p>
           </div>
-          <button type='button' className='maintenance-add-btn' onClick={handleDownloadReport}>
-            Descargar reporte
-          </button>
+          <div className='dashboard-header-actions'>
+            <input ref={importInputRef} className='excel-import-input' type='file' accept='.xlsx,.xls' onChange={handleImportExcel} />
+            <button type='button' className='maintenance-add-btn secondary' onClick={() => importInputRef.current?.click()} disabled={importingExcel}>
+              {importingExcel ? 'Subiendo...' : 'Subir Excel'}
+            </button>
+            <button type='button' className='maintenance-add-btn' onClick={handleDownloadReport}>Descargar reporte</button>
+          </div>
         </div>
       </div>
 
