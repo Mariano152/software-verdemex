@@ -14,6 +14,7 @@ import expedienteRoutes from './routes/expedienteRoutes.js';
 import uploadRoutes from './routes/uploadRoutes.js';
 import routeRoutes from './routes/routeRoutes.js';
 import auditLogRoutes from './routes/auditLogRoutes.js';
+import salesRoutes from './routes/salesRoutes.js';
 import { auditLogger } from './middleware/auditLogger.js';
 
 dotenv.config();
@@ -80,6 +81,7 @@ app.use('/api/expedientes', expedienteRoutes);
 app.use('/api/uploads', uploadRoutes);
 app.use('/api/routes', routeRoutes);
 app.use('/api/audit-logs', auditLogRoutes);
+app.use('/api/sales', salesRoutes);
 
 // Error handler (DEBE SER AL FINAL)
 app.use(errorHandler);

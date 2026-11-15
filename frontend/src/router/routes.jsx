@@ -39,6 +39,7 @@ import UserCreate from '../pages/Users/UserCreate';
 import UserEdit from '../pages/Users/UserEdit';
 import Profile from '../pages/Users/Profile';
 import AuditLogDashboard from '../pages/Notifications/AuditLogDashboard';
+import SalesDashboard from '../pages/Sales/SalesDashboard';
 
 import NotFound from '../pages/Errors/NotFound';
 import Unauthorized from '../pages/Errors/Unauthorized';
@@ -145,6 +146,10 @@ export const routes = [
   {
     path: '/routes/board',
     element: <ProtectedRoute element={<OrdersBoard />} allowedRoles={APP_ADMIN_ROLES} />
+  },
+  {
+    path: '/sales',
+    element: <ProtectedRoute element={<SalesDashboard />} allowedRoles={APP_ADMIN_ROLES} requiredPermission='analytics.view' />
   },
   {
     path: '/analytics',

@@ -12,6 +12,7 @@ const SECTION_METADATA = [
   { match: '/calificar', section: 'Calificar', caption: 'Seguimiento semanal de ratings para todos los conductores' },
   { match: '/routes', section: 'Rutas', caption: 'Planeacion operativa, asignaciones y entregas programadas' },
   { match: '/analytics', section: 'Analytics', caption: 'Indicadores y visibilidad del negocio' },
+  { match: '/sales', section: 'Ventas', caption: 'Resultados comerciales sincronizados desde Odoo' },
   { match: '/users', section: 'Usuarios', caption: 'Administracion de accesos y perfiles internos' },
   { match: '/notifications', section: 'Notificaciones', caption: 'Trazabilidad completa de movimientos del sistema' },
   { match: '/profile', section: 'Perfil', caption: 'Informacion de cuenta y preferencias' },
@@ -28,6 +29,7 @@ const ADMIN_MENU_ITEMS = [
   { path: '/calificar', label: 'Calificar', icon: '📝' },
   { path: '/routes', label: 'Rutas', icon: '🗺️' },
   { path: '/analytics', label: 'Analytics', icon: '📈' },
+  { path: '/sales', label: 'Ventas Odoo', icon: '💰' },
   { path: '/users', label: 'Usuarios', icon: '👥' },
   { path: '/notifications', label: 'Notificaciones', icon: '🔔' }
 ];
@@ -39,7 +41,7 @@ const DRIVER_MENU_ITEMS = [
 const MENU_PERMISSIONS = {
   '/dashboard': 'dashboard.view', '/gasoline': 'gasoline.view', '/inventory': 'inventory.view',
   '/maintenance': 'vehicles.maintenance', '/vehicles': 'vehicles.view', '/drivers': 'drivers.view',
-  '/calificar': 'drivers.rate', '/routes': 'routes.view', '/analytics': 'analytics.view', '/users': 'users.manage',
+  '/calificar': 'drivers.rate', '/routes': 'routes.view', '/analytics': 'analytics.view', '/sales': 'analytics.view', '/users': 'users.manage',
   '/notifications': 'notifications.view'
 };
 
