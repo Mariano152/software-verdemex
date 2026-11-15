@@ -149,7 +149,7 @@ export const routes = [
   },
   {
     path: '/sales',
-    element: <ProtectedRoute element={<SalesDashboard />} allowedRoles={APP_ADMIN_ROLES} requiredPermission='analytics.view' />
+    element: <ProtectedRoute element={<SalesDashboard />} allowedRoles={APP_ADMIN_ROLES} requiredPermission='sales.view' />
   },
   {
     path: '/analytics',

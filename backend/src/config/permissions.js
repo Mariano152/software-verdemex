@@ -1,7 +1,7 @@
 export const SUPERUSER_IDENTIFIERS = ['adminverdemex.local', 'admin@verdemex.local'];
 
 export const PERMISSIONS = [
-  'dashboard.view', 'analytics.view',
+  'dashboard.view', 'analytics.view', 'sales.view',
   'vehicles.view', 'vehicles.create', 'vehicles.edit', 'vehicles.delete',
   'vehicles.parameters', 'vehicles.maintenance', 'vehicles.photos', 'vehicles.documents',
   'gasoline.view', 'gasoline.manage', 'inventory.view', 'inventory.manage',

@@ -41,7 +41,7 @@ const DRIVER_MENU_ITEMS = [
 const MENU_PERMISSIONS = {
   '/dashboard': 'dashboard.view', '/gasoline': 'gasoline.view', '/inventory': 'inventory.view',
   '/maintenance': 'vehicles.maintenance', '/vehicles': 'vehicles.view', '/drivers': 'drivers.view',
-  '/calificar': 'drivers.rate', '/routes': 'routes.view', '/analytics': 'analytics.view', '/sales': 'analytics.view', '/users': 'users.manage',
+  '/calificar': 'drivers.rate', '/routes': 'routes.view', '/analytics': 'analytics.view', '/sales': 'sales.view', '/users': 'users.manage',
   '/notifications': 'notifications.view'
 };
 
