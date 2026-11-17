@@ -3,7 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/vite.svg" />
-    <meta name="viewport" content="width=1440, minimum-scale=0.2, maximum-scale=5, user-scalable=yes" />
+    <meta id="app-viewport" name="viewport" content="width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes" />
+    <script>
+      if (window.location.pathname !== '/' && window.localStorage.getItem('authToken')) {
+        document.getElementById('app-viewport').setAttribute('content', 'width=1440, minimum-scale=0.2, maximum-scale=5, user-scalable=yes');
+      }
+    </script>
     <title>Sistema VerdeMex</title>
   </head>
   <body>
