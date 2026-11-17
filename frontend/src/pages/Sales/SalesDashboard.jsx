@@ -70,7 +70,7 @@ export default function SalesDashboard() {
   const [to, setTo] = useState(localIso(today));
   const [granularity, setGranularity] = useState('month');
   const [data, setData] = useState({ orders: [], lines: [] });
-  const [filters, setFilters] = useState({ state: 'sale,done', salesperson: '', team: '', customer: '', company: '' });
+  const [filters, setFilters] = useState({ salesperson: '', team: '', customer: '', company: '' });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -91,8 +91,7 @@ export default function SalesDashboard() {
     return { salesperson: unique('salesperson'), team: unique('team'), customer: unique('customer'), company: unique('company') };
   }, [data.orders]);
   const scoped = useMemo(() => data.orders.filter((order) => {
-    const states = filters.state ? filters.state.split(',') : [];
-    return (!states.length || states.includes(order.state)) && ['salesperson', 'team', 'customer', 'company'].every((key) => !filters[key] || String(order[key]?.id) === filters[key]);
+    return ['salesperson', 'team', 'customer', 'company'].every((key) => !filters[key] || String(order[key]?.id) === filters[key]);
   }), [data.orders, filters]);
   const comparison = useMemo(() => {
     const start = new Date(`${from}T00:00:00`); const end = new Date(`${to}T23:59:59`); const span = end - start;
@@ -163,7 +162,6 @@ export default function SalesDashboard() {
     {error && <div className='sales-inline-error'>{error}</div>}{data.truncated && <div className='sales-warning'>La consulta alcanzó 20,000 órdenes. Reduce el rango de fechas.</div>}
     <section className='sales-filters'>
       <label><span>Desde</span><input type='date' value={from} max={to} onChange={(e) => setFrom(e.target.value)} /></label><label><span>Hasta</span><input type='date' value={to} min={from} onChange={(e) => setTo(e.target.value)} /></label>
-      <label><span>Estado</span><select value={filters.state} onChange={(e) => setFilters({ ...filters, state: e.target.value })}><option value='sale,done'>Ventas confirmadas</option><option value='draft,sent,sale,done'>Todo excepto canceladas</option><option value='draft,sent'>Cotizaciones</option><option value='cancel'>Canceladas</option><option value=''>Todos</option></select></label>
       {['salesperson', 'team', 'customer', 'company'].map((key) => <label key={key}><span>{{ salesperson: 'Vendedor', team: 'Equipo', customer: 'Cliente', company: 'Compañía' }[key]}</span><select value={filters[key]} onChange={(e) => setFilters({ ...filters, [key]: e.target.value })}><option value=''>Todos</option>{dimensions[key].map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label>)}
     </section>
     <section className='sales-metrics'><Metric label='Subtotal vendido' value={money(comparison.now.subtotal, currency)} change={delta(comparison.now.subtotal, comparison.before.subtotal)} detail='sin impuestos · vs. periodo anterior' /><Metric label='Pedidos' value={number(comparison.now.count)} change={delta(comparison.now.count, comparison.before.count)} detail={`${number(comparison.before.count)} anteriormente`} /><Metric label='Ticket promedio' value={money(comparison.now.average, currency)} change={delta(comparison.now.average, comparison.before.average)} detail='subtotal por orden' /><Metric label='Subtotal anterior' value={money(comparison.before.subtotal, currency)} change={delta(comparison.before.subtotal, comparison.now.subtotal)} detail='periodo comparable sin impuestos' /></section>
