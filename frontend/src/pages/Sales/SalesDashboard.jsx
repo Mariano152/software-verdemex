@@ -54,10 +54,10 @@ const bucket = (value, granularity) => {
 
 function Bars({ rows, currency, valueFormatter, color = '#5B8DEF' }) {
   const max = Math.max(...rows.map((row) => row.value), 1);
-  return <div className='sales-bars'>{rows.map((row) => <div className='sales-bar-row' key={row.label}><div><span>{row.label}</span><strong>{valueFormatter ? valueFormatter(row.value) : money(row.value, currency)}</strong></div><i><b style={{ width: `${Math.max(row.value / max * 100, 1)}%`, background: color }} /></i></div>)}</div>;
+  return <div className={`sales-bars ${rows.length > 8 ? 'sales-bars-scroll' : ''}`}>{rows.map((row) => <div className='sales-bar-row' key={row.label}><div><span>{row.label}</span><strong>{valueFormatter ? valueFormatter(row.value) : money(row.value, currency)}</strong></div><i><b style={{ width: `${Math.max(row.value / max * 100, 1)}%`, background: color }} /></i></div>)}</div>;
 }
 function Metric({ label, value, change, detail }) {
-  return <article className='sales-metric'><span>{label}</span><strong>{value}</strong><div><em className={change >= 0 ? 'positive' : 'negative'}>{percent(change)}</em><small>{detail}</small></div></article>;
+  return <article className='sales-metric'><span>{label}</span><strong>{value}</strong><div>{change !== null && change !== undefined && <em className={change >= 0 ? 'positive' : 'negative'}>{percent(change)}</em>}<small>{detail}</small></div></article>;
 }
 function ClassificationCard({ tone, label, count, revenue, detail, currency }) {
   return <article className={`sales-classification-card ${tone}`}><div><span>{label}</span><strong>{number(count)}</strong></div><p>{money(revenue, currency)} <em>subtotal</em></p><small>{detail}</small></article>;
@@ -112,18 +112,19 @@ export default function SalesDashboard() {
   const comparison = useMemo(() => {
     const start = new Date(`${from}T00:00:00`); const end = new Date(`${to}T23:59:59`); const span = end - start;
     const select = (a, b) => scoped.filter((order) => { const date = new Date(order.date.replace(' ', 'T')); return date >= a && date <= b; });
-    const current = select(start, end); const previous = select(new Date(start.getTime() - span - 1), new Date(start.getTime() - 1));
-    return { current, previous, now: summarize(current), before: summarize(previous) };
+    const previousStart = new Date(start.getTime() - span - 1); const previousEnd = new Date(start.getTime() - 1);
+    const current = select(start, end); const previous = select(previousStart, previousEnd);
+    return { current, previous, now: summarize(current), before: summarize(previous), start, end, previousStart, previousEnd };
   }, [scoped, from, to]);
   const trend = useMemo(() => {
     const grouped = new Map(); comparison.current.forEach((order) => { const item = bucket(order.date, granularity); const row = grouped.get(item.key) || { ...item, value: 0, count: 0 }; row.value += order.untaxed; row.count += 1; grouped.set(item.key, row); });
     return [...grouped.values()].sort((a, b) => a.key.localeCompare(b.key));
   }, [comparison, granularity]);
   const rankings = useMemo(() => {
-    const rank = (key) => { const map = new Map(); comparison.current.forEach((order) => map.set(relationName(order[key]), (map.get(relationName(order[key])) || 0) + order.untaxed)); return [...map].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value).slice(0, 8); };
+    const rank = (key) => { const map = new Map(); comparison.current.forEach((order) => map.set(relationName(order[key]), (map.get(relationName(order[key])) || 0) + order.untaxed)); return [...map].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value); };
     const ids = new Set(comparison.current.map((order) => order.id)); const products = new Map();
     data.lines.filter((line) => ids.has(line.orderId)).forEach((line) => products.set(relationName(line.product), (products.get(relationName(line.product)) || 0) + line.subtotal));
-    return { customers: rank('customer'), sellers: rank('salesperson'), products: [...products].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value).slice(0, 8) };
+    return { customers: rank('customer'), sellers: rank('salesperson'), products: [...products].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value) };
   }, [comparison, data.lines]);
   const accounting = useMemo(() => {
     const rows = comparison.current;
@@ -191,6 +192,9 @@ export default function SalesDashboard() {
   if (error && !data.fetchedAt) return <div className='sales-state sales-error'><span>!</span><h2>No se pudo conectar con Odoo</h2><p>{error}</p><button onClick={() => load(true)}>Reintentar</button><small>Configura ODOO_DATABASE, ODOO_USERNAME y ODOO_API_KEY en el backend.</small></div>;
   const currency = comparison.current.find((order) => order.currency)?.currency?.name || 'MXN';
   const maxTrend = Math.max(...trend.map((item) => item.value), 1);
+  const currentPeriodLabel = `${dateLabel(from)} al ${dateLabel(to)}`;
+  const previousPeriodLabel = `${dateLabel(localIso(comparison.previousStart))} al ${dateLabel(localIso(comparison.previousEnd))}`;
+  const collectedPercent = accounting.total > 0 ? Math.min(100, Math.max(0, accounting.collected / accounting.total * 100)) : 0;
 
   return <div className='sales-dashboard'>
     {loading && <div className='sales-refresh-progress'><div><span>Cargando datos de Odoo…</span><small>aprox. {remainingSeconds} s</small></div><i><b style={{ width: `${loadProgress}%` }} /></i></div>}
@@ -202,14 +206,15 @@ export default function SalesDashboard() {
       <label><span>Planta</span><select value={filters.plant} onChange={(e) => setFilters({ ...filters, plant: e.target.value })}><option value=''>Todas</option>{dimensions.plants.map((plant) => <option value={plant} key={plant}>{plant}</option>)}</select></label>
       <label><span>Estado de pago</span><select value={filters.paymentState} onChange={(e) => setFilters({ ...filters, paymentState: e.target.value })}><option value=''>Todos</option><option value='paid'>Pagado</option><option value='not_paid'>Sin pagar</option><option value='partial'>Pagado parcialmente</option></select></label>
     </section>
-    <section className='sales-metrics'><Metric label='Subtotal facturado' value={money(comparison.now.subtotal, currency)} change={delta(comparison.now.subtotal, comparison.before.subtotal)} detail='sin impuestos · vs. periodo anterior' /><Metric label='Facturas' value={number(comparison.now.count)} change={delta(comparison.now.count, comparison.before.count)} detail={`${number(comparison.before.count)} anteriormente`} /><Metric label='Ticket promedio' value={money(comparison.now.average, currency)} change={delta(comparison.now.average, comparison.before.average)} detail='subtotal por factura' /><Metric label='Subtotal anterior' value={money(comparison.before.subtotal, currency)} change={delta(comparison.before.subtotal, comparison.now.subtotal)} detail='periodo comparable sin impuestos' /></section>
+    <section className='sales-metrics'><Metric label='Subtotal facturado' value={money(comparison.now.subtotal, currency)} change={delta(comparison.now.subtotal, comparison.before.subtotal)} detail='sin impuestos · vs. periodo anterior' /><Metric label='Facturas' value={number(comparison.now.count)} change={delta(comparison.now.count, comparison.before.count)} detail={`${number(comparison.before.count)} en el periodo anterior`} /><Metric label='Ticket promedio' value={money(comparison.now.average, currency)} change={delta(comparison.now.average, comparison.before.average)} detail='subtotal promedio por factura · vs. anterior' /><Metric label='Subtotal periodo anterior' value={money(comparison.before.subtotal, currency)} change={null} detail={previousPeriodLabel} /></section>
+    <div className='sales-comparison-note'><b>Comparación:</b> los porcentajes verdes o rojos comparan <strong>{currentPeriodLabel}</strong> contra el periodo inmediatamente anterior de la misma duración, <strong>{previousPeriodLabel}</strong>. Un porcentaje positivo indica crecimiento y uno negativo, disminución.</div>
     <section className='sales-accounting-summary'>
       <article className='sales-accounting-total'><span>Total facturado</span><strong>{money(accounting.total, currency)}</strong><small>Importe contable con impuestos</small></article>
       <article className='sales-accounting-paid'><span>Cobrado</span><strong>{money(accounting.collected, currency)}</strong><small>Total menos saldo residual</small></article>
       <article className='sales-accounting-due'><span>Falta por cobrar</span><strong>{money(accounting.outstanding, currency)}</strong><small>{number(accounting.pendingCount)} facturas sin pagar o parciales</small></article>
     </section>
     <div className='sales-split sales-accounting-charts'>
-      <section className='sales-panel sales-payment-panel'><header><div><span>COBRANZA</span><h2>Pagado y pendiente</h2></div><small>Importes con impuestos</small></header>
+      <section className='sales-panel sales-payment-panel'><header><div><span>COBRANZA</span><h2>Pagado y pendiente</h2></div><div className='sales-collected-percent'><strong>{collectedPercent.toFixed(1)}%</strong><small>del dinero pagado</small></div></header>
         <div className='sales-payment-track' aria-label='Distribución entre cobrado y pendiente'><div className='paid' style={{ width: `${accounting.total ? accounting.collected / accounting.total * 100 : 0}%` }} /><div className='due' style={{ width: `${accounting.total ? accounting.outstanding / accounting.total * 100 : 0}%` }} /></div>
         <div className='sales-payment-legend'><div><i className='paid' /><span>Cobrado</span><strong>{money(accounting.collected, currency)}</strong></div><div><i className='due' /><span>Pendiente</span><strong>{money(accounting.outstanding, currency)}</strong></div></div>
         <div className='sales-payment-states'>{accounting.byStatus.map((row) => <div key={row.key} className={row.key}><span>{row.label}</span><strong>{number(row.count)}</strong><small>{money(row.value, currency)}</small></div>)}</div>
