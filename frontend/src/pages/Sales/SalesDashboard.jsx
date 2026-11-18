@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
 import './SalesDashboard.css';
 
 const STATE_LABELS = { draft: 'Cotización', sent: 'Enviada', sale: 'Orden de venta', done: 'Bloqueada', cancel: 'Cancelada' };
@@ -23,16 +23,14 @@ const classifyCommercialHistory = (orders, lines) => {
   const effective = orders.filter((order) => ['sale', 'done'].includes(order.state) && order.customer?.id).sort((a, b) => a.date.localeCompare(b.date));
   const histories = new Map(); const orderClassification = new Map(); const events = [];
   effective.forEach((order) => {
-    const customerId = order.customer.id; const date = asDate(order.date); const history = histories.get(customerId) || [];
+    const customerId = order.customer.id; const date = asDate(order.date); const history = histories.get(customerId);
     let classification = 'existing'; let recognitionStart = null;
-    if (!history.length) { classification = 'new'; recognitionStart = date; events.push({ type: 'new', date, orderId: order.id, customerId }); }
+    if (!history) { classification = 'new'; recognitionStart = date; events.push({ type: 'new', date, orderId: order.id, customerId }); }
     else {
-      const activeRecognition = [...history].reverse().find((item) => item.recognitionStart && date < addMonths(item.recognitionStart, 2));
-      if (activeRecognition) { classification = activeRecognition.classification; recognitionStart = activeRecognition.recognitionStart; }
-      else if (monthsBetween(asDate(history.at(-1).date), date)) { classification = 'recovered'; recognitionStart = date; events.push({ type: 'recovered', date, orderId: order.id, customerId }); }
+      if (history.recognitionStart && date < addMonths(history.recognitionStart, 2)) { classification = history.classification; recognitionStart = history.recognitionStart; }
+      else if (monthsBetween(asDate(history.lastDate), date)) { classification = 'recovered'; recognitionStart = date; events.push({ type: 'recovered', date, orderId: order.id, customerId }); }
     }
-    const item = { ...order, classification, recognitionStart };
-    history.push(item); histories.set(customerId, history); orderClassification.set(order.id, classification);
+    histories.set(customerId, { lastDate: order.date, classification, recognitionStart }); orderClassification.set(order.id, classification);
   });
 
   const orderById = new Map(effective.map((order) => [order.id, order])); const productStarts = new Map(); const businessEvents = [];
@@ -73,20 +71,33 @@ export default function SalesDashboard() {
   const [data, setData] = useState({ orders: [], lines: [] });
   const [filters, setFilters] = useState({ salesperson: '', team: '', customer: '', company: '', plant: '', paymentState: '' });
   const [loading, setLoading] = useState(true);
+  const [loadProgress, setLoadProgress] = useState(8);
   const [error, setError] = useState('');
+  const loadStartedAt = useRef(0);
+  const deferredFilters = useDeferredValue(filters);
 
   const load = useCallback(async (forceRefresh = false) => {
-    setLoading(true); setError('');
+    setLoading(true); setLoadProgress(8); setError(''); loadStartedAt.current = Date.now();
     try {
-      const params = new URLSearchParams({ to, includeLines: 'true' });
+      const params = new URLSearchParams({ includeLines: 'true' });
       if (forceRefresh) params.set('refresh', 'true');
       const response = await fetch(`/api/sales?${params}`, { headers: { Authorization: `Bearer ${localStorage.getItem('authToken')}` }, cache: 'no-store' });
       const payload = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(payload.error || 'No fue posible consultar las ventas de Odoo');
-      setData(payload);
+      setLoadProgress(100); setData(payload);
+      localStorage.setItem('odooLoadMs', String(Date.now() - loadStartedAt.current));
     } catch (loadError) { setError(loadError.message); } finally { setLoading(false); }
-  }, [to]);
+  }, []);
   useEffect(() => { load(false); }, [load]);
+  useEffect(() => {
+    if (!loading) return undefined;
+    const expected = Math.max(8000, Number(localStorage.getItem('odooLoadMs')) || 30000);
+    const timer = setInterval(() => {
+      const elapsed = Date.now() - loadStartedAt.current;
+      setLoadProgress(Math.min(92, Math.max(8, Math.round((elapsed / expected) * 85))));
+    }, 500);
+    return () => clearInterval(timer);
+  }, [loading]);
 
   const dimensions = useMemo(() => {
     const unique = (key) => [...new Map(data.orders.map((order) => [order[key]?.id, order[key]]).filter(([id]) => id)).values()].sort((a, b) => a.name.localeCompare(b.name));
@@ -94,10 +105,10 @@ export default function SalesDashboard() {
     return { salesperson: unique('salesperson'), team: unique('team'), customer: unique('customer'), company: unique('company'), plants };
   }, [data.orders]);
   const scoped = useMemo(() => data.orders.filter((order) => {
-    return ['salesperson', 'team', 'customer', 'company'].every((key) => !filters[key] || String(order[key]?.id) === filters[key])
-      && (!filters.plant || order.plant === filters.plant)
-      && (!filters.paymentState || order.paymentState === filters.paymentState);
-  }), [data.orders, filters]);
+    return ['salesperson', 'team', 'customer', 'company'].every((key) => !deferredFilters[key] || String(order[key]?.id) === deferredFilters[key])
+      && (!deferredFilters.plant || order.plant === deferredFilters.plant)
+      && (!deferredFilters.paymentState || order.paymentState === deferredFilters.paymentState);
+  }), [data.orders, deferredFilters]);
   const comparison = useMemo(() => {
     const start = new Date(`${from}T00:00:00`); const end = new Date(`${to}T23:59:59`); const span = end - start;
     const select = (a, b) => scoped.filter((order) => { const date = new Date(order.date.replace(' ', 'T')); return date >= a && date <= b; });
@@ -131,8 +142,9 @@ export default function SalesDashboard() {
     const plants = [...plantMap].map(([label, value]) => ({ label, value })).sort((a, b) => b.value - a.value);
     return { total, collected, outstanding, pendingCount: outstandingRows.length, byStatus, plants };
   }, [comparison]);
+  const commercialHistory = useMemo(() => classifyCommercialHistory(data.orders, data.lines), [data.orders, data.lines]);
   const commercial = useMemo(() => {
-    const history = classifyCommercialHistory(data.orders, data.lines); const currentConfirmed = comparison.current.filter((order) => ['sale', 'done'].includes(order.state) && order.customer?.id);
+    const history = commercialHistory; const currentConfirmed = comparison.current.filter((order) => ['sale', 'done'].includes(order.state) && order.customer?.id);
     const currentIds = new Set(currentConfirmed.map((order) => order.id)); const activeCustomers = new Set(currentConfirmed.map((order) => order.customer.id));
     const orderRevenue = (category) => currentConfirmed.filter((order) => history.orderClassification.get(order.id) === category).reduce((sum, order) => sum + order.untaxed, 0);
     const classifiedCustomers = (category) => new Set(currentConfirmed.filter((order) => history.orderClassification.get(order.id) === category).map((order) => order.customer.id)).size;
@@ -166,7 +178,7 @@ export default function SalesDashboard() {
       oldestConfirmed,
       hasRecoveryCoverage: Boolean(oldestConfirmed && asDate(oldestConfirmed) <= coverageTarget)
     };
-  }, [comparison, data.lines, data.orders, to]);
+  }, [comparison, commercialHistory, data.lines, to]);
 
   const exportCsv = () => {
     const rows = [['Factura', 'Fecha', 'Vencimiento', 'Estado de pago', 'Cliente', 'Vendedor', 'Planta', 'Subtotal sin impuestos', 'Total', 'Saldo pendiente'], ...comparison.current.map((order) => [order.number, order.invoiceDate, order.dueDate, PAYMENT_LABELS[order.paymentState] || order.paymentState, relationName(order.customer), relationName(order.salesperson), order.plant, order.untaxed, order.total, order.residual])];
@@ -174,14 +186,16 @@ export default function SalesDashboard() {
     const url = URL.createObjectURL(new Blob(['\ufeff', csv], { type: 'text/csv;charset=utf-8' })); const link = document.createElement('a'); link.href = url; link.download = `facturas-clientes-${from}-${to}.csv`; link.click(); URL.revokeObjectURL(url);
   };
 
-  if (loading && !data.fetchedAt) return <div className='sales-state'><div className='sales-loader' /><h2>Consultando Contabilidad en Odoo</h2><p>Obteniendo facturas, clientes, pagos y productos…</p></div>;
+  const remainingSeconds = Math.max(1, Math.ceil(((Math.max(8000, Number(localStorage.getItem('odooLoadMs')) || 30000) * (100 - loadProgress)) / 100) / 1000));
+  if (loading && !data.fetchedAt) return <div className='sales-state'><div className='sales-loader' /><h2>Cargando Odoo</h2><p>Obteniendo facturas, clientes, pagos y productos…</p><div className='sales-loading-progress' role='progressbar' aria-valuemin='0' aria-valuemax='100' aria-valuenow={loadProgress}><i style={{ width: `${loadProgress}%` }} /></div><small>{loadProgress}% · aproximadamente {remainingSeconds} s restantes</small></div>;
   if (error && !data.fetchedAt) return <div className='sales-state sales-error'><span>!</span><h2>No se pudo conectar con Odoo</h2><p>{error}</p><button onClick={() => load(true)}>Reintentar</button><small>Configura ODOO_DATABASE, ODOO_USERNAME y ODOO_API_KEY en el backend.</small></div>;
   const currency = comparison.current.find((order) => order.currency)?.currency?.name || 'MXN';
   const maxTrend = Math.max(...trend.map((item) => item.value), 1);
 
   return <div className='sales-dashboard'>
+    {loading && <div className='sales-refresh-progress'><div><span>Cargando datos de Odoo…</span><small>aprox. {remainingSeconds} s</small></div><i><b style={{ width: `${loadProgress}%` }} /></i></div>}
     <section className='sales-hero'><div><span>ODOO · CONTABILIDAD</span><h1>Facturas de clientes</h1><p>Facturación, cobranza, saldos pendientes y desempeño comercial conciliados desde Contabilidad.</p></div><div><button className='secondary' onClick={exportCsv} disabled={!comparison.current.length}>Exportar CSV</button><button onClick={() => load(true)} disabled={loading}>{loading ? 'Actualizando…' : 'Actualizar Odoo'}</button></div></section>
-    {error && <div className='sales-inline-error'>{error}</div>}{data.truncated && <div className='sales-warning'>La consulta alcanzó 20,000 facturas. Reduce el rango de fechas.</div>}
+    {error && <div className='sales-inline-error'>{error}</div>}{data.truncated && <div className='sales-warning'>La consulta alcanzó 50,000 facturas. Reduce el rango de fechas.</div>}
     <section className='sales-filters'>
       <label><span>Desde</span><input type='date' value={from} max={to} onChange={(e) => setFrom(e.target.value)} /></label><label><span>Hasta</span><input type='date' value={to} min={from} onChange={(e) => setTo(e.target.value)} /></label>
       {['salesperson', 'team', 'customer', 'company'].map((key) => <label key={key}><span>{{ salesperson: 'Vendedor', team: 'Equipo', customer: 'Cliente', company: 'Compañía' }[key]}</span><select value={filters[key]} onChange={(e) => setFilters({ ...filters, [key]: e.target.value })}><option value=''>Todos</option>{dimensions[key].map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label>)}

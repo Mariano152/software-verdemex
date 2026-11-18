@@ -34,6 +34,7 @@ const rpc = async (service, method, args) => {
 
 let authCache = null;
 const invoiceCache = new Map();
+const invoiceRequests = new Map();
 const INVOICE_CACHE_MS = 5 * 60 * 1000;
 const authenticate = async () => {
   const settings = config();
@@ -145,23 +146,25 @@ export const odooService = {
     const cacheKey = `${from || 'all'}:${to || 'all'}:${includeLines}`;
     const cached = invoiceCache.get(cacheKey);
     if (!forceRefresh && cached?.expiresAt > Date.now()) return cached.value;
-    const domain = [
+    if (invoiceRequests.has(cacheKey)) return invoiceRequests.get(cacheKey);
+    const request = (async () => {
+      const domain = [
       ['move_type', '=', 'out_invoice'],
       ['state', '=', 'posted'],
       ['payment_state', 'in', ['paid', 'not_paid', 'partial']]
     ];
-    if (from) domain.push(['invoice_date', '>=', from]);
-    if (to) domain.push(['invoice_date', '<=', to]);
+      if (from) domain.push(['invoice_date', '>=', from]);
+      if (to) domain.push(['invoice_date', '<=', to]);
 
-    const invoiceFields = [
+      const invoiceFields = [
       'name', 'invoice_date', 'invoice_date_due', 'partner_id', 'invoice_user_id',
       'team_id', 'company_id', 'currency_id', 'amount_untaxed', 'amount_tax',
       'amount_total', 'amount_residual', 'payment_state', 'x_studio_planta',
       'l10n_mx_edi_payment_policy', 'invoice_origin', 'create_date', 'write_date',
       'invoice_line_ids'
     ];
-    const rawInvoices = await searchReadAll('account.move', domain, invoiceFields, 'invoice_date asc, id asc');
-    const orders = rawInvoices.map((invoice) => ({
+      const rawInvoices = await searchReadAll('account.move', domain, invoiceFields, 'invoice_date asc, id asc');
+      const orders = rawInvoices.map((invoice) => ({
       id: invoice.id,
       number: invoice.name,
       date: `${invoice.invoice_date} 00:00:00`,
@@ -187,9 +190,9 @@ export const odooService = {
       lineIds: invoice.invoice_line_ids || []
     }));
 
-    let lines = [];
-    const lineIds = orders.flatMap((invoice) => invoice.lineIds);
-    if (includeLines && lineIds.length) {
+      let lines = [];
+      const lineIds = orders.flatMap((invoice) => invoice.lineIds);
+      if (includeLines && lineIds.length) {
       const rawLines = await searchReadAll('account.move.line', [['id', 'in', lineIds]], [
         'move_id', 'product_id', 'name', 'quantity', 'price_unit', 'discount',
         'price_subtotal', 'price_total', 'display_type'
@@ -207,17 +210,24 @@ export const odooService = {
         tax: number(line.price_total) - number(line.price_subtotal),
         total: number(line.price_total)
       }));
-    }
+      }
 
-    const result = {
+      const result = {
       orders,
       lines,
       source: 'account.move',
       truncated: rawInvoices.length >= MAX_RECORDS,
       fetchedAt: new Date().toISOString()
-    };
-    if (invoiceCache.size >= 6) invoiceCache.delete(invoiceCache.keys().next().value);
-    invoiceCache.set(cacheKey, { value: result, expiresAt: Date.now() + INVOICE_CACHE_MS });
-    return result;
+      };
+      if (invoiceCache.size >= 6) invoiceCache.delete(invoiceCache.keys().next().value);
+      invoiceCache.set(cacheKey, { value: result, expiresAt: Date.now() + INVOICE_CACHE_MS });
+      return result;
+    })();
+    invoiceRequests.set(cacheKey, request);
+    try {
+      return await request;
+    } finally {
+      invoiceRequests.delete(cacheKey);
+    }
   }
 };
