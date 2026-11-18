@@ -1,5 +1,5 @@
 export const PERMISSION_GROUPS = [
-  { title: 'Dashboards y reportes', items: [['dashboard.view', 'Ver dashboard principal'], ['analytics.view', 'Ver análisis y reportes'], ['sales.view', 'Ver dashboard de ventas Odoo']] },
+  { title: 'Dashboards y reportes', items: [['dashboard.view', 'Ver dashboard principal'], ['analytics.view', 'Ver análisis y reportes'], ['sales.view', 'Ver dashboard de facturación Odoo']] },
   { title: 'Vehículos', items: [['vehicles.view', 'Consultar vehículos'], ['vehicles.create', 'Crear vehículos'], ['vehicles.edit', 'Editar información general'], ['vehicles.delete', 'Eliminar vehículos'], ['vehicles.parameters', 'Modificar parámetros operativos'], ['vehicles.maintenance', 'Gestionar mantenimiento y seguridad'], ['vehicles.photos', 'Gestionar fotografías'], ['vehicles.documents', 'Gestionar documentos']] },
   { title: 'Diesel e inventario', items: [['gasoline.view', 'Consultar cargas de diesel'], ['gasoline.manage', 'Crear, editar y eliminar cargas'], ['inventory.view', 'Consultar inventario'], ['inventory.manage', 'Modificar inventario y pipas']] },
   { title: 'Conductores', items: [['drivers.view', 'Consultar conductores'], ['drivers.manage', 'Crear y editar conductores'], ['drivers.rate', 'Calificar conductores']] },
